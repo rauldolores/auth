@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuth } from "@kontrolia/react";
+import { Badge, Card } from "@kontrolia/ui";
 import { useEffect, useState } from "react";
 import { createKontroliaSchemaClient } from "@/lib/supabase-browser";
 
@@ -61,38 +62,42 @@ export default function ApplicationsPage() {
   }
 
   return (
-    <div className="k-flex k-flex-col k-gap-6">
+    <div className="k-flex k-flex-col k-gap-5">
       <div>
-        <h1 className="k-text-xl k-font-semibold">Aplicaciones — {organization.name}</h1>
+        <h1 className="k-text-2xl k-font-bold">Aplicaciones</h1>
         <p className="k-mt-1 k-text-sm k-text-muted-foreground">
-          Aplicaciones habilitadas para esta organización y el catálogo de permisos que cada una declara. El
+          Aplicaciones habilitadas para {organization.name} y el catálogo de permisos que cada una declara. El
           registro de nuevas aplicaciones (client_id/secret vía OAuth 2.1) llega en v2 — mientras tanto se
           habilitan a nivel de plataforma.
         </p>
       </div>
-      <table className="k-w-full k-text-sm">
-        <thead>
-          <tr className="k-border-b k-border-border k-text-left k-text-muted-foreground">
-            <th className="k-py-2">Nombre</th>
-            <th className="k-py-2">Slug</th>
-            <th className="k-py-2">Entorno</th>
-            <th className="k-py-2">Permisos</th>
-          </tr>
-        </thead>
-        <tbody>
-          {applications?.map((app) => (
-            <tr key={app.id} className="k-border-b k-border-border">
-              <td className="k-py-2">{app.name}</td>
-              <td className="k-py-2 k-text-muted-foreground">{app.slug}</td>
-              <td className="k-py-2 k-text-muted-foreground">{app.environment}</td>
-              <td className="k-py-2 k-text-muted-foreground">{app.permissionCount}</td>
+      <Card className="k-p-0">
+        <table className="k-w-full k-text-sm">
+          <thead>
+            <tr className="k-border-b k-border-border k-text-left k-text-xs k-uppercase k-tracking-wide k-text-muted-foreground">
+              <th className="k-px-5 k-py-3 k-font-semibold">Nombre</th>
+              <th className="k-px-5 k-py-3 k-font-semibold">Slug</th>
+              <th className="k-px-5 k-py-3 k-font-semibold">Entorno</th>
+              <th className="k-px-5 k-py-3 k-font-semibold">Permisos</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-      {applications?.length === 0 && (
-        <p className="k-text-sm k-text-muted-foreground">Sin aplicaciones habilitadas para esta organización.</p>
-      )}
+          </thead>
+          <tbody>
+            {applications?.map((app) => (
+              <tr key={app.id} className="k-border-b k-border-border last:k-border-0">
+                <td className="k-px-5 k-py-3 k-font-medium">{app.name}</td>
+                <td className="k-px-5 k-py-3 k-text-muted-foreground">{app.slug}</td>
+                <td className="k-px-5 k-py-3">
+                  <Badge variant={app.environment === "production" ? "success" : "neutral"}>{app.environment}</Badge>
+                </td>
+                <td className="k-px-5 k-py-3 k-text-muted-foreground">{app.permissionCount}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {applications?.length === 0 && (
+          <p className="k-px-5 k-py-6 k-text-sm k-text-muted-foreground">Sin aplicaciones habilitadas para esta organización.</p>
+        )}
+      </Card>
     </div>
   );
 }

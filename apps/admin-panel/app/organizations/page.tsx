@@ -1,5 +1,6 @@
 "use client";
 
+import { Card } from "@kontrolia/ui";
 import { useEffect, useState } from "react";
 import { createKontroliaSchemaClient } from "@/lib/supabase-browser";
 
@@ -23,27 +24,32 @@ export default function OrganizationsPage() {
   }, []);
 
   return (
-    <div className="k-flex k-flex-col k-gap-4">
-      <h1 className="k-text-xl k-font-semibold">Organizaciones</h1>
-      <table className="k-w-full k-text-sm">
-        <thead>
-          <tr className="k-border-b k-border-border k-text-left k-text-muted-foreground">
-            <th className="k-py-2">Nombre</th>
-            <th className="k-py-2">Slug</th>
-            <th className="k-py-2">Creada</th>
-          </tr>
-        </thead>
-        <tbody>
-          {organizations?.map((org) => (
-            <tr key={org.id} className="k-border-b k-border-border">
-              <td className="k-py-2">{org.name}</td>
-              <td className="k-py-2 k-text-muted-foreground">{org.slug}</td>
-              <td className="k-py-2 k-text-muted-foreground">{new Date(org.created_at).toLocaleDateString()}</td>
+    <div className="k-flex k-flex-col k-gap-5">
+      <div>
+        <h1 className="k-text-2xl k-font-bold">Organizaciones</h1>
+        <p className="k-text-sm k-text-muted-foreground">Todas las organizaciones a las que perteneces.</p>
+      </div>
+      <Card className="k-p-0">
+        <table className="k-w-full k-text-sm">
+          <thead>
+            <tr className="k-border-b k-border-border k-text-left k-text-xs k-uppercase k-tracking-wide k-text-muted-foreground">
+              <th className="k-px-5 k-py-3 k-font-semibold">Nombre</th>
+              <th className="k-px-5 k-py-3 k-font-semibold">Slug</th>
+              <th className="k-px-5 k-py-3 k-font-semibold">Creada</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-      {organizations?.length === 0 && <p className="k-text-sm k-text-muted-foreground">Sin organizaciones todavía.</p>}
+          </thead>
+          <tbody>
+            {organizations?.map((org) => (
+              <tr key={org.id} className="k-border-b k-border-border last:k-border-0">
+                <td className="k-px-5 k-py-3 k-font-medium">{org.name}</td>
+                <td className="k-px-5 k-py-3 k-text-muted-foreground">{org.slug}</td>
+                <td className="k-px-5 k-py-3 k-text-muted-foreground">{new Date(org.created_at).toLocaleDateString()}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {organizations?.length === 0 && <p className="k-px-5 k-py-6 k-text-sm k-text-muted-foreground">Sin organizaciones todavía.</p>}
+      </Card>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuth } from "@kontrolia/react";
+import { Badge, Card } from "@kontrolia/ui";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -137,12 +138,17 @@ export default function RoleDetailPage() {
   }
 
   return (
-    <div className="k-flex k-flex-col k-gap-6">
+    <div className="k-flex k-flex-col k-gap-5">
       <div>
         <Link href="/roles" className="k-text-sm k-text-muted-foreground hover:k-underline">
           ← Roles
         </Link>
-        <h1 className="k-mt-1 k-text-xl k-font-semibold">{role.name}</h1>
+        <div className="k-mt-1 k-flex k-items-center k-gap-2.5">
+          <h1 className="k-text-2xl k-font-bold">{role.name}</h1>
+          <Badge variant={role.is_system_role ? "primary" : "neutral"}>
+            {role.is_system_role ? "Sistema" : "Personalizado"}
+          </Badge>
+        </div>
         <p className="k-text-sm k-text-muted-foreground">
           {role.is_system_role
             ? "Rol de sistema — sus permisos son fijos y no se pueden editar."
@@ -161,13 +167,13 @@ export default function RoleDetailPage() {
       {groups.map((group) => (
         <div key={group.name} className="k-flex k-flex-col k-gap-2">
           <h2 className="k-text-sm k-font-semibold">{group.name}</h2>
-          <ul className="k-flex k-flex-col k-gap-1">
+          <Card className="k-flex k-flex-col k-gap-2 k-p-3">
             {group.permissions.map((permission) => {
               const granted = grantedIds.has(permission.id);
               return (
-                <li
+                <div
                   key={permission.id}
-                  className="k-flex k-items-center k-justify-between k-rounded-md k-border k-border-border k-p-3 k-text-sm"
+                  className="k-flex k-items-center k-justify-between k-rounded-lg k-border k-border-border k-p-3 k-text-sm"
                 >
                   <div>
                     <p className="k-font-mono k-text-xs">{permission.key}</p>
@@ -175,19 +181,20 @@ export default function RoleDetailPage() {
                       <p className="k-text-xs k-text-muted-foreground">{permission.description}</p>
                     )}
                   </div>
-                  <label className="k-flex k-items-center k-gap-2 k-text-xs k-text-muted-foreground">
+                  <label className="k-flex k-items-center k-gap-2 k-text-xs">
                     <input
                       type="checkbox"
                       checked={granted}
                       disabled={!isEditable || pendingId === permission.id}
                       onChange={() => void toggle(permission.id, granted)}
+                      className="k-h-4 k-w-4 k-accent-primary"
                     />
-                    {granted ? "Concedido" : "No concedido"}
+                    <Badge variant={granted ? "success" : "neutral"}>{granted ? "Concedido" : "No concedido"}</Badge>
                   </label>
-                </li>
+                </div>
               );
             })}
-          </ul>
+          </Card>
         </div>
       ))}
     </div>

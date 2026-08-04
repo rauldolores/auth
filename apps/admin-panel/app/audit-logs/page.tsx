@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuth } from "@kontrolia/react";
+import { Card } from "@kontrolia/ui";
 import { useEffect, useState } from "react";
 import { createKontroliaSchemaClient } from "@/lib/supabase-browser";
 
@@ -47,35 +48,38 @@ export default function AuditLogsPage() {
   }
 
   return (
-    <div className="k-flex k-flex-col k-gap-6">
-      <h1 className="k-text-xl k-font-semibold">Audit log — {organization.name}</h1>
-      <table className="k-w-full k-text-sm">
-        <thead>
-          <tr className="k-border-b k-border-border k-text-left k-text-muted-foreground">
-            <th className="k-py-2">Acción</th>
-            <th className="k-py-2">Detalle</th>
-            <th className="k-py-2">Actor</th>
-            <th className="k-py-2">Fecha</th>
-          </tr>
-        </thead>
-        <tbody>
-          {logs.map((log) => (
-            <tr key={log.id} className="k-border-b k-border-border">
-              <td className="k-py-2">{ACTION_LABELS[log.action] ?? log.action}</td>
-              <td className="k-py-2 k-font-mono k-text-xs k-text-muted-foreground">
-                {Object.entries(log.metadata)
-                  .map(([key, value]) => `${key}=${String(value)}`)
-                  .join(" ")}
-              </td>
-              <td className="k-py-2 k-font-mono k-text-xs k-text-muted-foreground">
-                {log.actor_user_id ?? "sistema"}
-              </td>
-              <td className="k-py-2 k-text-muted-foreground">{new Date(log.created_at).toLocaleString()}</td>
+    <div className="k-flex k-flex-col k-gap-5">
+      <div>
+        <h1 className="k-text-2xl k-font-bold">Audit log</h1>
+        <p className="k-text-sm k-text-muted-foreground">Actividad reciente en {organization.name}.</p>
+      </div>
+      <Card className="k-p-0">
+        <table className="k-w-full k-text-sm">
+          <thead>
+            <tr className="k-border-b k-border-border k-text-left k-text-xs k-uppercase k-tracking-wide k-text-muted-foreground">
+              <th className="k-px-5 k-py-3 k-font-semibold">Acción</th>
+              <th className="k-px-5 k-py-3 k-font-semibold">Detalle</th>
+              <th className="k-px-5 k-py-3 k-font-semibold">Actor</th>
+              <th className="k-px-5 k-py-3 k-font-semibold">Fecha</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-      {logs.length === 0 && <p className="k-text-sm k-text-muted-foreground">Sin actividad registrada todavía.</p>}
+          </thead>
+          <tbody>
+            {logs.map((log) => (
+              <tr key={log.id} className="k-border-b k-border-border last:k-border-0">
+                <td className="k-px-5 k-py-3 k-font-medium">{ACTION_LABELS[log.action] ?? log.action}</td>
+                <td className="k-px-5 k-py-3 k-font-mono k-text-xs k-text-muted-foreground">
+                  {Object.entries(log.metadata)
+                    .map(([key, value]) => `${key}=${String(value)}`)
+                    .join(" ")}
+                </td>
+                <td className="k-px-5 k-py-3 k-font-mono k-text-xs k-text-muted-foreground">{log.actor_user_id ?? "sistema"}</td>
+                <td className="k-px-5 k-py-3 k-text-muted-foreground">{new Date(log.created_at).toLocaleString()}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {logs.length === 0 && <p className="k-px-5 k-py-6 k-text-sm k-text-muted-foreground">Sin actividad registrada todavía.</p>}
+      </Card>
     </div>
   );
 }

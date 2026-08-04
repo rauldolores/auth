@@ -1,6 +1,7 @@
 "use client";
 
 import { AuthGuard } from "@kontrolia/react";
+import { Card } from "@kontrolia/ui";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -56,19 +57,19 @@ export default function DevicesPage() {
     <AuthGuard fallback={<p className="k-p-8 k-text-sm">Inicia sesión para ver tus dispositivos.</p>}>
       <div className="k-mx-auto k-flex k-max-w-2xl k-flex-col k-gap-6 k-p-8">
         <div className="k-flex k-items-center k-justify-between">
-          <h1 className="k-text-xl k-font-semibold">Dispositivos y sesiones</h1>
+          <h1 className="k-text-2xl k-font-bold">Dispositivos y sesiones</h1>
           <Link href="/" className="k-text-sm k-text-muted-foreground hover:k-underline">
             Volver
           </Link>
         </div>
         {error && <p className="k-text-sm k-text-destructive">{error}</p>}
-        <ul className="k-flex k-flex-col k-gap-2">
+        <Card className="k-flex k-flex-col k-gap-2 k-p-3">
           {devices.map((device) => {
             const isCurrent = device.session_id === currentSessionId;
             return (
-              <li
+              <div
                 key={device.session_id}
-                className="k-flex k-items-center k-justify-between k-rounded-md k-border k-border-border k-p-3 k-text-sm"
+                className="k-flex k-items-center k-justify-between k-rounded-lg k-border k-border-border k-p-3 k-text-sm"
               >
                 <div>
                   <p className="k-font-medium">
@@ -88,11 +89,11 @@ export default function DevicesPage() {
                     {revokingId === device.session_id ? "Cerrando..." : "Cerrar sesión"}
                   </button>
                 )}
-              </li>
+              </div>
             );
           })}
-        </ul>
-        {devices.length === 0 && <p className="k-text-sm k-text-muted-foreground">Sin dispositivos registrados todavía.</p>}
+          {devices.length === 0 && <p className="k-p-3 k-text-sm k-text-muted-foreground">Sin dispositivos registrados todavía.</p>}
+        </Card>
       </div>
     </AuthGuard>
   );

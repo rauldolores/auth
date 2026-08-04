@@ -3,25 +3,39 @@
 @tailwind utilities;
 
 :root {
-  --k-background: 0 0% 100%;
-  --k-foreground: 222 47% 11%;
-  --k-border: 214 32% 91%;
-  --k-primary: 222 89% 55%;
+  /* "Modernist" — dark navy/violet accent system, extracted from the
+     product's Claude Design reference (Admin Console / Auth Flow). */
+  --k-background: 225 22% 96%;
+  --k-foreground: 230 23% 15%;
+  --k-border: 225 18% 88%;
+  --k-card: 0 0% 100%;
+  --k-card-foreground: 230 23% 15%;
+  --k-primary: 247 88% 69%;
   --k-primary-foreground: 0 0% 100%;
-  --k-muted: 210 40% 96%;
-  --k-muted-foreground: 215 16% 47%;
+  --k-muted: 225 20% 94%;
+  --k-muted-foreground: 225 10% 45%;
   --k-destructive: 0 72% 51%;
   --k-destructive-foreground: 0 0% 100%;
-  --k-radius: 0.5rem;
+  --k-success: 142 71% 40%;
+  --k-success-foreground: 0 0% 100%;
+  --k-warning: 32 95% 44%;
+  --k-warning-foreground: 0 0% 100%;
+  --k-sidebar: 228 32% 9%;
+  --k-sidebar-foreground: 228 20% 92%;
+  --k-sidebar-muted: 228 12% 58%;
+  --k-sidebar-active: 247 88% 69%;
+  --k-radius: 0.875rem;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --k-background: 222 47% 11%;
-    --k-foreground: 210 40% 98%;
-    --k-border: 217 33% 20%;
-    --k-muted: 217 33% 17%;
-    --k-muted-foreground: 215 20% 65%;
+    --k-background: 228 28% 10%;
+    --k-foreground: 225 20% 92%;
+    --k-border: 225 20% 20%;
+    --k-card: 228 24% 13%;
+    --k-card-foreground: 225 20% 92%;
+    --k-muted: 228 20% 16%;
+    --k-muted-foreground: 225 12% 60%;
   }
 }
 

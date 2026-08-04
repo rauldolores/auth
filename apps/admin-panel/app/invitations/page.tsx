@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuth } from "@kontrolia/react";
+import { Badge, Card } from "@kontrolia/ui";
 import { useEffect, useState } from "react";
 import { createKontroliaSchemaClient } from "@/lib/supabase-browser";
 
@@ -72,10 +73,10 @@ export default function InvitationsPage() {
     }
   }
 
-  function invitationStatus(row: InvitationRow): string {
-    if (row.accepted_at) return "Aceptada";
-    if (new Date(row.expires_at) < new Date()) return "Expirada";
-    return "Pendiente";
+  function invitationStatus(row: InvitationRow): { label: string; variant: "success" | "danger" | "warning" } {
+    if (row.accepted_at) return { label: "Aceptada", variant: "success" };
+    if (new Date(row.expires_at) < new Date()) return { label: "Expirada", variant: "danger" };
+    return { label: "Pendiente", variant: "warning" };
   }
 
   if (!organization) {
@@ -83,71 +84,83 @@ export default function InvitationsPage() {
   }
 
   return (
-    <div className="k-flex k-flex-col k-gap-6">
-      <h1 className="k-text-xl k-font-semibold">Invitaciones — {organization.name}</h1>
+    <div className="k-flex k-flex-col k-gap-5">
+      <div>
+        <h1 className="k-text-2xl k-font-bold">Invitaciones</h1>
+        <p className="k-text-sm k-text-muted-foreground">Invita nuevos miembros a {organization.name}.</p>
+      </div>
 
-      <form onSubmit={handleSubmit} className="k-flex k-max-w-lg k-items-end k-gap-3">
-        <div className="k-flex k-flex-1 k-flex-col k-gap-1.5">
-          <label htmlFor="k-invite-email" className="k-text-sm k-font-medium">
-            Correo
-          </label>
-          <input
-            id="k-invite-email"
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="k-rounded-md k-border k-border-border k-bg-background k-px-3 k-py-2 k-text-sm"
-          />
-        </div>
-        <div className="k-flex k-flex-col k-gap-1.5">
-          <label htmlFor="k-invite-role" className="k-text-sm k-font-medium">
-            Rol
-          </label>
-          <select
-            id="k-invite-role"
-            value={roleId}
-            onChange={(e) => setRoleId(e.target.value)}
-            className="k-rounded-md k-border k-border-border k-bg-background k-px-3 k-py-2 k-text-sm"
+      <Card>
+        <form onSubmit={handleSubmit} className="k-flex k-max-w-lg k-items-end k-gap-3">
+          <div className="k-flex k-flex-1 k-flex-col k-gap-1.5">
+            <label htmlFor="k-invite-email" className="k-text-sm k-font-medium">
+              Correo
+            </label>
+            <input
+              id="k-invite-email"
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="k-rounded-md k-border k-border-border k-bg-background k-px-3 k-py-2 k-text-sm"
+            />
+          </div>
+          <div className="k-flex k-flex-col k-gap-1.5">
+            <label htmlFor="k-invite-role" className="k-text-sm k-font-medium">
+              Rol
+            </label>
+            <select
+              id="k-invite-role"
+              value={roleId}
+              onChange={(e) => setRoleId(e.target.value)}
+              className="k-rounded-md k-border k-border-border k-bg-background k-px-3 k-py-2 k-text-sm"
+            >
+              {roles.map((role) => (
+                <option key={role.id} value={role.id}>
+                  {role.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="k-rounded-md k-bg-primary k-px-4 k-py-2 k-text-sm k-font-medium k-text-primary-foreground disabled:k-opacity-60"
           >
-            {roles.map((role) => (
-              <option key={role.id} value={role.id}>
-                {role.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="k-rounded-md k-bg-primary k-px-4 k-py-2 k-text-sm k-font-medium k-text-primary-foreground disabled:k-opacity-60"
-        >
-          Invitar
-        </button>
-      </form>
-      {error && <p className="k-text-sm k-text-destructive">{error}</p>}
+            Invitar
+          </button>
+        </form>
+        {error && <p className="k-mt-2 k-text-sm k-text-destructive">{error}</p>}
+      </Card>
 
-      <table className="k-w-full k-text-sm">
-        <thead>
-          <tr className="k-border-b k-border-border k-text-left k-text-muted-foreground">
-            <th className="k-py-2">Correo</th>
-            <th className="k-py-2">Rol</th>
-            <th className="k-py-2">Estado</th>
-            <th className="k-py-2">Enviada</th>
-          </tr>
-        </thead>
-        <tbody>
-          {invitations.map((row) => (
-            <tr key={row.id} className="k-border-b k-border-border">
-              <td className="k-py-2">{row.email}</td>
-              <td className="k-py-2 k-text-muted-foreground">{row.role?.name ?? "—"}</td>
-              <td className="k-py-2 k-text-muted-foreground">{invitationStatus(row)}</td>
-              <td className="k-py-2 k-text-muted-foreground">{new Date(row.created_at).toLocaleDateString()}</td>
+      <Card className="k-p-0">
+        <table className="k-w-full k-text-sm">
+          <thead>
+            <tr className="k-border-b k-border-border k-text-left k-text-xs k-uppercase k-tracking-wide k-text-muted-foreground">
+              <th className="k-px-5 k-py-3 k-font-semibold">Correo</th>
+              <th className="k-px-5 k-py-3 k-font-semibold">Rol</th>
+              <th className="k-px-5 k-py-3 k-font-semibold">Estado</th>
+              <th className="k-px-5 k-py-3 k-font-semibold">Enviada</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-      {invitations.length === 0 && <p className="k-text-sm k-text-muted-foreground">Sin invitaciones todavía.</p>}
+          </thead>
+          <tbody>
+            {invitations.map((row) => {
+              const status = invitationStatus(row);
+              return (
+                <tr key={row.id} className="k-border-b k-border-border last:k-border-0">
+                  <td className="k-px-5 k-py-3">{row.email}</td>
+                  <td className="k-px-5 k-py-3 k-text-muted-foreground">{row.role?.name ?? "—"}</td>
+                  <td className="k-px-5 k-py-3">
+                    <Badge variant={status.variant}>{status.label}</Badge>
+                  </td>
+                  <td className="k-px-5 k-py-3 k-text-muted-foreground">{new Date(row.created_at).toLocaleDateString()}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        {invitations.length === 0 && <p className="k-px-5 k-py-6 k-text-sm k-text-muted-foreground">Sin invitaciones todavía.</p>}
+      </Card>
     </div>
   );
 }

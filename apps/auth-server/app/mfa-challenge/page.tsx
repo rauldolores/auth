@@ -1,8 +1,11 @@
 "use client";
 
 import { useAuth } from "@kontrolia/react";
+import { AuthShell } from "@kontrolia/ui";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
+const CODE_LENGTH = 6;
 
 export default function MfaChallengePage() {
   const router = useRouter();
@@ -10,10 +13,11 @@ export default function MfaChallengePage() {
     useAuth();
 
   const [factorId, setFactorId] = useState<string | null>(null);
-  const [code, setCode] = useState("");
+  const [digits, setDigits] = useState<string[]>(Array(CODE_LENGTH).fill(""));
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [checking, setChecking] = useState(true);
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
     if (isLoading) return;
@@ -41,6 +45,30 @@ export default function MfaChallengePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, isLoading]);
 
+  function setDigit(index: number, value: string) {
+    const clean = value.replace(/\D/g, "").slice(-1);
+    setDigits((prev) => {
+      const next = [...prev];
+      next[index] = clean;
+      return next;
+    });
+    if (clean && index < CODE_LENGTH - 1) inputRefs.current[index + 1]?.focus();
+  }
+
+  function handleKeyDown(index: number, event: React.KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Backspace" && !digits[index] && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+    }
+  }
+
+  function handlePaste(event: React.ClipboardEvent<HTMLInputElement>) {
+    const pasted = event.clipboardData.getData("text").replace(/\D/g, "").slice(0, CODE_LENGTH);
+    if (!pasted) return;
+    event.preventDefault();
+    setDigits(Array.from({ length: CODE_LENGTH }, (_, i) => pasted[i] ?? ""));
+    inputRefs.current[Math.min(pasted.length, CODE_LENGTH - 1)]?.focus();
+  }
+
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     if (!factorId) return;
@@ -48,7 +76,7 @@ export default function MfaChallengePage() {
     setError(null);
     try {
       const challengeId = await challengeMfa(factorId);
-      await verifyMfaChallenge(factorId, challengeId, code);
+      await verifyMfaChallenge(factorId, challengeId, digits.join(""));
       router.push("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Código inválido.");
@@ -58,33 +86,44 @@ export default function MfaChallengePage() {
   }
 
   if (checking) {
-    return <p className="k-p-8 k-text-center k-text-sm k-text-muted-foreground">Cargando...</p>;
+    return (
+      <div className="k-flex k-min-h-screen k-items-center k-justify-center">
+        <p className="k-text-sm k-text-muted-foreground">Cargando...</p>
+      </div>
+    );
   }
 
   return (
-    <div className="k-mx-auto k-flex k-min-h-screen k-max-w-sm k-flex-col k-justify-center k-gap-6 k-px-4">
-      <h1 className="k-text-xl k-font-semibold">Verificación en dos pasos</h1>
-      <p className="k-text-sm k-text-muted-foreground">Ingresa el código de tu app autenticadora.</p>
-      <form onSubmit={handleSubmit} className="k-flex k-flex-col k-gap-3">
-        <input
-          type="text"
-          inputMode="numeric"
-          placeholder="Código de 6 dígitos"
-          value={code}
-          onChange={(e) => setCode(e.target.value)}
-          required
-          autoFocus
-          className="k-rounded-md k-border k-border-border k-bg-background k-px-3 k-py-2 k-text-center k-text-sm"
-        />
+    <AuthShell title="Verificación en dos pasos" subtitle="Ingresa el código de tu app autenticadora.">
+      <form onSubmit={handleSubmit} className="k-flex k-flex-col k-gap-5">
+        <div className="k-flex k-justify-between k-gap-2">
+          {digits.map((digit, index) => (
+            <input
+              key={index}
+              ref={(el) => {
+                inputRefs.current[index] = el;
+              }}
+              type="text"
+              inputMode="numeric"
+              maxLength={1}
+              value={digit}
+              onChange={(e) => setDigit(index, e.target.value)}
+              onKeyDown={(e) => handleKeyDown(index, e)}
+              onPaste={handlePaste}
+              autoFocus={index === 0}
+              className="k-h-12 k-w-full k-rounded-lg k-border k-border-border k-bg-background k-text-center k-text-lg k-font-semibold"
+            />
+          ))}
+        </div>
         {error && <p className="k-text-sm k-text-destructive">{error}</p>}
         <button
           type="submit"
-          disabled={busy}
+          disabled={busy || digits.some((d) => !d)}
           className="k-rounded-md k-bg-primary k-px-4 k-py-2 k-text-sm k-font-medium k-text-primary-foreground disabled:k-opacity-60"
         >
-          {busy ? "Verificando..." : "Confirmar"}
+          {busy ? "Verificando..." : "Verificar"}
         </button>
       </form>
-    </div>
+    </AuthShell>
   );
 }

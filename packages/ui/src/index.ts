@@ -1,3 +1,4 @@
+export { AuthShell, type AuthShellProps } from "./components/auth-shell.js";
 export { LoginForm, type LoginFormProps } from "./components/login-form.js";
 export { RegisterForm, type RegisterFormProps } from "./components/register-form.js";
 export { ForgotPasswordForm, type ForgotPasswordFormProps } from "./components/forgot-password-form.js";
@@ -5,6 +6,8 @@ export { ResetPasswordForm, type ResetPasswordFormProps } from "./components/res
 export { OrgSwitcher, type OrgSwitcherProps, type OrgOption } from "./components/org-switcher.js";
 export { UserMenu, type UserMenuProps } from "./components/user-menu.js";
 export { Avatar, type AvatarProps } from "./components/avatar.js";
+export { Badge, type BadgeProps, type BadgeVariant } from "./components/badge.js";
+export { Card, type CardProps } from "./components/card.js";
 export { GoogleLoginButton, type GoogleLoginButtonProps } from "./components/oauth-buttons.js";
 export { MicrosoftLoginButton, type MicrosoftLoginButtonProps } from "./components/oauth-buttons.js";
 export { UnauthorizedScreen, ForbiddenScreen, SessionExpiredScreen } from "./screens/status-screens.js";

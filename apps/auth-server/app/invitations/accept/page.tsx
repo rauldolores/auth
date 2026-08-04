@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@kontrolia/react";
-import { LoginForm, RegisterForm } from "@kontrolia/ui";
+import { AuthShell, LoginForm, RegisterForm } from "@kontrolia/ui";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 
@@ -79,49 +79,53 @@ function AcceptInvitationInner() {
 
   if (error) {
     return (
-      <div className="k-mx-auto k-flex k-min-h-screen k-max-w-sm k-flex-col k-justify-center k-gap-4 k-px-4 k-text-center">
+      <AuthShell title="Invitación no válida">
         <p className="k-text-sm k-text-destructive">{error}</p>
-      </div>
+      </AuthShell>
     );
   }
 
   if (!preview || authLoading) {
-    return <p className="k-p-8 k-text-center k-text-sm k-text-muted-foreground">Cargando invitación...</p>;
+    return (
+      <div className="k-flex k-min-h-screen k-items-center k-justify-center">
+        <p className="k-text-sm k-text-muted-foreground">Cargando invitación...</p>
+      </div>
+    );
   }
 
   if (accepted) {
     return (
-      <div className="k-mx-auto k-flex k-min-h-screen k-max-w-sm k-flex-col k-justify-center k-gap-4 k-px-4 k-text-center">
-        <p className="k-text-sm">Te uniste a {preview.organizationName}. Redirigiendo...</p>
-      </div>
+      <AuthShell title="¡Listo!">
+        <p className="k-text-sm k-text-muted-foreground">Te uniste a {preview.organizationName}. Redirigiendo...</p>
+      </AuthShell>
     );
   }
 
   if (isAuthenticated) {
     return (
-      <div className="k-mx-auto k-flex k-min-h-screen k-max-w-sm k-flex-col k-justify-center k-gap-4 k-px-4 k-text-center">
-        <p className="k-text-sm">Aceptando invitación a {preview.organizationName}...</p>
-      </div>
+      <AuthShell title="Un momento">
+        <p className="k-text-sm k-text-muted-foreground">Aceptando invitación a {preview.organizationName}...</p>
+      </AuthShell>
     );
   }
 
   return (
-    <div className="k-mx-auto k-flex k-min-h-screen k-max-w-sm k-flex-col k-justify-center k-gap-6 k-px-4">
-      <div className="k-text-center">
-        <h1 className="k-text-xl k-font-semibold">Te invitaron a {preview.organizationName}</h1>
-        {preview.roleName && <p className="k-text-sm k-text-muted-foreground">Como {preview.roleName}</p>}
-        <p className="k-mt-2 k-text-sm k-text-muted-foreground">
-          Inicia sesión o crea una cuenta con <strong>{preview.email}</strong> para continuar.
-        </p>
-      </div>
+    <AuthShell
+      title={`Te invitaron a ${preview.organizationName}`}
+      subtitle={
+        preview.roleName
+          ? `Como ${preview.roleName} — inicia sesión o crea una cuenta con ${preview.email} para continuar.`
+          : `Inicia sesión o crea una cuenta con ${preview.email} para continuar.`
+      }
+    >
       {showRegister ? <RegisterForm onSuccess={() => void 0} /> : <LoginForm onSuccess={() => void 0} />}
       <button
         type="button"
         onClick={() => setShowRegister((v) => !v)}
-        className="k-text-center k-text-sm k-text-muted-foreground hover:k-underline"
+        className="k-mt-4 k-w-full k-text-center k-text-sm k-text-muted-foreground hover:k-underline"
       >
         {showRegister ? "¿Ya tienes cuenta? Inicia sesión" : "¿No tienes cuenta? Crea una"}
       </button>
-    </div>
+    </AuthShell>
   );
 }

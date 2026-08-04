@@ -1,6 +1,7 @@
 "use client";
 
 import { AuthGuard, useAuth } from "@kontrolia/react";
+import { Badge, Card } from "@kontrolia/ui";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -70,23 +71,26 @@ export default function SecurityPage() {
     <AuthGuard fallback={<p className="k-p-8 k-text-sm">Inicia sesión para ver tu seguridad.</p>}>
       <div className="k-mx-auto k-flex k-max-w-md k-flex-col k-gap-6 k-p-8">
         <div className="k-flex k-items-center k-justify-between">
-          <h1 className="k-text-xl k-font-semibold">Seguridad</h1>
+          <h1 className="k-text-2xl k-font-bold">Seguridad</h1>
           <Link href="/" className="k-text-sm k-text-muted-foreground hover:k-underline">
             Volver
           </Link>
         </div>
 
-        <div>
-          <p className="k-mb-2 k-text-sm k-font-medium">Verificación en dos pasos (TOTP)</p>
+        <Card className="k-flex k-flex-col k-gap-3">
+          <p className="k-text-sm k-font-semibold">Verificación en dos pasos (TOTP)</p>
           {factors.length === 0 && <p className="k-text-sm k-text-muted-foreground">No tienes MFA activado.</p>}
-          <ul className="k-flex k-flex-col k-gap-2">
+          <div className="k-flex k-flex-col k-gap-2">
             {factors.map((factor) => (
-              <li
+              <div
                 key={factor.id}
-                className="k-flex k-items-center k-justify-between k-rounded-md k-border k-border-border k-p-3 k-text-sm"
+                className="k-flex k-items-center k-justify-between k-rounded-lg k-border k-border-border k-p-3 k-text-sm"
               >
-                <span>
-                  {factor.friendlyName ?? "Autenticador"} — {factor.status === "verified" ? "activo" : "pendiente"}
+                <span className="k-flex k-items-center k-gap-2">
+                  {factor.friendlyName ?? "Autenticador"}
+                  <Badge variant={factor.status === "verified" ? "success" : "warning"}>
+                    {factor.status === "verified" ? "activo" : "pendiente"}
+                  </Badge>
                 </span>
                 <button
                   type="button"
@@ -95,10 +99,10 @@ export default function SecurityPage() {
                 >
                   Eliminar
                 </button>
-              </li>
+              </div>
             ))}
-          </ul>
-        </div>
+          </div>
+        </Card>
 
         {error && <p className="k-text-sm k-text-destructive">{error}</p>}
 
@@ -111,28 +115,30 @@ export default function SecurityPage() {
             + Activar verificación en dos pasos
           </button>
         ) : (
-          <form onSubmit={confirmEnrollment} className="k-flex k-flex-col k-items-center k-gap-3">
-            <p className="k-text-sm">Escanea este código con Google Authenticator, Authy, etc.</p>
-            {/* Plain <img>, not next/image — qrCode is an SVG data URI from Supabase, not an optimizable asset */}
-            <img src={enrollment.qrCode} alt="Código QR para MFA" width={200} height={200} />
-            <p className="k-text-xs k-text-muted-foreground">O ingresa el secreto manualmente: {enrollment.secret}</p>
-            <input
-              type="text"
-              inputMode="numeric"
-              placeholder="Código de 6 dígitos"
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              required
-              className="k-w-full k-rounded-md k-border k-border-border k-bg-background k-px-3 k-py-2 k-text-center k-text-sm"
-            />
-            <button
-              type="submit"
-              disabled={busy}
-              className="k-w-full k-rounded-md k-bg-primary k-px-4 k-py-2 k-text-sm k-font-medium k-text-primary-foreground disabled:k-opacity-60"
-            >
-              {busy ? "Verificando..." : "Confirmar"}
-            </button>
-          </form>
+          <Card>
+            <form onSubmit={confirmEnrollment} className="k-flex k-flex-col k-items-center k-gap-3">
+              <p className="k-text-sm">Escanea este código con Google Authenticator, Authy, etc.</p>
+              {/* Plain <img>, not next/image — qrCode is an SVG data URI from Supabase, not an optimizable asset */}
+              <img src={enrollment.qrCode} alt="Código QR para MFA" width={200} height={200} />
+              <p className="k-text-xs k-text-muted-foreground">O ingresa el secreto manualmente: {enrollment.secret}</p>
+              <input
+                type="text"
+                inputMode="numeric"
+                placeholder="Código de 6 dígitos"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                required
+                className="k-w-full k-rounded-md k-border k-border-border k-bg-background k-px-3 k-py-2 k-text-center k-text-sm"
+              />
+              <button
+                type="submit"
+                disabled={busy}
+                className="k-w-full k-rounded-md k-bg-primary k-px-4 k-py-2 k-text-sm k-font-medium k-text-primary-foreground disabled:k-opacity-60"
+              >
+                {busy ? "Verificando..." : "Confirmar"}
+              </button>
+            </form>
+          </Card>
         )}
       </div>
     </AuthGuard>

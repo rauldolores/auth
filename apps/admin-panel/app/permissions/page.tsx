@@ -1,5 +1,6 @@
 "use client";
 
+import { Card } from "@kontrolia/ui";
 import { useEffect, useState } from "react";
 import { createKontroliaSchemaClient } from "@/lib/supabase-browser";
 
@@ -42,32 +43,37 @@ export default function PermissionsPage() {
   }, []);
 
   return (
-    <div className="k-flex k-flex-col k-gap-6">
-      <h1 className="k-text-xl k-font-semibold">Permisos</h1>
+    <div className="k-flex k-flex-col k-gap-5">
+      <div>
+        <h1 className="k-text-2xl k-font-bold">Permisos</h1>
+        <p className="k-text-sm k-text-muted-foreground">Catálogo de permisos declarado por cada aplicación.</p>
+      </div>
 
       {groups?.map((group) => (
         <div key={group.id} className="k-flex k-flex-col k-gap-2">
           <h2 className="k-text-sm k-font-semibold">{group.name}</h2>
-          <table className="k-w-full k-text-sm">
-            <thead>
-              <tr className="k-border-b k-border-border k-text-left k-text-muted-foreground">
-                <th className="k-py-2">Clave</th>
-                <th className="k-py-2">Recurso</th>
-                <th className="k-py-2">Acción</th>
-                <th className="k-py-2">Descripción</th>
-              </tr>
-            </thead>
-            <tbody>
-              {group.permissions.map((permission) => (
-                <tr key={permission.id} className="k-border-b k-border-border">
-                  <td className="k-py-2 k-font-mono k-text-xs">{permission.key}</td>
-                  <td className="k-py-2 k-text-muted-foreground">{permission.resource}</td>
-                  <td className="k-py-2 k-text-muted-foreground">{permission.action}</td>
-                  <td className="k-py-2 k-text-muted-foreground">{permission.description ?? "—"}</td>
+          <Card className="k-p-0">
+            <table className="k-w-full k-text-sm">
+              <thead>
+                <tr className="k-border-b k-border-border k-text-left k-text-xs k-uppercase k-tracking-wide k-text-muted-foreground">
+                  <th className="k-px-5 k-py-3 k-font-semibold">Clave</th>
+                  <th className="k-px-5 k-py-3 k-font-semibold">Recurso</th>
+                  <th className="k-px-5 k-py-3 k-font-semibold">Acción</th>
+                  <th className="k-px-5 k-py-3 k-font-semibold">Descripción</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {group.permissions.map((permission) => (
+                  <tr key={permission.id} className="k-border-b k-border-border last:k-border-0">
+                    <td className="k-px-5 k-py-3 k-font-mono k-text-xs">{permission.key}</td>
+                    <td className="k-px-5 k-py-3 k-text-muted-foreground">{permission.resource}</td>
+                    <td className="k-px-5 k-py-3 k-text-muted-foreground">{permission.action}</td>
+                    <td className="k-px-5 k-py-3 k-text-muted-foreground">{permission.description ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Card>
         </div>
       ))}
 

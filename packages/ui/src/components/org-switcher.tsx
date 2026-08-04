@@ -33,7 +33,10 @@ export function OrgSwitcher({ organizations, className, onSwitched }: OrgSwitche
     <select
       value={organization?.id ?? ""}
       onChange={handleChange}
-      className={cn("k-rounded-md k-border k-border-border k-bg-background k-px-3 k-py-1.5 k-text-sm", className)}
+      className={cn(
+        "k-rounded-full k-border k-border-border k-bg-background k-px-4 k-py-1.5 k-text-sm k-font-medium",
+        className,
+      )}
     >
       {organizations.map((org) => (
         <option key={org.id} value={org.id}>
