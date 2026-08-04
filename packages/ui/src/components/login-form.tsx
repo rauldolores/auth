@@ -3,7 +3,7 @@
 import { useAuth } from "@kontrolia/react";
 import { useState } from "react";
 import { cn } from "../lib/cn.js";
-import { GoogleLoginButton } from "./oauth-buttons.js";
+import { GoogleLoginButton, MicrosoftLoginButton } from "./oauth-buttons.js";
 
 export interface LoginFormProps {
   className?: string;
@@ -12,9 +12,18 @@ export interface LoginFormProps {
   registerHref?: string;
   /** Only opt into this once the installation's Supabase project has Google enabled. */
   showGoogle?: boolean;
+  /** Only opt into this once the installation's Supabase project has Azure enabled. */
+  showMicrosoft?: boolean;
 }
 
-export function LoginForm({ className, onSuccess, forgotPasswordHref, registerHref, showGoogle }: LoginFormProps) {
+export function LoginForm({
+  className,
+  onSuccess,
+  forgotPasswordHref,
+  registerHref,
+  showGoogle,
+  showMicrosoft,
+}: LoginFormProps) {
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -85,12 +94,13 @@ export function LoginForm({ className, onSuccess, forgotPasswordHref, registerHr
           </a>
         )}
       </div>
-      {showGoogle && (
+      {(showGoogle || showMicrosoft) && (
         <>
           <div className="k-flex k-items-center k-gap-3 k-text-xs k-text-muted-foreground">
             <span className="k-h-px k-flex-1 k-bg-border" />o<span className="k-h-px k-flex-1 k-bg-border" />
           </div>
-          <GoogleLoginButton />
+          {showGoogle && <GoogleLoginButton />}
+          {showMicrosoft && <MicrosoftLoginButton />}
         </>
       )}
     </form>

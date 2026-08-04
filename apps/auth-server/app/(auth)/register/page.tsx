@@ -15,6 +15,7 @@ export default function RegisterPage() {
           onSuccess={() => router.push("/verify-email")}
           loginHref="/login"
           showGoogle={process.env.NEXT_PUBLIC_GOOGLE_LOGIN_ENABLED === "true"}
+          showMicrosoft={process.env.NEXT_PUBLIC_MICROSOFT_LOGIN_ENABLED === "true"}
         />
       </div>
     </GuestGuard>

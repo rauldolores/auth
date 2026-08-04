@@ -64,3 +64,50 @@ export function GoogleLoginButton({ className, label = "Continuar con Google" }:
     </div>
   );
 }
+
+export interface MicrosoftLoginButtonProps {
+  className?: string;
+  label?: string;
+}
+
+/**
+ * Only renders meaningfully if the installation's Supabase project has the
+ * Azure provider enabled — otherwise loginWithOAuth() redirects to a
+ * Supabase error page. Same caveat as GoogleLoginButton above.
+ */
+export function MicrosoftLoginButton({ className, label = "Continuar con Microsoft" }: MicrosoftLoginButtonProps) {
+  const { loginWithOAuth } = useAuth();
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleClick() {
+    setError(null);
+    setIsRedirecting(true);
+    try {
+      await loginWithOAuth("azure");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo iniciar sesión con Microsoft.");
+      setIsRedirecting(false);
+    }
+  }
+
+  return (
+    <div className={cn("k-flex k-flex-col k-gap-2", className)}>
+      <button
+        type="button"
+        onClick={() => void handleClick()}
+        disabled={isRedirecting}
+        className="k-flex k-items-center k-justify-center k-gap-2 k-rounded-md k-border k-border-border k-bg-background k-px-4 k-py-2 k-text-sm k-font-medium hover:k-bg-muted disabled:k-opacity-60"
+      >
+        <svg width="16" height="16" viewBox="0 0 23 23" aria-hidden="true">
+          <rect x="1" y="1" width="10" height="10" fill="#F25022" />
+          <rect x="12" y="1" width="10" height="10" fill="#7FBA00" />
+          <rect x="1" y="12" width="10" height="10" fill="#00A4EF" />
+          <rect x="12" y="12" width="10" height="10" fill="#FFB900" />
+        </svg>
+        {isRedirecting ? "Redirigiendo..." : label}
+      </button>
+      {error && <p className="k-text-sm k-text-destructive">{error}</p>}
+    </div>
+  );
+}

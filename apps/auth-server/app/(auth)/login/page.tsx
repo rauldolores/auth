@@ -29,6 +29,7 @@ export default function LoginPage() {
           forgotPasswordHref="/forgot-password"
           registerHref="/register"
           showGoogle={process.env.NEXT_PUBLIC_GOOGLE_LOGIN_ENABLED === "true"}
+          showMicrosoft={process.env.NEXT_PUBLIC_MICROSOFT_LOGIN_ENABLED === "true"}
         />
       </div>
     </GuestGuard>

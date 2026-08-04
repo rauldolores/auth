@@ -3,7 +3,7 @@
 import { useAuth } from "@kontrolia/react";
 import { useState } from "react";
 import { cn } from "../lib/cn.js";
-import { GoogleLoginButton } from "./oauth-buttons.js";
+import { GoogleLoginButton, MicrosoftLoginButton } from "./oauth-buttons.js";
 
 export interface RegisterFormProps {
   className?: string;
@@ -11,9 +11,11 @@ export interface RegisterFormProps {
   loginHref?: string;
   /** Only opt into this once the installation's Supabase project has Google enabled. */
   showGoogle?: boolean;
+  /** Only opt into this once the installation's Supabase project has Azure enabled. */
+  showMicrosoft?: boolean;
 }
 
-export function RegisterForm({ className, onSuccess, loginHref, showGoogle }: RegisterFormProps) {
+export function RegisterForm({ className, onSuccess, loginHref, showGoogle, showMicrosoft }: RegisterFormProps) {
   const { register } = useAuth();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -92,12 +94,13 @@ export function RegisterForm({ className, onSuccess, loginHref, showGoogle }: Re
           ¿Ya tienes cuenta? Inicia sesión
         </a>
       )}
-      {showGoogle && (
+      {(showGoogle || showMicrosoft) && (
         <>
           <div className="k-flex k-items-center k-gap-3 k-text-xs k-text-muted-foreground">
             <span className="k-h-px k-flex-1 k-bg-border" />o<span className="k-h-px k-flex-1 k-bg-border" />
           </div>
-          <GoogleLoginButton label="Registrarme con Google" />
+          {showGoogle && <GoogleLoginButton label="Registrarme con Google" />}
+          {showMicrosoft && <MicrosoftLoginButton label="Registrarme con Microsoft" />}
         </>
       )}
     </form>
