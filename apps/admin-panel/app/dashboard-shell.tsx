@@ -1,8 +1,9 @@
 "use client";
 
 import { AuthGuard, useAuth } from "@kontrolia/react";
-import { UnauthorizedScreen, UserMenu } from "@kontrolia/ui";
+import { OrgSwitcher, UnauthorizedScreen, UserMenu } from "@kontrolia/ui";
 import Link from "next/link";
+import { useOrganizations } from "@/lib/use-organizations";
 
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard" },
@@ -10,10 +11,12 @@ const NAV_ITEMS = [
   { href: "/organizations", label: "Organizaciones" },
   { href: "/roles", label: "Roles" },
   { href: "/permissions", label: "Permisos" },
+  { href: "/invitations", label: "Invitaciones" },
 ];
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
-  const { organization } = useAuth();
+  const { organization, isAuthenticated } = useAuth();
+  const { organizations, isLoading, reload } = useOrganizations(isAuthenticated);
 
   return (
     <AuthGuard
@@ -32,7 +35,12 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           </nav>
         </aside>
         <div className="k-flex k-flex-1 k-flex-col">
-          <header className="k-flex k-justify-end k-border-b k-border-border k-p-3">
+          <header className="k-flex k-items-center k-justify-between k-border-b k-border-border k-p-3">
+            {!isLoading && organizations.length > 0 ? (
+              <OrgSwitcher organizations={organizations} onSwitched={() => void reload()} />
+            ) : (
+              <span />
+            )}
             <UserMenu />
           </header>
           <main className="k-flex-1 k-p-6">{children}</main>

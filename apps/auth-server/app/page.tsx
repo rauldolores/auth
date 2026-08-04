@@ -1,11 +1,14 @@
 "use client";
 
 import { AuthGuard, useAuth } from "@kontrolia/react";
-import { UserMenu } from "@kontrolia/ui";
+import { OrgSwitcher, UserMenu } from "@kontrolia/ui";
 import { useState } from "react";
+import { useOrganizations } from "@/lib/use-organizations";
 
 export default function HomePage() {
-  const { user, organization } = useAuth();
+  const { user, organization, isAuthenticated } = useAuth();
+  const { organizations, isLoading, reload } = useOrganizations(isAuthenticated);
+  const [showCreateForm, setShowCreateForm] = useState(false);
 
   return (
     <AuthGuard fallback={<GoToLogin />}>
@@ -14,17 +17,38 @@ export default function HomePage() {
           <h1 className="k-text-xl k-font-semibold">Hola, {user?.fullName ?? user?.email}</h1>
           <UserMenu />
         </div>
-        {organization ? (
-          <p className="k-text-sm k-text-muted-foreground">Organización activa: {organization.name}</p>
-        ) : (
-          <CreateOrganizationForm />
+
+        {!isLoading && organizations.length > 0 && (
+          <div className="k-flex k-items-center k-gap-3">
+            <OrgSwitcher organizations={organizations} onSwitched={() => void reload()} />
+            <button
+              type="button"
+              onClick={() => setShowCreateForm((v) => !v)}
+              className="k-text-sm k-text-muted-foreground hover:k-underline"
+            >
+              + nueva organización
+            </button>
+          </div>
+        )}
+
+        {!organization && !isLoading && organizations.length === 0 && (
+          <CreateOrganizationForm onCreated={() => void reload()} />
+        )}
+
+        {showCreateForm && organizations.length > 0 && (
+          <CreateOrganizationForm
+            onCreated={() => {
+              setShowCreateForm(false);
+              void reload();
+            }}
+          />
         )}
       </div>
     </AuthGuard>
   );
 }
 
-function CreateOrganizationForm() {
+function CreateOrganizationForm({ onCreated }: { onCreated: () => void }) {
   const { refresh } = useAuth();
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -53,9 +77,13 @@ function CreateOrganizationForm() {
       }
 
       // The trigger on kontrolia.organizations auto-enrolls the caller as
-      // Owner; refresh() re-runs the Custom Access Token Hook so the new
-      // org shows up as the active one (no membership existed before).
+      // Owner. refresh() only matters for the very first org (there was no
+      // active org yet for the hook to fall back to); switching to an
+      // organization created while another was already active still
+      // requires switchOrganization() explicitly, same as any other org.
       await refresh();
+      setName("");
+      onCreated();
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo crear la organización.");
     } finally {
@@ -65,7 +93,7 @@ function CreateOrganizationForm() {
 
   return (
     <form onSubmit={handleSubmit} className="k-flex k-max-w-sm k-flex-col k-gap-3 k-rounded-md k-border k-border-border k-p-4">
-      <p className="k-text-sm k-font-medium">Todavía no perteneces a ninguna organización</p>
+      <p className="k-text-sm k-font-medium">Crear organización</p>
       <input
         type="text"
         required

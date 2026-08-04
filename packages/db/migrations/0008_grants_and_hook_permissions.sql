@@ -21,3 +21,13 @@ grant usage on schema kontrolia to authenticated, anon;
 grant select, insert, update, delete on all tables in schema kontrolia to authenticated;
 grant select on all tables in schema kontrolia to anon;
 alter default privileges in schema kontrolia grant select, insert, update, delete on tables to authenticated;
+
+-- service_role bypasses RLS (Supabase grants it BYPASSRLS), but table-level
+-- and schema-level GRANTs are separate from RLS and still apply — without
+-- these, server-only code using the service-role key (e.g. the invitation
+-- acceptance flow, which must read/write before the visitor is even
+-- authenticated) gets "permission denied for schema kontrolia" from
+-- PostgREST.
+grant usage on schema kontrolia to service_role;
+grant select, insert, update, delete on all tables in schema kontrolia to service_role;
+alter default privileges in schema kontrolia grant select, insert, update, delete on tables to service_role;

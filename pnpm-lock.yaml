@@ -44,6 +44,9 @@ importers:
       '@kontrolia/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@supabase/ssr':
+        specifier: ^0.5.2
+        version: 0.5.2(@supabase/supabase-js@2.112.0)
       '@supabase/supabase-js':
         specifier: ^2.47.10
         version: 2.112.0
