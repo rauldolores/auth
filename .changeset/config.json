@@ -8,7 +8,6 @@
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
   "ignore": [
-    "kontrolia-auth",
     "@kontrolia/config",
     "@kontrolia/admin-panel",
     "@kontrolia/auth-server",
