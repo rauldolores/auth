@@ -8,6 +8,7 @@ import type {
   KontroliaClientConfig,
   KontroliaSessionState,
   LoginCredentials,
+  OAuthProvider,
   RegisterInput,
   Unsubscribe,
   UpdateProfileInput,
@@ -72,6 +73,26 @@ export class KontroliaClient {
       email,
       password,
       options: { data: fullName ? { full_name: fullName } : undefined },
+    });
+    if (error) throw error;
+  }
+
+  /**
+   * Starts a social login redirect (Google, and whatever other providers
+   * the installation enables). The provider's client_id/secret live in the
+   * Supabase project's own Auth config — never in application code — so
+   * this method works identically regardless of which providers are
+   * actually turned on for a given install.
+   *
+   * redirectTo defaults to `${origin}/auth/callback` — the app must have a
+   * Route Handler there that calls exchangeCodeForSession() server-side
+   * (see @kontrolia/next), since cookie-based sessions require the PKCE
+   * code exchange to happen on the server, not via the URL fragment.
+   */
+  async loginWithOAuth(provider: OAuthProvider, redirectTo?: string): Promise<void> {
+    const { error } = await this.supabase.auth.signInWithOAuth({
+      provider,
+      options: { redirectTo: redirectTo ?? `${window.location.origin}/auth/callback` },
     });
     if (error) throw error;
   }

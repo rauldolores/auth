@@ -3,15 +3,18 @@
 import { useAuth } from "@kontrolia/react";
 import { useState } from "react";
 import { cn } from "../lib/cn.js";
+import { GoogleLoginButton } from "./oauth-buttons.js";
 
 export interface LoginFormProps {
   className?: string;
   onSuccess?: () => void;
   forgotPasswordHref?: string;
   registerHref?: string;
+  /** Only opt into this once the installation's Supabase project has Google enabled. */
+  showGoogle?: boolean;
 }
 
-export function LoginForm({ className, onSuccess, forgotPasswordHref, registerHref }: LoginFormProps) {
+export function LoginForm({ className, onSuccess, forgotPasswordHref, registerHref, showGoogle }: LoginFormProps) {
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -82,6 +85,14 @@ export function LoginForm({ className, onSuccess, forgotPasswordHref, registerHr
           </a>
         )}
       </div>
+      {showGoogle && (
+        <>
+          <div className="k-flex k-items-center k-gap-3 k-text-xs k-text-muted-foreground">
+            <span className="k-h-px k-flex-1 k-bg-border" />o<span className="k-h-px k-flex-1 k-bg-border" />
+          </div>
+          <GoogleLoginButton />
+        </>
+      )}
     </form>
   );
 }

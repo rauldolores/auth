@@ -15,6 +15,7 @@ export default function LoginPage() {
           onSuccess={() => router.push("/")}
           forgotPasswordHref="/forgot-password"
           registerHref="/register"
+          showGoogle={process.env.NEXT_PUBLIC_GOOGLE_LOGIN_ENABLED === "true"}
         />
       </div>
     </GuestGuard>

@@ -18,6 +18,14 @@ export interface RegisterInput {
   fullName?: string;
 }
 
+/**
+ * Social providers KontrolIA Auth's SDK knows how to start a redirect for.
+ * Whether one actually works depends entirely on whether that provider is
+ * enabled in the installation's own Supabase project — this list is not a
+ * promise every install supports every provider.
+ */
+export type OAuthProvider = "google" | "azure";
+
 export interface UpdateProfileInput {
   fullName?: string;
   avatarUrl?: string;

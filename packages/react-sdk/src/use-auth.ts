@@ -14,6 +14,7 @@ export function useAuth() {
   return {
     ...state,
     login: client.login.bind(client),
+    loginWithOAuth: client.loginWithOAuth.bind(client),
     logout: client.logout.bind(client),
     register: client.register.bind(client),
     refresh: client.refresh.bind(client),
