@@ -14,6 +14,15 @@ export interface AuthMiddlewareConfig {
   supabaseUrl: string;
   supabaseAnonKey: string;
   rules: RouteRule[];
+  /**
+   * If set, any authenticated request whose session still needs MFA
+   * elevation (a verified TOTP factor exists but the code challenge hasn't
+   * completed yet — aal1 -> aal2 pending) gets redirected here instead of
+   * reaching the requested page. Without this, login() alone is enough to
+   * reach protected routes even on an account with MFA enabled — the
+   * factor exists, but nothing has actually checked it.
+   */
+  mfaChallengePath?: string;
 }
 
 /**
@@ -42,6 +51,14 @@ export function createAuthMiddleware(config: AuthMiddlewareConfig) {
     } = await supabase.auth.getUser();
 
     const pathname = request.nextUrl.pathname;
+
+    if (user && config.mfaChallengePath && pathname !== config.mfaChallengePath) {
+      const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (aal && aal.nextLevel === "aal2" && aal.currentLevel !== "aal2") {
+        return NextResponse.redirect(new URL(config.mfaChallengePath, request.url));
+      }
+    }
+
     const rule = config.rules.find((r) => pathname.startsWith(r.pathPrefix));
 
     if (rule) {

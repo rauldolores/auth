@@ -26,6 +26,9 @@ export default function HomePage() {
             <Link href="/devices" className="k-text-sm k-text-muted-foreground hover:k-underline">
               Dispositivos
             </Link>
+            <Link href="/security" className="k-text-sm k-text-muted-foreground hover:k-underline">
+              Seguridad
+            </Link>
             <UserMenu />
           </div>
         </div>

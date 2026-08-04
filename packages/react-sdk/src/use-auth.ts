@@ -23,6 +23,13 @@ export function useAuth() {
     updateProfile: client.updateProfile.bind(client),
     switchOrganization: client.switchOrganization.bind(client),
     getToken: client.getToken.bind(client),
+    enrollMfa: client.enrollMfa.bind(client),
+    verifyMfaEnrollment: client.verifyMfaEnrollment.bind(client),
+    challengeMfa: client.challengeMfa.bind(client),
+    verifyMfaChallenge: client.verifyMfaChallenge.bind(client),
+    listMfaFactors: client.listMfaFactors.bind(client),
+    unenrollMfa: client.unenrollMfa.bind(client),
+    getAuthenticatorAssuranceLevel: client.getAuthenticatorAssuranceLevel.bind(client),
     hasPermission: checker.hasPermission,
     hasRole: checker.hasRole,
   };

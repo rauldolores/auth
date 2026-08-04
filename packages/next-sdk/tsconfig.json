@@ -3,7 +3,12 @@
   "compilerOptions": {
     "outDir": "dist",
     "rootDir": "src",
-    "noEmit": false
+    "noEmit": false,
+    // This is a library package (unlike the Next.js apps that also extend
+    // the "nextjs" preset), so unlike them it needs .d.ts output — other
+    // packages import its types.
+    "declaration": true,
+    "declarationMap": true
   },
   "include": ["src"]
 }

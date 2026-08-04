@@ -4,10 +4,13 @@ import { createBrowserClient } from "@supabase/ssr";
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
 import { decodeAccessToken } from "./jwt.js";
 import type {
+  AuthenticatorAssuranceLevel,
   AuthStateListener,
   KontroliaClientConfig,
   KontroliaSessionState,
   LoginCredentials,
+  MfaEnrollment,
+  MfaFactor,
   OAuthProvider,
   RegisterInput,
   Unsubscribe,
@@ -202,6 +205,70 @@ export class KontroliaClient {
     if (upsertError) throw upsertError;
 
     await this.refresh();
+  }
+
+  /**
+   * Starts TOTP enrollment — returns a QR code (and raw secret, for
+   * authenticator apps that don't scan) but does NOT activate the factor
+   * yet. Call verifyMfaEnrollment() with a code from the authenticator app
+   * to complete it; an unverified factor doesn't affect login.
+   */
+  async enrollMfa(friendlyName?: string): Promise<MfaEnrollment> {
+    const { data, error } = await this.supabase.auth.mfa.enroll({ factorType: "totp", friendlyName });
+    if (error) throw error;
+    return { factorId: data.id, qrCode: data.totp.qr_code, secret: data.totp.secret, uri: data.totp.uri };
+  }
+
+  /** Completes enrollment for a factor returned by enrollMfa(), given a code from the authenticator app. */
+  async verifyMfaEnrollment(factorId: string, code: string): Promise<void> {
+    const { data: challenge, error: challengeError } = await this.supabase.auth.mfa.challenge({ factorId });
+    if (challengeError) throw challengeError;
+    const { error: verifyError } = await this.supabase.auth.mfa.verify({
+      factorId,
+      challengeId: challenge.id,
+      code,
+    });
+    if (verifyError) throw verifyError;
+  }
+
+  /** Starts a login-time MFA challenge for an already-verified factor. */
+  async challengeMfa(factorId: string): Promise<string> {
+    const { data, error } = await this.supabase.auth.mfa.challenge({ factorId });
+    if (error) throw error;
+    return data.id;
+  }
+
+  async verifyMfaChallenge(factorId: string, challengeId: string, code: string): Promise<void> {
+    const { error } = await this.supabase.auth.mfa.verify({ factorId, challengeId, code });
+    if (error) throw error;
+  }
+
+  async listMfaFactors(): Promise<MfaFactor[]> {
+    const { data, error } = await this.supabase.auth.mfa.listFactors();
+    if (error) throw error;
+    return (data.totp ?? []).map((f) => ({
+      id: f.id,
+      friendlyName: f.friendly_name ?? null,
+      factorType: f.factor_type,
+      status: f.status,
+    }));
+  }
+
+  async unenrollMfa(factorId: string): Promise<void> {
+    const { error } = await this.supabase.auth.mfa.unenroll({ factorId });
+    if (error) throw error;
+  }
+
+  /**
+   * currentLevel vs nextLevel diverging (aal1 -> aal2) is how you detect a
+   * pending MFA challenge after login() — the password was right, but the
+   * session isn't fully elevated until challengeMfa()/verifyMfaChallenge()
+   * completes.
+   */
+  async getAuthenticatorAssuranceLevel(): Promise<AuthenticatorAssuranceLevel> {
+    const { data, error } = await this.supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (error) throw error;
+    return { currentLevel: data.currentLevel, nextLevel: data.nextLevel };
   }
 
   private async getState(): Promise<KontroliaSessionState> {

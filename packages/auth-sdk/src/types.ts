@@ -26,6 +26,29 @@ export interface RegisterInput {
  */
 export type OAuthProvider = "google" | "azure";
 
+export interface MfaEnrollment {
+  factorId: string;
+  /** SVG QR code as a data URI — hand straight to an <img src=...>. */
+  qrCode: string;
+  /** Raw TOTP secret, for authenticator apps that don't support scanning. */
+  secret: string;
+  /** Full otpauth:// URI, in case a consuming app wants to render its own QR code. */
+  uri: string;
+}
+
+export interface MfaFactor {
+  id: string;
+  friendlyName: string | null;
+  factorType: string;
+  status: "verified" | "unverified";
+}
+
+export interface AuthenticatorAssuranceLevel {
+  /** In practice always "aal1" | "aal2" | null — typed loosely to match Supabase's own forward-compatible type. */
+  currentLevel: string | null;
+  nextLevel: string | null;
+}
+
 export interface UpdateProfileInput {
   fullName?: string;
   avatarUrl?: string;

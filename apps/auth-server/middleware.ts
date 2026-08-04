@@ -7,6 +7,7 @@ export const middleware = createAuthMiddleware({
     { pathPrefix: "/login", mode: "guest", redirectTo: "/" },
     { pathPrefix: "/register", mode: "guest", redirectTo: "/" },
   ],
+  mfaChallengePath: "/mfa-challenge",
 });
 
 export const config = {
