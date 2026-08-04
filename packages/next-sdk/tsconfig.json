@@ -1,0 +1,9 @@
+{
+  "extends": "@kontrolia/config/tsconfig/nextjs.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "noEmit": false
+  },
+  "include": ["src"]
+}

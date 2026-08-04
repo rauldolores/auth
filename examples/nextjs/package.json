@@ -1,0 +1,29 @@
+{
+  "name": "@kontrolia/example-nextjs",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "description": "Minimal Next.js app that protects a route by permission using only @kontrolia/react and @kontrolia/next — no Supabase/OAuth/JWT code in application logic. Integration reference: install, wrap with <AuthProvider>, guard a route, done.",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev -p 4000",
+    "build": "next build",
+    "start": "next start -p 4000",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@kontrolia/next": "workspace:*",
+    "@kontrolia/react": "workspace:*",
+    "next": "^15.1.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@kontrolia/config": "workspace:*",
+    "@types/node": "^22.10.2",
+    "@types/react": "^18.3.17",
+    "@types/react-dom": "^18.3.5",
+    "eslint": "^9.17.0",
+    "typescript": "^5.7.2"
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "name": "@kontrolia/ui",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "description": "Shared UI components (shadcn/ui + Tailwind): login/forgot/reset password forms, org switcher, user menu, 401/403/session-expired screens.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "peerDependencies": {
+    "react": ">=18.0.0",
+    "react-dom": ">=18.0.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "@kontrolia/react": "workspace:*",
+    "@kontrolia/shared": "workspace:*",
+    "clsx": "^2.1.1"
+  },
+  "devDependencies": {
+    "@kontrolia/config": "workspace:*",
+    "@types/react": "^18.3.17",
+    "@types/react-dom": "^18.3.5",
+    "eslint": "^9.17.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "^5.7.2"
+  }
+}

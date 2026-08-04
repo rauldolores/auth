@@ -1,0 +1,30 @@
+{
+  "name": "@kontrolia/playground",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "description": "Sandbox app to try @kontrolia/react and @kontrolia/next live against a running auth-server. Reserved workspace shell — filled in as the SDKs stabilize.",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev -p 3003",
+    "build": "next build",
+    "start": "next start -p 3003",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "clean": "rimraf .next"
+  },
+  "dependencies": {
+    "@kontrolia/react": "workspace:*",
+    "next": "^15.1.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@kontrolia/config": "workspace:*",
+    "@types/node": "^22.10.2",
+    "@types/react": "^18.3.17",
+    "@types/react-dom": "^18.3.5",
+    "eslint": "^9.17.0",
+    "typescript": "^5.7.2"
+  }
+}

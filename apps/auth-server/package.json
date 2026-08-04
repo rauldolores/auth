@@ -1,0 +1,40 @@
+{
+  "name": "@kontrolia/auth-server",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "description": "Hosted login/register/forgot-password UI plus the admin orchestration API (organizations, invitations, roles) on top of Supabase Auth.",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "clean": "rimraf .next"
+  },
+  "dependencies": {
+    "@kontrolia/auth": "workspace:*",
+    "@kontrolia/next": "workspace:*",
+    "@kontrolia/permissions": "workspace:*",
+    "@kontrolia/react": "workspace:*",
+    "@kontrolia/shared": "workspace:*",
+    "@kontrolia/ui": "workspace:*",
+    "@supabase/ssr": "^0.5.2",
+    "@supabase/supabase-js": "^2.47.10",
+    "next": "^15.1.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@kontrolia/config": "workspace:*",
+    "@types/node": "^22.10.2",
+    "@types/react": "^18.3.17",
+    "@types/react-dom": "^18.3.5",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^9.17.0",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.2"
+  }
+}

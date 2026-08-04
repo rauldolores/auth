@@ -1,0 +1,115 @@
+# KontrolIA Auth — minimal self-hosted Supabase stack.
+#
+# Only the pieces KontrolIA Auth actually needs: Postgres, GoTrue (Auth) and
+# PostgREST (the REST layer @kontrolia/auth's `.schema('kontrolia')` calls
+# depend on), fronted by a thin Kong gateway so the SDK only ever talks to
+# one SUPABASE_URL. Realtime, Storage, Studio, Edge Functions, Analytics
+# etc. from the full Supabase stack are intentionally omitted — add them
+# back with an extra compose file if a specific app needs them.
+#
+# This is ONE of the two install paths (see root README.md): use it when
+# you don't have a Supabase project yet. If you do (Cloud or self-hosted),
+# skip this file entirely and point `pnpm --filter @kontrolia/db migrate`
+# at its DATABASE_URL instead.
+
+name: kontrolia-auth
+
+services:
+  db:
+    image: supabase/postgres:15.8.1.060
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in docker/.env}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in docker/.env}
+    volumes:
+      - ./volumes/db:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  auth:
+    image: supabase/gotrue:v2.167.0
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD}@db:5432/postgres
+      GOTRUE_SITE_URL: ${SITE_URL:-http://localhost:3000}
+      API_EXTERNAL_URL: ${SUPABASE_PUBLIC_URL:-http://localhost:8000}
+      GOTRUE_JWT_SECRET: ${JWT_SECRET}
+      GOTRUE_JWT_EXP: 3600
+      GOTRUE_DISABLE_SIGNUP: "false"
+      # Dev convenience only — wire up real SMTP before going to production.
+      GOTRUE_MAILER_AUTOCONFIRM: ${GOTRUE_MAILER_AUTOCONFIRM:-true}
+      # Activates kontrolia.custom_access_token_hook (packages/db/migrations/0007).
+      GOTRUE_HOOK_CUSTOM_ACCESS_TOKEN_ENABLED: "true"
+      GOTRUE_HOOK_CUSTOM_ACCESS_TOKEN_URI: pg-functions://postgres/kontrolia/custom_access_token_hook
+
+  rest:
+    image: postgrest/postgrest:v12.2.3
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGRST_DB_URI: postgres://authenticator:${POSTGRES_PASSWORD}@db:5432/postgres
+      # Both schemas exposed: `public` for the host app's own tables (if
+      # any), `kontrolia` for everything this product owns.
+      PGRST_DB_SCHEMAS: public,kontrolia
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: ${JWT_SECRET}
+
+  kong:
+    image: kong:3.8
+    restart: unless-stopped
+    depends_on:
+      - auth
+      - rest
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /kong.yml
+      KONG_PROXY_LISTEN: 0.0.0.0:8000
+    volumes:
+      - ./kong.yml:/kong.yml:ro
+    ports:
+      - "${SUPABASE_PORT:-8000}:8000"
+
+  auth-server:
+    build:
+      context: ..
+      dockerfile: docker/apps.Dockerfile
+      args:
+        APP: auth-server
+    restart: unless-stopped
+    depends_on:
+      - kong
+    environment:
+      NEXT_PUBLIC_SUPABASE_URL: ${SUPABASE_PUBLIC_URL:-http://localhost:8000}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${ANON_KEY}
+      SUPABASE_URL: http://kong:8000
+      SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+    ports:
+      - "3000:3000"
+
+  admin-panel:
+    build:
+      context: ..
+      dockerfile: docker/apps.Dockerfile
+      args:
+        APP: admin-panel
+    restart: unless-stopped
+    depends_on:
+      - kong
+    environment:
+      NEXT_PUBLIC_SUPABASE_URL: ${SUPABASE_PUBLIC_URL:-http://localhost:8000}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${ANON_KEY}
+    ports:
+      - "3001:3001"
