@@ -42,14 +42,29 @@ export async function POST(request: Request) {
 
   // The kontrolia.on_organization_created trigger auto-enrolls the caller as
   // Owner in the same transaction — no separate membership call needed.
+  //
+  // Deliberately NOT using .select().single() (INSERT ... RETURNING) here:
+  // the "members can view their organizations" SELECT policy depends on
+  // the membership row the trigger just created, and Postgres evaluates
+  // RETURNING's visibility check via a STABLE function whose result can be
+  // cached from before the trigger ran within the same statement — so the
+  // RETURNING row intermittently fails RLS even though the insert itself
+  // succeeded. A follow-up SELECT in a fresh statement sees it correctly.
+  const { error: insertError } = await supabase
+    .schema("kontrolia")
+    .from("organizations")
+    .insert({ name: body.name, slug: body.slug });
+
+  if (insertError) return NextResponse.json({ error: insertError.message }, { status: 400 });
+
   const { data, error } = await supabase
     .schema("kontrolia")
     .from("organizations")
-    .insert({ name: body.name, slug: body.slug })
     .select("id, name, slug")
+    .eq("slug", body.slug)
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   return NextResponse.json({ organization: data }, { status: 201 });
 }

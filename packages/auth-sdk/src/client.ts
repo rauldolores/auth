@@ -1,6 +1,7 @@
 import { type PermissionChecker, createPermissionChecker } from "@kontrolia/permissions";
 import type { KontroliaOrganization, KontroliaUser } from "@kontrolia/shared";
-import { type Session, type SupabaseClient, createClient } from "@supabase/supabase-js";
+import { createBrowserClient } from "@supabase/ssr";
+import type { Session, SupabaseClient } from "@supabase/supabase-js";
 import { decodeAccessToken } from "./jwt.js";
 import type {
   AuthStateListener,
@@ -38,9 +39,12 @@ export class KontroliaClient {
   private listeners = new Set<AuthStateListener>();
 
   constructor(config: KontroliaClientConfig) {
-    this.supabase = createClient(config.supabaseUrl, config.supabaseAnonKey, {
-      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
-    });
+    // createBrowserClient (not plain supabase-js createClient) stores the
+    // session in cookies instead of localStorage — the same cookies
+    // @kontrolia/next's middleware and Route Handlers read server-side via
+    // @supabase/ssr's createServerClient. A plain createClient() here would
+    // leave the server unable to see the browser's session at all.
+    this.supabase = createBrowserClient(config.supabaseUrl, config.supabaseAnonKey);
 
     this.supabase.auth.onAuthStateChange(() => {
       this.emit();

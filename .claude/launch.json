@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "auth-server",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@kontrolia/auth-server", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "admin-panel",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@kontrolia/admin-panel", "dev"],
+      "port": 3001
+    },
+    {
+      "name": "example-nextjs",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@kontrolia/example-nextjs", "dev"],
+      "port": 4000
+    }
+  ]
+}

@@ -76,7 +76,12 @@ begin
     permission_keys := '{}';
   end if;
 
-  claims := jsonb_set(claims, '{organization_id}', to_jsonb(active_org_id));
+  -- to_jsonb(NULL::uuid) is SQL NULL, not a jsonb null — and jsonb_set is
+  -- strict, so passing it straight through would collapse the whole
+  -- function's result to NULL for any user without an organization yet
+  -- (i.e. every brand-new signup). coalesce() converts that to a real
+  -- jsonb null instead.
+  claims := jsonb_set(claims, '{organization_id}', coalesce(to_jsonb(active_org_id), 'null'::jsonb));
   claims := jsonb_set(claims, '{roles}', to_jsonb(coalesce(role_names, '{}')));
   claims := jsonb_set(claims, '{permissions}', to_jsonb(coalesce(permission_keys, '{}')));
 

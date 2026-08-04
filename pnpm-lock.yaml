@@ -259,6 +259,9 @@ importers:
       '@kontrolia/shared':
         specifier: workspace:*
         version: link:../shared
+      '@supabase/ssr':
+        specifier: ^0.5.2
+        version: 0.5.2(@supabase/supabase-js@2.112.0)
       '@supabase/supabase-js':
         specifier: ^2.47.10
         version: 2.112.0
