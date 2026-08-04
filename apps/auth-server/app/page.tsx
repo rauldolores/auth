@@ -2,7 +2,8 @@
 
 import { AuthGuard, useAuth } from "@kontrolia/react";
 import { OrgSwitcher, UserMenu } from "@kontrolia/ui";
-import { useState } from "react";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useOrganizations } from "@/lib/use-organizations";
 
 export default function HomePage() {
@@ -10,12 +11,23 @@ export default function HomePage() {
   const { organizations, isLoading, reload } = useOrganizations(isAuthenticated);
   const [showCreateForm, setShowCreateForm] = useState(false);
 
+  // Records this browser session as a known device once per sign-in, so
+  // /devices has something to list and revoke.
+  useEffect(() => {
+    if (isAuthenticated) void fetch("/api/devices/touch", { method: "POST" });
+  }, [isAuthenticated]);
+
   return (
     <AuthGuard fallback={<GoToLogin />}>
       <div className="k-mx-auto k-flex k-max-w-3xl k-flex-col k-gap-6 k-p-8">
         <div className="k-flex k-items-center k-justify-between">
           <h1 className="k-text-xl k-font-semibold">Hola, {user?.fullName ?? user?.email}</h1>
-          <UserMenu />
+          <div className="k-flex k-items-center k-gap-4">
+            <Link href="/devices" className="k-text-sm k-text-muted-foreground hover:k-underline">
+              Dispositivos
+            </Link>
+            <UserMenu />
+          </div>
         </div>
 
         {!isLoading && organizations.length > 0 && (

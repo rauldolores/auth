@@ -29,6 +29,8 @@ export interface KontroliaMembership {
  */
 export interface KontroliaTokenClaims {
   sub: string;
+  /** Correlates to auth.sessions.id — used to identify/revoke this specific device's session. */
+  session_id: string;
   organization_id: string | null;
   roles: string[];
   permissions: string[];
