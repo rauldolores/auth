@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import * as p from "@clack/prompts";
 import { migrate } from "@kontrolia/db";
+import { askApplicationStep } from "./steps/application.js";
 import { askDatabaseStep } from "./steps/database.js";
 import { askDeploymentStep } from "./steps/deployment.js";
 
@@ -35,6 +36,8 @@ async function main() {
     process.exitCode = 1;
     return;
   }
+
+  await askApplicationStep(db);
 
   await askDeploymentStep(repoRoot, db);
 
