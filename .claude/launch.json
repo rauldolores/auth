@@ -18,6 +18,12 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "@kontrolia/example-nextjs", "dev"],
       "port": 4000
+    },
+    {
+      "name": "example-react",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@kontrolia/example-react", "dev"],
+      "port": 4001
     }
   ]
 }

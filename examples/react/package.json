@@ -1,0 +1,28 @@
+{
+  "name": "@kontrolia/example-react",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "description": "Minimal Vite + React SPA using only @kontrolia/react — no Next.js, no middleware. Route protection here is client-side only (see the README for why a real backend still needs to verify tokens itself).",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@kontrolia/react": "workspace:*",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@kontrolia/config": "workspace:*",
+    "@types/react": "^18.3.17",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "eslint": "^9.17.0",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.5"
+  }
+}

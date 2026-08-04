@@ -19,11 +19,8 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
-    "@kontrolia/permissions": "workspace:*",
-    "@kontrolia/shared": "workspace:*",
-    "@supabase/ssr": "^0.5.2",
-    "@supabase/supabase-js": "^2.47.10",
-    "jose": "^5.9.6"
+    "@kontrolia/auth": "workspace:*",
+    "@supabase/ssr": "^0.5.2"
   },
   "devDependencies": {
     "@kontrolia/config": "workspace:*",

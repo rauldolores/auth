@@ -1,0 +1,10 @@
+{
+  "extends": "@kontrolia/config/tsconfig/react-library.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "noEmit": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"]
+  },
+  "include": ["src", "vite.config.ts"]
+}

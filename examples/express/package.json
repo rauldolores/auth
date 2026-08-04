@@ -1,0 +1,26 @@
+{
+  "name": "@kontrolia/example-express",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "description": "Express resource server example: verifies a Bearer token with @kontrolia/auth/server — the same verifyRequest()/requirePermission() a Next.js Route Handler would use, no Next.js dependency required.",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file=.env src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node --env-file=.env dist/index.js",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@kontrolia/auth": "workspace:*",
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "@kontrolia/config": "workspace:*",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.2",
+    "eslint": "^9.17.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
