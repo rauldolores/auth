@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { href: "/roles", label: "Roles" },
   { href: "/permissions", label: "Permisos" },
   { href: "/invitations", label: "Invitaciones" },
+  { href: "/audit-logs", label: "Audit log" },
 ];
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
