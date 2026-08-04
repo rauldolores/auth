@@ -24,6 +24,12 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "@kontrolia/example-react", "dev"],
       "port": 4001
+    },
+    {
+      "name": "documentation",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@kontrolia/documentation", "dev"],
+      "port": 3002
     }
   ]
 }

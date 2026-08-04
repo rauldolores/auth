@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "license": "MIT",
-  "description": "KontrolIA Auth documentation site — architecture, guides, tutorials, examples, FAQ, migration, troubleshooting. Content lands in v1.5 per the roadmap; this is the reserved workspace shell.",
+  "description": "KontrolIA Auth documentation site — architecture, guides, tutorials, examples, FAQ, migration, troubleshooting.",
   "type": "module",
   "scripts": {
     "dev": "next dev -p 3002",
@@ -23,7 +23,10 @@
     "@types/node": "^22.10.2",
     "@types/react": "^18.3.17",
     "@types/react-dom": "^18.3.5",
+    "autoprefixer": "^10.4.20",
     "eslint": "^9.17.0",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17",
     "typescript": "^5.7.2"
   }
 }

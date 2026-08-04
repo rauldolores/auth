@@ -1,0 +1,70 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --k-background: 0 0% 100%;
+  --k-foreground: 222 47% 11%;
+  --k-border: 214 32% 91%;
+  --k-primary: 222 89% 55%;
+  --k-primary-foreground: 0 0% 100%;
+  --k-muted: 210 40% 96%;
+  --k-muted-foreground: 215 16% 47%;
+  --k-destructive: 0 72% 51%;
+  --k-destructive-foreground: 0 0% 100%;
+  --k-radius: 0.5rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --k-background: 222 47% 11%;
+    --k-foreground: 210 40% 98%;
+    --k-border: 217 33% 20%;
+    --k-muted: 217 33% 17%;
+    --k-muted-foreground: 215 20% 65%;
+  }
+}
+
+body {
+  background: hsl(var(--k-background));
+  color: hsl(var(--k-foreground));
+}
+
+.k-prose h2 {
+  @apply k-mt-8 k-mb-3 k-text-lg k-font-semibold;
+}
+.k-prose h3 {
+  @apply k-mt-6 k-mb-2 k-text-base k-font-semibold;
+}
+.k-prose p {
+  @apply k-mb-3 k-text-sm k-leading-relaxed k-text-foreground/90;
+}
+.k-prose ul,
+.k-prose ol {
+  @apply k-mb-3 k-ml-5 k-list-disc k-text-sm;
+}
+.k-prose ol {
+  @apply k-list-decimal;
+}
+.k-prose li {
+  @apply k-mb-1;
+}
+.k-prose code {
+  @apply k-rounded k-bg-muted k-px-1 k-py-0.5 k-font-mono k-text-xs;
+}
+.k-prose pre {
+  @apply k-mb-4 k-overflow-x-auto k-rounded-md k-border k-border-border k-bg-muted k-p-3 k-text-xs;
+}
+.k-prose pre code {
+  @apply k-bg-transparent k-p-0;
+}
+.k-prose a {
+  @apply k-underline;
+}
+.k-prose table {
+  @apply k-mb-4 k-w-full k-border-collapse k-text-sm;
+}
+.k-prose th,
+.k-prose td {
+  @apply k-border k-border-border k-p-2 k-text-left;
+}
