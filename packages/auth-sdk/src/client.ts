@@ -48,7 +48,9 @@ export class KontroliaClient {
     // @kontrolia/next's middleware and Route Handlers read server-side via
     // @supabase/ssr's createServerClient. A plain createClient() here would
     // leave the server unable to see the browser's session at all.
-    this.supabase = createBrowserClient(config.supabaseUrl, config.supabaseAnonKey);
+    this.supabase = createBrowserClient(config.supabaseUrl, config.supabaseAnonKey, {
+      cookieOptions: config.cookieDomain ? { domain: config.cookieDomain } : undefined,
+    });
 
     this.supabase.auth.onAuthStateChange(() => {
       this.emit();

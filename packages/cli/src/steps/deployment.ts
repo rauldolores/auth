@@ -34,6 +34,28 @@ export async function askDeploymentStep(repoRoot: string, db: DatabaseAnswer): P
     process.exit(0);
   }
 
+  const authServerUrl = await p.text({
+    message: "¿En qué URL va a vivir auth-server? (admin-panel la usa para enviar ahí a quien no tenga sesión)",
+    placeholder: "http://localhost:3000",
+    defaultValue: "http://localhost:3000",
+  });
+  if (p.isCancel(authServerUrl)) {
+    p.cancel("Instalación cancelada.");
+    process.exit(0);
+  }
+
+  const cookieDomain = await p.text({
+    message:
+      "¿auth-server y admin-panel van a vivir en subdominios del mismo dominio (ej. auth.tuempresa.com y admin.tuempresa.com)? " +
+      "Si es así, escribe el dominio compartido empezando con un punto (ej. .tuempresa.com). Si comparten el mismo host, o no lo sabes todavía, déjalo vacío.",
+    placeholder: "",
+    defaultValue: "",
+  });
+  if (p.isCancel(cookieDomain)) {
+    p.cancel("Instalación cancelada.");
+    process.exit(0);
+  }
+
   const s = p.spinner();
   s.start("Generando apps/auth-server/.env.local y apps/admin-panel/.env.local");
 
@@ -42,11 +64,14 @@ export async function askDeploymentStep(repoRoot: string, db: DatabaseAnswer): P
     NEXT_PUBLIC_SUPABASE_ANON_KEY: db.anonKey,
     SUPABASE_URL: db.supabaseUrl,
     SUPABASE_SERVICE_ROLE_KEY: db.serviceRoleKey,
+    NEXT_PUBLIC_COOKIE_DOMAIN: cookieDomain,
   });
 
   await writeEnvFile(`${repoRoot}/apps/admin-panel/.env.local`, {
     NEXT_PUBLIC_SUPABASE_URL: db.supabaseUrl,
     NEXT_PUBLIC_SUPABASE_ANON_KEY: db.anonKey,
+    NEXT_PUBLIC_AUTH_SERVER_URL: authServerUrl,
+    NEXT_PUBLIC_COOKIE_DOMAIN: cookieDomain,
   });
 
   s.stop(".env.local generados en auth-server y admin-panel");

@@ -18,5 +18,6 @@ export async function createRouteHandlerSupabaseClient() {
         }
       },
     },
+    cookieOptions: process.env.NEXT_PUBLIC_COOKIE_DOMAIN ? { domain: process.env.NEXT_PUBLIC_COOKIE_DOMAIN } : undefined,
   });
 }

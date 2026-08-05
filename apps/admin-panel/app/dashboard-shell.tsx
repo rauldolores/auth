@@ -125,7 +125,18 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   return (
     <AuthGuard
       loading={<p className="k-p-8 k-text-sm k-text-muted-foreground">Cargando...</p>}
-      fallback={<UnauthorizedScreen action={<a href="/login" className="k-text-sm k-underline">Iniciar sesión</a>} />}
+      fallback={
+        <UnauthorizedScreen
+          action={
+            <a
+              href={process.env.NEXT_PUBLIC_AUTH_SERVER_URL ? `${process.env.NEXT_PUBLIC_AUTH_SERVER_URL}/login` : "/login"}
+              className="k-text-sm k-underline"
+            >
+              Iniciar sesión
+            </a>
+          }
+        />
+      }
     >
       <div className="k-flex k-min-h-screen k-bg-background">
         <aside className="k-flex k-w-[220px] k-shrink-0 k-flex-col k-bg-sidebar k-p-3">

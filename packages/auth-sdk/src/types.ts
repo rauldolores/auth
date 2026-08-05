@@ -5,6 +5,15 @@ export interface KontroliaClientConfig {
   supabaseUrl: string;
   /** Supabase anon/public key — safe to expose in the browser. */
   supabaseAnonKey: string;
+  /**
+   * Only needed when auth-server and admin-panel (or any other app sharing
+   * this session) are deployed on different subdomains of the same domain,
+   * e.g. "auth.example.com" and "admin.example.com" — set this to
+   * ".example.com" so the session cookie is readable by both. Leave unset
+   * when both apps share the same host (including "localhost" during local
+   * development, where the browser already shares cookies across ports).
+   */
+  cookieDomain?: string;
 }
 
 export interface LoginCredentials {

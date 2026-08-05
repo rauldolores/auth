@@ -23,6 +23,13 @@ export interface AuthMiddlewareConfig {
    * factor exists, but nothing has actually checked it.
    */
   mfaChallengePath?: string;
+  /**
+   * Only needed when this app and another app sharing the same session
+   * (e.g. admin-panel) are deployed on different subdomains of the same
+   * domain — set to ".example.com" so the refreshed session cookie is
+   * readable by both. Leave unset when they share a host.
+   */
+  cookieDomain?: string;
 }
 
 /**
@@ -44,6 +51,7 @@ export function createAuthMiddleware(config: AuthMiddlewareConfig) {
           }
         },
       },
+      cookieOptions: config.cookieDomain ? { domain: config.cookieDomain } : undefined,
     });
 
     const {

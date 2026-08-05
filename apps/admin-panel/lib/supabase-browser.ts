@@ -19,6 +19,8 @@ const KONTROLIA_SCHEMA = "kontrolia";
  * PostgREST's default `public` schema and 404.
  */
 export function createKontroliaSchemaClient() {
-  const client = createBrowserClient(kontroliaClientConfig.supabaseUrl, kontroliaClientConfig.supabaseAnonKey);
+  const client = createBrowserClient(kontroliaClientConfig.supabaseUrl, kontroliaClientConfig.supabaseAnonKey, {
+    cookieOptions: kontroliaClientConfig.cookieDomain ? { domain: kontroliaClientConfig.cookieDomain } : undefined,
+  });
   return client.schema(KONTROLIA_SCHEMA);
 }
