@@ -3,6 +3,7 @@ import type { KontroliaOrganization, KontroliaUser } from "@kontrolia/shared";
 import { createBrowserClient } from "@supabase/ssr";
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
 import { decodeAccessToken } from "./jwt.js";
+import { generatePkcePair } from "./pkce.js";
 import type {
   AuthenticatorAssuranceLevel,
   AuthStateListener,
@@ -11,7 +12,10 @@ import type {
   LoginCredentials,
   MfaEnrollment,
   MfaFactor,
+  OAuthAuthorizationResult,
   OAuthProvider,
+  OAuthServerAuthorizeRequest,
+  OAuthServerAuthorizeResult,
   RegisterInput,
   Unsubscribe,
   UpdateProfileInput,
@@ -40,6 +44,8 @@ function toKontroliaUser(session: Session | null): KontroliaUser | null {
  */
 export class KontroliaClient {
   private readonly supabase: SupabaseClient;
+  private readonly supabaseUrl: string;
+  private readonly supabaseAnonKey: string;
   private listeners = new Set<AuthStateListener>();
 
   constructor(config: KontroliaClientConfig) {
@@ -51,6 +57,8 @@ export class KontroliaClient {
     this.supabase = createBrowserClient(config.supabaseUrl, config.supabaseAnonKey, {
       cookieOptions: config.cookieDomain ? { domain: config.cookieDomain } : undefined,
     });
+    this.supabaseUrl = config.supabaseUrl.replace(/\/$/, "");
+    this.supabaseAnonKey = config.supabaseAnonKey;
 
     this.supabase.auth.onAuthStateChange(() => {
       this.emit();
@@ -207,6 +215,113 @@ export class KontroliaClient {
     if (upsertError) throw upsertError;
 
     await this.refresh();
+  }
+
+  /**
+   * Builds the URL to send the browser to for the OAuth 2.1 authorization
+   * code flow (PKCE) against this project's own GoTrue OAuth server — the
+   * mechanism a first-party app on a *different* domain than auth-server
+   * uses to get its own session, since a shared session cookie is only
+   * possible between subdomains of one domain. Persist the returned
+   * codeVerifier (e.g. sessionStorage) before navigating; you'll need it
+   * again in exchangeOAuthServerCode() once the redirect completes.
+   */
+  async buildOAuthServerAuthorizeUrl(request: OAuthServerAuthorizeRequest): Promise<OAuthServerAuthorizeResult> {
+    const { verifier, challenge } = await generatePkcePair();
+    const params = new URLSearchParams({
+      response_type: "code",
+      client_id: request.clientId,
+      redirect_uri: request.redirectUri,
+      code_challenge: challenge,
+      code_challenge_method: "S256",
+      scope: request.scope ?? "openid",
+    });
+    if (request.state) params.set("state", request.state);
+    return { url: `${this.supabaseUrl}/auth/v1/oauth/authorize?${params.toString()}`, codeVerifier: verifier };
+  }
+
+  /**
+   * Completes the flow started by buildOAuthServerAuthorizeUrl(): exchanges
+   * the authorization code GoTrue redirected back with for a real session,
+   * and establishes it on this client exactly as login() would (same
+   * cookie-backed storage) — the app calling this never sees the tokens.
+   */
+  async exchangeOAuthServerCode(params: {
+    clientId: string;
+    redirectUri: string;
+    code: string;
+    codeVerifier: string;
+  }): Promise<void> {
+    const response = await fetch(`${this.supabaseUrl}/auth/v1/oauth/token`, {
+      method: "POST",
+      headers: { apikey: this.supabaseAnonKey, "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        code: params.code,
+        client_id: params.clientId,
+        redirect_uri: params.redirectUri,
+        code_verifier: params.codeVerifier,
+      }),
+    });
+    if (!response.ok) throw new Error(`OAuth token exchange failed (${response.status}): ${await response.text()}`);
+    const tokens = (await response.json()) as { access_token: string; refresh_token: string };
+    const { error } = await this.supabase.auth.setSession({
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token,
+    });
+    if (error) throw error;
+  }
+
+  /**
+   * For the consent screen: fetches what a pending authorization_id is
+   * asking for (which client, whose account, what scope) so the hosting app
+   * (auth-server) can decide whether to auto-approve it (a first-party app
+   * it trusts) or show the visitor an explicit approve/deny screen.
+   */
+  async getOAuthAuthorizationDetails(authorizationId: string): Promise<OAuthAuthorizationResult> {
+    const token = await this.getToken();
+    if (!token) throw new Error("Not authenticated");
+    const response = await fetch(`${this.supabaseUrl}/auth/v1/oauth/authorizations/${authorizationId}`, {
+      headers: { apikey: this.supabaseAnonKey, Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) throw new Error(`Failed to load authorization details (${response.status})`);
+    const data = (await response.json()) as {
+      redirect_url?: string;
+      authorization_id?: string;
+      redirect_uri?: string;
+      client?: { id: string; name: string };
+      user?: { id: string; email: string | null };
+      scope?: string;
+    };
+    // GoTrue auto-decides for some clients right on this GET — no separate
+    // consent step exists to call in that case, just follow the URL it gave us.
+    if (data.redirect_url) {
+      return { status: "decided", redirectUrl: data.redirect_url };
+    }
+    return {
+      status: "pending",
+      details: {
+        authorizationId: data.authorization_id!,
+        redirectUri: data.redirect_uri!,
+        client: data.client!,
+        user: data.user!,
+        scope: data.scope!,
+      },
+    };
+  }
+
+  /** Approves or denies a pending authorization — returns the URL to send the browser to next. */
+  async decideOAuthAuthorization(authorizationId: string, action: "approve" | "deny"): Promise<string> {
+    const token = await this.getToken();
+    if (!token) throw new Error("Not authenticated");
+    const response = await fetch(`${this.supabaseUrl}/auth/v1/oauth/authorizations/${authorizationId}/consent`, {
+      method: "POST",
+      headers: { apikey: this.supabaseAnonKey, Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ action }),
+    });
+    if (!response.ok) throw new Error(`Failed to ${action} authorization (${response.status})`);
+    const data = (await response.json()) as { redirect_url: string };
+    return data.redirect_url;
   }
 
   /**

@@ -4,6 +4,8 @@ import { AuthGuard, useAuth } from "@kontrolia/react";
 import { OrgSwitcher, UnauthorizedScreen, UserMenu } from "@kontrolia/ui";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useRef } from "react";
+import { OAUTH_CODE_VERIFIER_KEY } from "@/lib/oauth";
 import { useOrganizations } from "@/lib/use-organizations";
 
 type IconProps = { className?: string };
@@ -118,26 +120,69 @@ const NAV_GROUPS: NavGroup[] = [
 ];
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
-  const { organization, isAuthenticated } = useAuth();
-  const { organizations, isLoading, reload } = useOrganizations(isAuthenticated);
+  const { organization, isAuthenticated, isLoading: authLoading, buildOAuthServerAuthorizeUrl } = useAuth();
+  const { organizations, isLoading: orgsLoading, reload } = useOrganizations(isAuthenticated);
   const pathname = usePathname();
+  // /oauth/callback manages its own auth/loading UI while the code exchange
+  // is in flight — during that window isAuthenticated is still false, and
+  // wrapping it in the same guard below would race: this effect would fire
+  // a second authorize redirect (with the callback URL itself as `state`)
+  // before the exchange has a chance to finish and land the user on "/".
+  const isOAuthCallback = pathname === "/oauth/callback";
+  // Guards against firing the redirect twice (React Strict Mode double-invokes
+  // effects in dev) — a second call would overwrite the PKCE verifier in
+  // sessionStorage with one that no longer matches the challenge already
+  // baked into the first call's in-flight authorize URL.
+  const redirectStartedRef = useRef(false);
 
   const authServerUrl = process.env.NEXT_PUBLIC_AUTH_SERVER_URL;
+  const oauthClientId = process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID;
   const loginHref = authServerUrl
     ? `${authServerUrl}/login?redirect_to=${encodeURIComponent(typeof window !== "undefined" ? window.location.href : authServerUrl)}`
     : "/login";
+
+  // No session — leave immediately instead of waiting for a click. When
+  // admin-panel has been registered as an OAuth client (the only way SSO
+  // survives auth-server and admin-panel living on genuinely different
+  // domains, not just subdomains — a shared cookie can't cross that), go
+  // through the authorization-code flow; otherwise fall back to the plain
+  // redirect_to link, which only works when a shared cookie domain is set up.
+  useEffect(() => {
+    if (isOAuthCallback || authLoading || isAuthenticated) return;
+    if (redirectStartedRef.current) return;
+    redirectStartedRef.current = true;
+
+    if (oauthClientId) {
+      void (async () => {
+        const { url, codeVerifier } = await buildOAuthServerAuthorizeUrl({
+          clientId: oauthClientId,
+          redirectUri: `${window.location.origin}/oauth/callback`,
+          state: window.location.pathname + window.location.search,
+        });
+        sessionStorage.setItem(OAUTH_CODE_VERIFIER_KEY, codeVerifier);
+        window.location.href = url;
+      })();
+    } else {
+      window.location.href = loginHref;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, isAuthenticated, isOAuthCallback]);
+
+  // Bypass the sidebar chrome and the guard's own "redirecting" fallback
+  // entirely here — the callback page renders its own loading/error state
+  // while it's mid-exchange, and briefly looks unauthenticated to AuthGuard.
+  if (isOAuthCallback) return <>{children}</>;
 
   return (
     <AuthGuard
       loading={<p className="k-p-8 k-text-sm k-text-muted-foreground">Cargando...</p>}
       fallback={
         <UnauthorizedScreen
+          title="Redirigiendo..."
+          description="Te estamos llevando a la pantalla de inicio de sesión."
           action={
-            <a
-              href={loginHref}
-              className="k-text-sm k-underline"
-            >
-              Iniciar sesión
+            <a href={loginHref} className="k-text-sm k-underline">
+              ¿No pasa nada? Haz clic aquí
             </a>
           }
         />
@@ -191,7 +236,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
         <div className="k-flex k-flex-1 k-flex-col">
           <header className="k-flex k-items-center k-justify-between k-border-b k-border-border k-bg-card k-px-6 k-py-3">
-            {!isLoading && organizations.length > 0 ? (
+            {!orgsLoading && organizations.length > 0 ? (
               <OrgSwitcher organizations={organizations} onSwitched={() => void reload()} />
             ) : (
               <span />

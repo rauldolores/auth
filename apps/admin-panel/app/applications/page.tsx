@@ -66,9 +66,9 @@ export default function ApplicationsPage() {
       <div>
         <h1 className="k-text-2xl k-font-bold">Aplicaciones</h1>
         <p className="k-mt-1 k-text-sm k-text-muted-foreground">
-          Aplicaciones habilitadas para {organization.name} y el catálogo de permisos que cada una declara. El
-          registro de nuevas aplicaciones (client_id/secret vía OAuth 2.1) llega en v2 — mientras tanto se
-          habilitan a nivel de plataforma.
+          Aplicaciones habilitadas para {organization.name} y el catálogo de permisos que cada una declara. Una
+          pantalla para registrar aquí tus propias aplicaciones de terceros (client_id/secret reales, vía OAuth
+          2.1) está en el roadmap — mientras tanto se habilitan a nivel de plataforma.
         </p>
       </div>
       <Card className="k-p-0">

@@ -186,6 +186,50 @@ export default function TroubleshootingPage() {
           </p>
         }
       />
+
+      <Issue
+        symptom='La pantalla de consentimiento OAuth (/oauth/consent) muestra "Solicitud inválida — Cannot read properties of undefined (reading &apos;startsWith&apos;)"'
+        cause={
+          <p>
+            El código asumía que <code>GET /auth/v1/oauth/authorizations/&#123;id&#125;</code> siempre devuelve
+            los detalles de una autorización pendiente (<code>&#123;authorization_id, redirect_uri, client,
+            user, scope&#125;</code>). Pero para clientes públicos/de confianza, GoTrue puede decidir la
+            autorización directamente en ese mismo GET y devolver en su lugar{" "}
+            <code>&#123;redirect_url&#125;</code> — la misma forma que devolvería un{" "}
+            <code>POST .../consent</code>. El código intentaba leer <code>redirectUri</code> de una respuesta
+            que nunca la tuvo.
+          </p>
+        }
+        fix={
+          <p>
+            <code>getOAuthAuthorizationDetails()</code> del SDK ahora devuelve una unión (
+            <code>&#123;status: &quot;pending&quot;, details&#125;</code> o{" "}
+            <code>&#123;status: &quot;decided&quot;, redirectUrl&#125;</code>), y{" "}
+            <code>/oauth/consent</code> sigue <code>redirectUrl</code> de inmediato cuando ya viene decidida, en
+            vez de asumir que siempre hay una pantalla de consentimiento que mostrar.
+          </p>
+        }
+      />
+
+      <Issue
+        symptom="Al volver de /oauth/callback, admin-panel dispara una segunda autorización OAuth anidada (el `state` de la nueva URL contiene la URL del callback anterior)"
+        cause={
+          <p>
+            El layout raíz de admin-panel envuelve <em>todas</em> las rutas —incluida{" "}
+            <code>/oauth/callback</code>— en el mismo <code>DashboardShell</code> que dispara el redirect
+            automático cuando no hay sesión. Mientras el intercambio de código por sesión todavía está en
+            vuelo, <code>isAuthenticated</code> sigue en <code>false</code>, y ese mismo guard dispara{" "}
+            <em>otra</em> autorización antes de que el callback termine.
+          </p>
+        }
+        fix={
+          <p>
+            <code>DashboardShell</code> ahora detecta <code>pathname === &quot;/oauth/callback&quot;</code> y
+            se salta tanto el <code>useEffect</code> de auto-redirect como el <code>AuthGuard</code> por
+            completo en esa ruta — la página de callback ya maneja su propio estado de carga/error.
+          </p>
+        }
+      />
     </article>
   );
 }

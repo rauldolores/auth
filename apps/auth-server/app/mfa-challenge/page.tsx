@@ -29,7 +29,10 @@ function MfaChallengeInner() {
   const router = useRouter();
   const { isAuthenticated, isLoading, getAuthenticatorAssuranceLevel, listMfaFactors, challengeMfa, verifyMfaChallenge } =
     useAuth();
-  const redirectTarget = resolveRedirectTarget(useSearchParams().get("redirect_to"));
+  const redirectTarget = resolveRedirectTarget(
+    useSearchParams().get("redirect_to"),
+    typeof window !== "undefined" ? [window.location.origin] : [],
+  );
 
   const [factorId, setFactorId] = useState<string | null>(null);
   const [digits, setDigits] = useState<string[]>(Array(CODE_LENGTH).fill(""));

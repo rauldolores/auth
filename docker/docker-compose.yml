@@ -32,7 +32,7 @@ services:
       retries: 10
 
   auth:
-    image: supabase/gotrue:v2.167.0
+    image: supabase/gotrue:v2.194.0
     restart: unless-stopped
     depends_on:
       db:
@@ -61,6 +61,15 @@ services:
       GOTRUE_EXTERNAL_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOTRUE_EXTERNAL_GOOGLE_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       GOTRUE_EXTERNAL_GOOGLE_REDIRECT_URI: ${SUPABASE_PUBLIC_URL:-http://localhost:8000}/auth/v1/callback
+      # Lets admin-panel establish its own session via a short-lived
+      # authorization code instead of a shared cookie — the only way to keep
+      # SSO working once auth-server/admin-panel move to genuinely different
+      # domains (not just subdomains), where cookies can never be shared.
+      # auth-server's /oauth/consent (packages/cli registers admin-panel as
+      # the OAuth client during install) is the app that renders this.
+      GOTRUE_OAUTH_SERVER_ENABLED: "true"
+      GOTRUE_OAUTH_SERVER_AUTHORIZATION_PATH: /oauth/consent
+      GOTRUE_OAUTH_SERVER_ALLOW_DYNAMIC_REGISTRATION: "false"
 
   rest:
     image: postgrest/postgrest:v12.2.3
@@ -105,6 +114,14 @@ services:
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${ANON_KEY}
       SUPABASE_URL: http://kong:8000
       SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+      # Used to validate the "redirect_to" query param on /login and
+      # /mfa-challenge (open-redirect protection) and to auto-approve
+      # admin-panel's OAuth consent requests without a manual click.
+      NEXT_PUBLIC_ADMIN_PANEL_URL: ${ADMIN_PANEL_URL:-http://localhost:3001}
+      # Only needed if you've overridden the two app ports onto different
+      # subdomains of one domain instead of the defaults above — leave blank
+      # otherwise. See docker/.env.example.
+      NEXT_PUBLIC_COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
     ports:
       - "3000:3000"
 
@@ -120,5 +137,13 @@ services:
     environment:
       NEXT_PUBLIC_SUPABASE_URL: ${SUPABASE_PUBLIC_URL:-http://localhost:8000}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${ANON_KEY}
+      # Where to send an unauthenticated visitor to log in.
+      NEXT_PUBLIC_AUTH_SERVER_URL: ${SITE_URL:-http://localhost:3000}
+      NEXT_PUBLIC_COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
+      # Set by the installer after it registers admin-panel as an OAuth
+      # client (packages/cli) — enables the no-click SSO flow via
+      # auth-server's /oauth/consent. Blank falls back to a plain redirect
+      # to /login, which still works but costs a shared-cookie requirement.
+      NEXT_PUBLIC_OAUTH_CLIENT_ID: ${OAUTH_CLIENT_ID:-}
     ports:
       - "3001:3001"

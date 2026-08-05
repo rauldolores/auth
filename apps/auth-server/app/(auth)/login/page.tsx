@@ -18,7 +18,10 @@ export default function LoginPage() {
 function LoginPageInner() {
   const router = useRouter();
   const { getAuthenticatorAssuranceLevel } = useAuth();
-  const redirectTarget = resolveRedirectTarget(useSearchParams().get("redirect_to"));
+  const redirectTarget = resolveRedirectTarget(
+    useSearchParams().get("redirect_to"),
+    typeof window !== "undefined" ? [window.location.origin] : [],
+  );
 
   async function handleLoginSuccess() {
     // login() only gets the session to aal1 — if the account has a verified

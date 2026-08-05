@@ -58,15 +58,27 @@ export default function FaqPage() {
 
       <Q q="¿Cómo registro una aplicación de terceros con su propio client_id/secret (estilo Auth0)?">
         <p>
-          Ese flujo completo llega en v2, cuando el OAuth 2.1 Server de GoTrue salga de beta pública. En v1 la
-          integración es de primera parte: tus propias apps React/Next usan el SDK directo contra tu Supabase.
+          Registra un cliente en el servidor OAuth 2.1 nativo de GoTrue (Supabase Auth) — el mismo mecanismo que
+          usa admin-panel para su propio SSO. Ver <a href="/docs/architecture">Arquitectura</a>, sección "SSO
+          entre auth-server y admin-panel", para el flujo completo y el comando <code>curl</code> de registro
+          manual.
         </p>
       </Q>
 
       <Q q="¿Soporta MFA / login con Microsoft?">
+        <p>Sí — TOTP (app autenticadora) y login con Google/Microsoft, listos para usar desde el SDK y la UI.</p>
+      </Q>
+
+      <Q q="¿Por qué son dos proyectos separados, auth-server y admin-panel?">
         <p>
-          Son nativos de Supabase Auth (incluso self-hosted) y llegan como features de v2 en la UI/SDK de
-          KontrolIA — técnicamente no requieren I+D adicional, es principalmente exponerlos.
+          Tienen audiencias y ciclos de vida distintos. <code>auth-server</code> es la pantalla de login/registro
+          que ven <em>todos</em> tus usuarios finales — vive donde vivan tus otras apps, normalmente en un
+          dominio público de cara al usuario. <code>admin-panel</code> es la herramienta de gestión que solo usan
+          administradores — muchos equipos prefieren ponerla detrás de una VPN, un dominio interno, o
+          restricciones de red distintas a las de la app pública. Separarlos deja esa decisión de despliegue en
+          tus manos en vez de forzarlas a vivir juntas. La sesión se mantiene compartida entre ambas de todos
+          modos — por cookie si comparten dominio/subdominio, o por el flujo OAuth 2.1 si viven en dominios
+          completamente distintos (ver <a href="/docs/architecture">Arquitectura</a>).
         </p>
       </Q>
     </article>

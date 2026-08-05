@@ -69,9 +69,16 @@ const { claims } = await requirePermission(request, { supabaseUrl }, "facturacio
       <p>
         Los permisos se declaran contra una fila en <code>kontrolia.applications</code>. Una organización solo
         puede asignar, en sus roles, permisos de aplicaciones que tiene habilitadas (
-        <code>application_organizations</code>). El registro completo de aplicaciones vía UI (client_id/secret
-        reales para apps de terceros) llega en v2, cuando el OAuth 2.1 Server de GoTrue salga de beta — ver el
-        roadmap del proyecto.
+        <code>application_organizations</code>).
+      </p>
+      <p>
+        KontrolIA Auth ya usa el servidor OAuth 2.1 nativo de GoTrue (Supabase Auth) — es lo que mantiene a
+        auth-server y admin-panel con la sesión sincronizada aunque vivan en dominios completamente distintos
+        (ver <a href="/docs/architecture">Arquitectura</a>). Lo que todavía no existe es una pantalla en
+        admin-panel para que una organización registre <em>sus propias</em> aplicaciones de terceros con
+        client_id/secret reales, estilo Auth0 — hoy ese registro se hace a mano contra la API de GoTrue (ver el
+        comando <code>curl</code> en <a href="/docs/getting-started">Instalación</a>). Es el siguiente paso del
+        roadmap del proyecto, no algo bloqueado por el estado de beta del servidor OAuth de GoTrue.
       </p>
 
       <h2>Revocación de permisos: por qué no es instantánea</h2>

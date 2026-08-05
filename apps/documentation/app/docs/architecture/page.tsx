@@ -132,6 +132,42 @@ export default function ArchitecturePage() {
         autenticado.
       </p>
 
+      <h2>SSO entre auth-server y admin-panel</h2>
+      <p>
+        auth-server y admin-panel son dos apps Next.js separadas (ver{" "}
+        <a href="/docs/faq">FAQ, "¿por qué dos proyectos?"</a>) que necesitan compartir la misma sesión. Hay dos
+        mecanismos, y cuál se usa depende de dónde vivan:
+      </p>
+      <ul>
+        <li>
+          <strong>Mismo host o subdominios de un mismo dominio</strong>: la cookie de sesión (ver arriba) ya
+          alcanza. Con subdominios distintos hace falta fijar <code>NEXT_PUBLIC_COOKIE_DOMAIN</code> a{" "}
+          <code>.tudominio.com</code> en ambas apps para que el navegador la comparta entre ellas. Cuando
+          admin-panel no encuentra sesión, redirige de inmediato (sin pantalla intermedia) a{" "}
+          <code>{`{authServerUrl}/login?redirect_to={url_actual}`}</code>; auth-server valida ese{" "}
+          <code>redirect_to</code> contra una lista de orígenes conocidos (
+          <code>apps/auth-server/lib/redirect.ts</code>) antes de navegar ahí — nunca sigue una URL arbitraria de
+          la query string, para no abrir un open-redirect.
+        </li>
+        <li>
+          <strong>Dominios genuinamente distintos</strong>: una cookie no puede cruzar esa frontera bajo ninguna
+          configuración — es el modelo de seguridad del navegador, no algo que este proyecto pueda evitar. Para
+          ese caso, admin-panel actúa como cliente OAuth 2.1 del servidor de autorización nativo de GoTrue
+          (Supabase Auth): genera un par PKCE, redirige a{" "}
+          <code>{`{supabaseUrl}/auth/v1/oauth/authorize`}</code>, auth-server muestra{" "}
+          <code>/oauth/consent</code> (auto-aprobado si el <code>redirect_uri</code> es del propio admin-panel;
+          con pantalla de aprobar/denegar si es un cliente de verdad de terceros), y admin-panel cambia el código
+          por su propia sesión en <code>/oauth/callback</code>. El token emitido por este flujo lleva los mismos
+          claims custom (<code>organization_id</code>, <code>roles</code>, <code>permissions</code>) que uno
+          emitido por login normal, porque corre por el mismo Custom Access Token Hook.
+        </li>
+      </ul>
+      <p>
+        El instalador registra automáticamente admin-panel como cliente OAuth durante la instalación (ver{" "}
+        <a href="/docs/getting-started">Instalación</a>) y elige el mecanismo disponible; si el proyecto Supabase
+        no tiene el servidor OAuth habilitado, cae de vuelta al primer mecanismo sin romper nada.
+      </p>
+
       <h2>Revocar una sesión específica</h2>
       <p>
         No existe un método admin de <code>supabase-js</code> para revocar un <code>session_id</code>{" "}

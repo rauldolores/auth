@@ -52,6 +52,42 @@ export interface MfaFactor {
   status: "verified" | "unverified";
 }
 
+export interface OAuthServerAuthorizeRequest {
+  /** Client ID GoTrue issued when this app was registered as an OAuth client. */
+  clientId: string;
+  /** Must exactly match one of the redirect_uris registered for that client. */
+  redirectUri: string;
+  scope?: string;
+  /** Round-tripped back unchanged — typically the page to return to after the exchange. */
+  state?: string;
+}
+
+export interface OAuthServerAuthorizeResult {
+  /** Navigate the browser here (a real navigation, not a fetch — it's a cross-app redirect). */
+  url: string;
+  /** Persist this (e.g. sessionStorage) — needed again in exchangeOAuthServerCode() after the redirect completes. */
+  codeVerifier: string;
+}
+
+export interface OAuthAuthorizationDetails {
+  authorizationId: string;
+  redirectUri: string;
+  client: { id: string; name: string };
+  user: { id: string; email: string | null };
+  scope: string;
+}
+
+/**
+ * GoTrue's authorization-details endpoint doesn't always hand back a
+ * pending authorization to show a consent screen for — for some clients it
+ * auto-decides on the very first GET and returns the same redirect_url a
+ * POST .../consent would have, with no separate approval step at all.
+ * Callers must branch on `status` before assuming `details` exists.
+ */
+export type OAuthAuthorizationResult =
+  | { status: "pending"; details: OAuthAuthorizationDetails }
+  | { status: "decided"; redirectUrl: string };
+
 export interface AuthenticatorAssuranceLevel {
   /** In practice always "aal1" | "aal2" | null — typed loosely to match Supabase's own forward-compatible type. */
   currentLevel: string | null;

@@ -46,6 +46,13 @@ export default function GettingStartedPage() {
         pregunta dónde las vas a alojar: tu propia computadora (para probar), Docker, Vercel, Railway, Coolify, o
         cualquier otro servidor. Genera automáticamente los archivos de configuración que esa opción necesita.
       </p>
+      <p>
+        En este paso también te pregunta las URLs de cada pantalla y, con eso, registra automáticamente el panel
+        de administración como cliente OAuth 2.1 de tu proyecto Supabase. Gracias a eso, cuando alguien entra al
+        panel sin haber iniciado sesión, lo manda directo a la pantalla de login (sin pantallas intermedias ni
+        clics de más) y, al firmar, regresa automáticamente a donde estaba — incluso si la pantalla de login y el
+        panel viven en dominios completamente distintos, no solo subdominios del mismo dominio.
+      </p>
 
       <h3>Paso 3 de 3 — registra tu primera aplicación (opcional)</h3>
       <p>
@@ -131,6 +138,64 @@ uri = "pg-functions://postgres/kontrolia/custom_access_token_hook"`}</code>
           <code>kontrolia.custom_access_token_hook</code>. No hay API pública para automatizar esto.
         </li>
       </ul>
+
+      <h4>Paso manual: servidor OAuth 2.1 (SSO entre dominios distintos)</h4>
+      <p>
+        Por defecto, el panel de administración y la pantalla de login mantienen la sesión compartiendo una
+        cookie — funciona automáticamente si viven en el mismo host, y con{" "}
+        <code>NEXT_PUBLIC_COOKIE_DOMAIN</code> si viven en subdominios del mismo dominio (por ejemplo{" "}
+        <code>auth.tuempresa.com</code> y <code>admin.tuempresa.com</code>). Pero una cookie{" "}
+        <strong>no puede</strong> compartirse entre dominios genuinamente distintos (por ejemplo{" "}
+        <code>login.empresa-a.com</code> y <code>panel.empresa-b.com</code>) — es una regla de seguridad de los
+        navegadores, no una limitación de KontrolIA Auth.
+      </p>
+      <p>
+        Para ese caso, KontrolIA Auth usa el servidor OAuth 2.1 nativo de GoTrue (Supabase Auth): en vez de
+        compartir una cookie, el panel de administración pide un código de un solo uso a la pantalla de login
+        (con PKCE) y lo cambia por su propia sesión. El instalador hace todo esto por ti — registra el cliente
+        OAuth y escribe <code>NEXT_PUBLIC_OAUTH_CLIENT_ID</code> en el <code>.env.local</code> del panel — pero
+        el proyecto Supabase necesita tener esta función habilitada primero:
+      </p>
+      <ul>
+        <li>
+          <strong>Self-hosted / docker-compose</strong>: ya viene activado vía{" "}
+          <code>GOTRUE_OAUTH_SERVER_ENABLED=true</code> en <code>docker/docker-compose.yml</code> — no necesitas
+          hacer nada.
+        </li>
+        <li>
+          <strong>Supabase CLI (desarrollo local)</strong>: agrega en tu <code>supabase/config.toml</code>:
+          <pre>
+            <code>{`[auth.oauth_server]
+enabled = true`}</code>
+          </pre>
+          y reinicia con <code>supabase stop && supabase start</code>.
+        </li>
+        <li>
+          <strong>Supabase Cloud / proyecto existente</strong>: esta función está en beta pública — revisa en el
+          Dashboard si tu proyecto ya la tiene disponible. Si no la tiene, el instalador simplemente lo detecta,
+          te avisa, y el panel sigue funcionando con el enlace de login normal (válido mientras auth-server y
+          admin-panel compartan dominio o subdominios).
+        </li>
+      </ul>
+      <p>
+        Si prefieres registrar el cliente a mano en vez de correr el instalador de nuevo, la llamada es:
+      </p>
+      <pre>
+        <code>{`curl -X POST "$SUPABASE_URL/auth/v1/admin/oauth/clients" \\
+  -H "Authorization: Bearer $SERVICE_ROLE_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "client_name": "admin-panel",
+    "redirect_uris": ["https://tu-admin-panel.com/oauth/callback"],
+    "client_type": "public",
+    "token_endpoint_auth_method": "none"
+  }'`}</code>
+      </pre>
+      <p>
+        La respuesta incluye un <code>client_id</code> — cópialo en <code>NEXT_PUBLIC_OAUTH_CLIENT_ID</code> del{" "}
+        <code>.env.local</code> del panel de administración (o en <code>OAUTH_CLIENT_ID</code> de{" "}
+        <code>docker/.env</code> si despliegas con Docker).
+      </p>
 
       <h4>Si conectas a un proyecto Supabase CLI existente</h4>
       <p>
