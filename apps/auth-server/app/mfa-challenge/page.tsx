@@ -2,15 +2,34 @@
 
 import { useAuth } from "@kontrolia/react";
 import { AuthShell } from "@kontrolia/ui";
-import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { resolveRedirectTarget } from "@/lib/redirect";
 
 const CODE_LENGTH = 6;
 
+// useSearchParams() requires a Suspense boundary in the App Router.
 export default function MfaChallengePage() {
+  return (
+    <Suspense fallback={<Loading />}>
+      <MfaChallengeInner />
+    </Suspense>
+  );
+}
+
+function Loading() {
+  return (
+    <div className="k-flex k-min-h-screen k-items-center k-justify-center">
+      <p className="k-text-sm k-text-muted-foreground">Cargando...</p>
+    </div>
+  );
+}
+
+function MfaChallengeInner() {
   const router = useRouter();
   const { isAuthenticated, isLoading, getAuthenticatorAssuranceLevel, listMfaFactors, challengeMfa, verifyMfaChallenge } =
     useAuth();
+  const redirectTarget = resolveRedirectTarget(useSearchParams().get("redirect_to"));
 
   const [factorId, setFactorId] = useState<string | null>(null);
   const [digits, setDigits] = useState<string[]>(Array(CODE_LENGTH).fill(""));
@@ -19,10 +38,16 @@ export default function MfaChallengePage() {
   const [checking, setChecking] = useState(true);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
+  function goToRedirectTarget() {
+    if (redirectTarget !== "/") window.location.href = redirectTarget;
+    else router.push("/");
+  }
+
   useEffect(() => {
     if (isLoading) return;
     if (!isAuthenticated) {
-      router.push("/login");
+      const query = redirectTarget !== "/" ? `?redirect_to=${encodeURIComponent(redirectTarget)}` : "";
+      router.push(`/login${query}`);
       return;
     }
 
@@ -30,13 +55,13 @@ export default function MfaChallengePage() {
       const { currentLevel, nextLevel } = await getAuthenticatorAssuranceLevel();
       if (nextLevel !== "aal2" || currentLevel === "aal2") {
         // Nothing pending — either no MFA on this account, or already elevated.
-        router.push("/");
+        goToRedirectTarget();
         return;
       }
       const factors = await listMfaFactors();
       const verified = factors.find((f) => f.status === "verified");
       if (!verified) {
-        router.push("/");
+        goToRedirectTarget();
         return;
       }
       setFactorId(verified.id);
@@ -77,7 +102,7 @@ export default function MfaChallengePage() {
     try {
       const challengeId = await challengeMfa(factorId);
       await verifyMfaChallenge(factorId, challengeId, digits.join(""));
-      router.push("/");
+      goToRedirectTarget();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Código inválido.");
     } finally {
@@ -85,13 +110,7 @@ export default function MfaChallengePage() {
     }
   }
 
-  if (checking) {
-    return (
-      <div className="k-flex k-min-h-screen k-items-center k-justify-center">
-        <p className="k-text-sm k-text-muted-foreground">Cargando...</p>
-      </div>
-    );
-  }
+  if (checking) return <Loading />;
 
   return (
     <AuthShell title="Verificación en dos pasos" subtitle="Ingresa el código de tu app autenticadora.">

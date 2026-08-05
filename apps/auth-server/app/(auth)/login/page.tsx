@@ -2,11 +2,23 @@
 
 import { GuestGuard, useAuth } from "@kontrolia/react";
 import { AuthShell, LoginForm } from "@kontrolia/ui";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
+import { resolveRedirectTarget } from "@/lib/redirect";
 
+// useSearchParams() requires a Suspense boundary in the App Router.
 export default function LoginPage() {
+  return (
+    <Suspense fallback={<p className="k-p-8 k-text-center k-text-sm k-text-muted-foreground">Cargando...</p>}>
+      <LoginPageInner />
+    </Suspense>
+  );
+}
+
+function LoginPageInner() {
   const router = useRouter();
   const { getAuthenticatorAssuranceLevel } = useAuth();
+  const redirectTarget = resolveRedirectTarget(useSearchParams().get("redirect_to"));
 
   async function handleLoginSuccess() {
     // login() only gets the session to aal1 — if the account has a verified
@@ -14,7 +26,12 @@ export default function LoginPage() {
     // fully elevated until the code challenge completes.
     const { currentLevel, nextLevel } = await getAuthenticatorAssuranceLevel();
     if (nextLevel === "aal2" && currentLevel !== "aal2") {
-      router.push("/mfa-challenge");
+      const query = redirectTarget !== "/" ? `?redirect_to=${encodeURIComponent(redirectTarget)}` : "";
+      router.push(`/mfa-challenge${query}`);
+    } else if (redirectTarget !== "/") {
+      // Cross-origin (e.g. back to admin-panel) — a Next.js route push can't
+      // leave this app, this has to be a real browser navigation.
+      window.location.href = redirectTarget;
     } else {
       router.push("/");
     }

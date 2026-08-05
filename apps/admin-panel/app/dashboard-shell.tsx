@@ -122,6 +122,11 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const { organizations, isLoading, reload } = useOrganizations(isAuthenticated);
   const pathname = usePathname();
 
+  const authServerUrl = process.env.NEXT_PUBLIC_AUTH_SERVER_URL;
+  const loginHref = authServerUrl
+    ? `${authServerUrl}/login?redirect_to=${encodeURIComponent(typeof window !== "undefined" ? window.location.href : authServerUrl)}`
+    : "/login";
+
   return (
     <AuthGuard
       loading={<p className="k-p-8 k-text-sm k-text-muted-foreground">Cargando...</p>}
@@ -129,7 +134,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         <UnauthorizedScreen
           action={
             <a
-              href={process.env.NEXT_PUBLIC_AUTH_SERVER_URL ? `${process.env.NEXT_PUBLIC_AUTH_SERVER_URL}/login` : "/login"}
+              href={loginHref}
               className="k-text-sm k-underline"
             >
               Iniciar sesión

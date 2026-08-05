@@ -44,6 +44,17 @@ export async function askDeploymentStep(repoRoot: string, db: DatabaseAnswer): P
     process.exit(0);
   }
 
+  const adminPanelUrl = await p.text({
+    message:
+      "¿Y en qué URL va a vivir admin-panel? (auth-server la usa para regresar ahí después de iniciar sesión, en vez de mandarte a su propia pantalla de inicio)",
+    placeholder: "http://localhost:3001",
+    defaultValue: "http://localhost:3001",
+  });
+  if (p.isCancel(adminPanelUrl)) {
+    p.cancel("Instalación cancelada.");
+    process.exit(0);
+  }
+
   const cookieDomain = await p.text({
     message:
       "¿auth-server y admin-panel van a vivir en subdominios del mismo dominio (ej. auth.tuempresa.com y admin.tuempresa.com)? " +
@@ -64,6 +75,7 @@ export async function askDeploymentStep(repoRoot: string, db: DatabaseAnswer): P
     NEXT_PUBLIC_SUPABASE_ANON_KEY: db.anonKey,
     SUPABASE_URL: db.supabaseUrl,
     SUPABASE_SERVICE_ROLE_KEY: db.serviceRoleKey,
+    NEXT_PUBLIC_ADMIN_PANEL_URL: adminPanelUrl,
     NEXT_PUBLIC_COOKIE_DOMAIN: cookieDomain,
   });
 
