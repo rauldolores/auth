@@ -1,14 +1,27 @@
 {
   "name": "@kontrolia/db",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "license": "MIT",
   "description": "KontrolIA Auth database layer: SQL migrations for the `kontrolia` schema (organizations, RBAC, Custom Access Token Hook) and a connection-string-agnostic migration runner.",
-  "keywords": ["kontrolia", "auth", "postgres", "supabase", "migrations", "rbac"],
-  "repository": { "type": "git", "url": "https://github.com/rauldolores/auth.git", "directory": "packages/db" },
+  "keywords": [
+    "kontrolia",
+    "auth",
+    "postgres",
+    "supabase",
+    "migrations",
+    "rbac"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rauldolores/auth.git",
+    "directory": "packages/db"
+  },
   "homepage": "https://github.com/rauldolores/auth#readme",
   "bugs": "https://github.com/rauldolores/auth/issues",
   "author": "KontrolIA",
-  "publishConfig": { "access": "public" },
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

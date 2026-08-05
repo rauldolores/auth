@@ -1,18 +1,33 @@
 {
   "name": "@kontrolia/ui",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "license": "MIT",
   "description": "Shared UI components (shadcn/ui + Tailwind): login/forgot/reset password forms, org switcher, user menu, 401/403/session-expired screens.",
-  "keywords": ["kontrolia", "auth", "ui", "react", "components", "tailwind"],
-  "repository": { "type": "git", "url": "https://github.com/rauldolores/auth.git", "directory": "packages/ui" },
+  "keywords": [
+    "kontrolia",
+    "auth",
+    "ui",
+    "react",
+    "components",
+    "tailwind"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rauldolores/auth.git",
+    "directory": "packages/ui"
+  },
   "homepage": "https://github.com/rauldolores/auth#readme",
   "bugs": "https://github.com/rauldolores/auth/issues",
   "author": "KontrolIA",
-  "publishConfig": { "access": "public" },
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "peerDependencies": {
     "react": ">=18.0.0",
     "react-dom": ">=18.0.0"
