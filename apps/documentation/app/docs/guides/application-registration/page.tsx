@@ -26,6 +26,38 @@ export default function ApplicationRegistrationPage() {
         <code>KONTROLIA_APPLICATION_API_KEY=kapp_...</code>
       </pre>
 
+      <h3>Alternativa: registrarla con un script</h3>
+      <p>
+        Si prefieres no pasar por el wizard interactivo (por ejemplo, para automatizar el alta como parte de tu
+        propio setup), llama a <code>registerApplication()</code> directo — es exactamente la misma función que
+        usa el instalador. Necesita conectarse a la base con el mismo <code>DATABASE_URL</code> que usaste para
+        correr las migraciones:
+      </p>
+      <pre>
+        <code>{`import { registerApplication } from "@kontrolia/db";
+
+const { applicationId, permissionKeys, apiKey } = await registerApplication({
+  connectionString: process.env.DATABASE_URL!,
+  name: "Facturación",
+  slug: "facturacion",
+  environment: "production",
+  permissions: [
+    { resource: "facturas", action: "crear", description: "Crear facturas" },
+    { resource: "facturas", action: "aprobar", description: "Aprobar facturas" },
+  ],
+});
+
+console.log({ applicationId, permissionKeys, apiKey });
+// apiKey solo viene la primera vez que se registra este slug — guárdala ahora,
+// no hay forma de recuperarla después (solo se guarda su hash).`}</code>
+      </pre>
+      <p>
+        Es seguro volver a correrlo con el mismo <code>slug</code>: los permisos se actualizan (upsert), y{" "}
+        <code>apiKey</code> viene <code>null</code> en vez de una clave nueva — la clave existente nunca se
+        rota por accidente. Si necesitas una clave nueva, no hay forma de "regenerarla" todavía; hay que borrar
+        la aplicación y volver a registrarla.
+      </p>
+
       <h2>Mantener el catálogo sincronizado</h2>
       <p>
         Cada vez que tu aplicación agrega, quita de uso, o cambia la descripción de un permiso, llama a este
