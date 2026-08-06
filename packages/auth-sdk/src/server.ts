@@ -1,6 +1,8 @@
 import { type PermissionChecker, createPermissionChecker } from "@kontrolia/permissions";
-import type { KontroliaTokenClaims, KontroliaUser } from "@kontrolia/shared";
+import type { KontroliaMembershipWithOrganization, KontroliaTokenClaims, KontroliaUser } from "@kontrolia/shared";
+import { createClient } from "@supabase/supabase-js";
 import { type JWTVerifyResult, createRemoteJWKSet, jwtVerify } from "jose";
+import { mapMembershipRows } from "./membership-mapping.js";
 import { mapToKontroliaUser } from "./user-mapping.js";
 
 export interface VerifyRequestConfig {
@@ -36,6 +38,11 @@ export function getUserFromClaims(claims: KontroliaTokenClaims): KontroliaUser {
   });
 }
 
+function extractBearerToken(request: Request): string | null {
+  const authHeader = request.headers.get("authorization");
+  return authHeader?.startsWith("Bearer ") ? authHeader.slice("Bearer ".length) : null;
+}
+
 const jwksCache = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
 
 function getJwks(supabaseUrl: string) {
@@ -59,8 +66,7 @@ function getJwks(supabaseUrl: string) {
  * couple of lines — see examples/express and examples/nestjs.
  */
 export async function verifyRequest(request: Request, config: VerifyRequestConfig): Promise<VerifiedRequest> {
-  const authHeader = request.headers.get("authorization");
-  const token = authHeader?.startsWith("Bearer ") ? authHeader.slice("Bearer ".length) : null;
+  const token = extractBearerToken(request);
   if (!token) throw new Response("Unauthorized", { status: 401 });
 
   let result: JWTVerifyResult;
@@ -90,4 +96,39 @@ export async function requirePermission(
     throw new Response("Forbidden", { status: 403 });
   }
   return verified;
+}
+
+export interface ListMembershipsConfig extends VerifyRequestConfig {
+  /** Supabase anon/public key — safe to use here, RLS is what actually scopes this query. */
+  supabaseAnonKey: string;
+}
+
+/**
+ * Every organization the caller belongs to, with their roles and membership
+ * status in each — the server-side equivalent of the client SDK's
+ * getMemberships(), for a backend that only has the caller's bearer token
+ * (no cookies, no live browser session). No service-role key needed: the
+ * token itself authenticates a Row-Level-Security-scoped Postgres REST
+ * request — the same mechanism getOrganization()/getMemberships() rely on
+ * client-side, just reached with a raw token instead of a live session.
+ */
+export async function listMemberships(
+  request: Request,
+  config: ListMembershipsConfig,
+): Promise<KontroliaMembershipWithOrganization[]> {
+  await verifyRequest(request, config); // throws 401 before spending a query on an invalid token
+  const token = extractBearerToken(request)!;
+
+  const supabase = createClient(config.supabaseUrl, config.supabaseAnonKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { headers: { Authorization: `Bearer ${token}` } },
+  });
+
+  const { data, error } = await supabase
+    .schema("kontrolia")
+    .from("memberships")
+    .select("id, organization_id, status, organization:organizations(id, name, slug, settings), membership_roles(role:roles(slug))");
+
+  if (error) throw error;
+  return mapMembershipRows((data ?? []) as never);
 }

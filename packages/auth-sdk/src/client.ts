@@ -1,8 +1,9 @@
 import { type PermissionChecker, createPermissionChecker } from "@kontrolia/permissions";
-import type { KontroliaOrganization, KontroliaUser } from "@kontrolia/shared";
+import type { KontroliaMembershipWithOrganization, KontroliaOrganization, KontroliaUser } from "@kontrolia/shared";
 import { createBrowserClient } from "@supabase/ssr";
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
 import { decodeAccessToken } from "./jwt.js";
+import { mapMembershipRows } from "./membership-mapping.js";
 import { generatePkcePair } from "./pkce.js";
 import { mapToKontroliaUser } from "./user-mapping.js";
 import type {
@@ -194,6 +195,27 @@ export class KontroliaClient {
 
     if (error || !data) return null;
     return data as KontroliaOrganization;
+  }
+
+  /**
+   * Every organization the caller belongs to, with their roles and
+   * membership status in each — what a "switch company" selector needs to
+   * render before it can call switchOrganization(). Deliberately not on the
+   * JWT (see the architecture doc): this queries kontrolia.memberships
+   * directly, which RLS already scopes to the caller's own rows.
+   */
+  async getMemberships(): Promise<KontroliaMembershipWithOrganization[]> {
+    const { data: userData } = await this.supabase.auth.getUser();
+    if (!userData.user) return [];
+
+    const { data, error } = await this.supabase
+      .schema(KONTROLIA_SCHEMA)
+      .from("memberships")
+      .select("id, organization_id, status, organization:organizations(id, name, slug, settings), membership_roles(role:roles(slug))")
+      .eq("user_id", userData.user.id);
+
+    if (error || !data) return [];
+    return mapMembershipRows(data as never);
   }
 
   /**

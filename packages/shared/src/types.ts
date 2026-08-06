@@ -22,6 +22,11 @@ export interface KontroliaMembership {
   roles: string[];
 }
 
+/** A membership with its organization resolved — what a "switch company" selector needs to render. */
+export interface KontroliaMembershipWithOrganization extends KontroliaMembership {
+  organization: KontroliaOrganization;
+}
+
 /**
  * Shape of the custom claims injected by kontrolia.custom_access_token_hook
  * (see packages/db/migrations/0007_custom_access_token_hook.sql), plus the

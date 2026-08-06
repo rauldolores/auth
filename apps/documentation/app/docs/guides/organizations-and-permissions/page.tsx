@@ -6,21 +6,34 @@ export default function OrganizationsAndPermissionsPage() {
       <h1 className="k-mb-4 k-text-2xl k-font-semibold">Organizaciones y permisos</h1>
 
       <h2>Crear y cambiar de organización</h2>
-      <pre>
-        <code>{`const { organization, switchOrganization } = useAuth();
-
-await switchOrganization(otherOrgId); // refresca la sesión, el JWT trae los nuevos permisos`}</code>
-      </pre>
       <p>
         La lista de organizaciones a las que pertenece un usuario <strong>no</strong> viene en el JWT (ver{" "}
-        <a href="/docs/architecture">Arquitectura</a>) — se consulta aparte. <code>auth-server</code> expone{" "}
-        <code>GET /api/organizations</code>; en <code>admin-panel</code> se consulta directo el schema{" "}
-        <code>kontrolia</code> vía RLS.
+        <a href="/docs/architecture">Arquitectura</a>) — <code>getMemberships()</code> la consulta aparte, con
+        el rol y estado (<code>active</code>/<code>invited</code>/<code>suspended</code>) que tiene en cada una:
       </p>
+      <pre>
+        <code>{`const { organization, getMemberships, switchOrganization } = useAuth();
+
+const memberships = await getMemberships();
+// [{ id, organizationId, status, roles, organization: { id, name, slug, settings } }, ...]
+
+await switchOrganization(memberships[0].organizationId); // refresca la sesión, el JWT trae los nuevos permisos`}</code>
+      </pre>
       <pre>
         <code>{`import { OrgSwitcher } from "@kontrolia/ui";
 
-<OrgSwitcher organizations={organizations} onSwitched={() => reload()} />`}</code>
+<OrgSwitcher organizations={memberships.map(m => m.organization)} onSwitched={() => reload()} />`}</code>
+      </pre>
+      <p>
+        Un backend separado que solo tiene el bearer token del usuario (sin cookies, sin sesión de navegador)
+        puede pedir lo mismo con <code>listMemberships()</code> de <code>@kontrolia/auth/server</code> — el
+        token mismo autentica la consulta contra Postgres vía Row Level Security, sin necesitar la service-role
+        key:
+      </p>
+      <pre>
+        <code>{`import { listMemberships } from "@kontrolia/auth/server";
+
+const memberships = await listMemberships(request, { supabaseUrl, supabaseAnonKey });`}</code>
       </pre>
 
       <h2>Permisos jerárquicos</h2>

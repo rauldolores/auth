@@ -21,6 +21,7 @@ export function useAuth() {
     requestPasswordReset: client.requestPasswordReset.bind(client),
     updatePassword: client.updatePassword.bind(client),
     updateProfile: client.updateProfile.bind(client),
+    getMemberships: client.getMemberships.bind(client),
     switchOrganization: client.switchOrganization.bind(client),
     buildOAuthServerAuthorizeUrl: client.buildOAuthServerAuthorizeUrl.bind(client),
     exchangeOAuthServerCode: client.exchangeOAuthServerCode.bind(client),
