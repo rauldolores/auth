@@ -1,6 +1,7 @@
 import { type PermissionChecker, createPermissionChecker } from "@kontrolia/permissions";
-import type { KontroliaTokenClaims } from "@kontrolia/shared";
+import type { KontroliaTokenClaims, KontroliaUser } from "@kontrolia/shared";
 import { type JWTVerifyResult, createRemoteJWKSet, jwtVerify } from "jose";
+import { mapToKontroliaUser } from "./user-mapping.js";
 
 export interface VerifyRequestConfig {
   /** Base Supabase URL, e.g. https://<project>.supabase.co or your self-hosted Kong URL. */
@@ -10,6 +11,29 @@ export interface VerifyRequestConfig {
 export interface VerifiedRequest {
   claims: KontroliaTokenClaims;
   checker: PermissionChecker;
+  /**
+   * The profile fields already carried by every Supabase-issued access
+   * token (email, full name, avatar, locale, timezone) — no extra query.
+   * `lastSeenAt` is always null here: it's the one KontroliaUser field
+   * GoTrue doesn't put in the token, only in the client-side Session.user
+   * object (see @kontrolia/auth's getUser()).
+   */
+  user: KontroliaUser;
+}
+
+/**
+ * Maps decoded JWT claims to the same KontroliaUser shape the client SDK's
+ * getUser() returns — everything here already came from the verified token,
+ * so this never does I/O. verifyRequest() calls this for you; exported
+ * separately in case a caller already has claims from elsewhere.
+ */
+export function getUserFromClaims(claims: KontroliaTokenClaims): KontroliaUser {
+  return mapToKontroliaUser({
+    id: claims.sub,
+    email: claims.email,
+    user_metadata: claims.user_metadata,
+    lastSeenAt: null,
+  });
 }
 
 const jwksCache = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
@@ -52,7 +76,7 @@ export async function verifyRequest(request: Request, config: VerifyRequestConfi
     permissions: claims.permissions ?? [],
   });
 
-  return { claims, checker };
+  return { claims, checker, user: getUserFromClaims(claims) };
 }
 
 /** Convenience wrapper for a route/handler that must require a permission. */

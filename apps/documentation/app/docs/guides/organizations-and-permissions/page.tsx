@@ -55,7 +55,7 @@ await switchOrganization(otherOrgId); // refresca la sesión, el JWT trae los nu
       <pre>
         <code>{`import { requirePermission } from "@kontrolia/auth/server";
 
-const { claims } = await requirePermission(request, { supabaseUrl }, "facturacion.facturas.crear");
+const { claims, checker, user } = await requirePermission(request, { supabaseUrl }, "facturacion.facturas.crear");
 // lanza un Response 401/403 si no pasa`}</code>
       </pre>
       <p>
@@ -63,6 +63,14 @@ const { claims } = await requirePermission(request, { supabaseUrl }, "facturacio
         <a href="/docs/examples">examples/express</a>) o NestJS (
         <a href="/docs/examples">examples/nestjs</a>) — el único código específico de cada framework es adaptar
         su objeto de request a un <code>Request</code> estándar.
+      </p>
+      <p>
+        <code>user</code> viene con <code>email</code>, <code>fullName</code>, <code>avatarUrl</code>,{" "}
+        <code>locale</code> y <code>timezone</code> — sin ninguna consulta extra, porque esos campos ya vienen
+        en el token de Supabase. Es exactamente lo que necesita una ruta tipo <code>/api/auth/me</code> que arma
+        el perfil del usuario del lado del servidor. La única excepción es <code>lastSeenAt</code>, que siempre
+        viene <code>null</code> aquí — ese campo no vive en el JWT, solo en el objeto de sesión del navegador (
+        <code>useAuth().user</code>).
       </p>
 
       <h2>Registrar el catálogo de permisos de una aplicación</h2>

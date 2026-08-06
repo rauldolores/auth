@@ -4,6 +4,7 @@ import { createBrowserClient } from "@supabase/ssr";
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
 import { decodeAccessToken } from "./jwt.js";
 import { generatePkcePair } from "./pkce.js";
+import { mapToKontroliaUser } from "./user-mapping.js";
 import type {
   AuthenticatorAssuranceLevel,
   AuthStateListener,
@@ -26,15 +27,12 @@ const KONTROLIA_SCHEMA = "kontrolia";
 function toKontroliaUser(session: Session | null): KontroliaUser | null {
   if (!session?.user) return null;
   const { user } = session;
-  return {
+  return mapToKontroliaUser({
     id: user.id,
-    email: user.email ?? null,
-    fullName: (user.user_metadata?.full_name as string | undefined) ?? null,
-    avatarUrl: (user.user_metadata?.avatar_url as string | undefined) ?? null,
-    locale: (user.user_metadata?.locale as string | undefined) ?? null,
-    timezone: (user.user_metadata?.timezone as string | undefined) ?? null,
-    lastSeenAt: user.last_sign_in_at ?? null,
-  };
+    email: user.email,
+    user_metadata: user.user_metadata,
+    lastSeenAt: user.last_sign_in_at,
+  });
 }
 
 /**
