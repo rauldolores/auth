@@ -93,6 +93,9 @@ importers:
       '@kontrolia/auth':
         specifier: workspace:*
         version: link:../../packages/auth-sdk
+      '@kontrolia/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@kontrolia/next':
         specifier: workspace:*
         version: link:../../packages/next-sdk

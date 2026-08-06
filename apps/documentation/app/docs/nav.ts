@@ -22,6 +22,7 @@ export const NAV_GROUPS: NavGroup[] = [
     title: "Guías",
     items: [
       { href: "/docs/guides/organizations-and-permissions", label: "Organizaciones y permisos" },
+      { href: "/docs/guides/application-registration", label: "Registro de aplicaciones" },
       { href: "/docs/guides/invitations-and-sessions", label: "Invitaciones y sesiones" },
       { href: "/docs/guides/social-login", label: "Login social" },
     ],

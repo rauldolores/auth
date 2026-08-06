@@ -72,13 +72,20 @@ const { claims } = await requirePermission(request, { supabaseUrl }, "facturacio
         <code>application_organizations</code>).
       </p>
       <p>
-        KontrolIA Auth ya usa el servidor OAuth 2.1 nativo de GoTrue (Supabase Auth) — es lo que mantiene a
-        auth-server y admin-panel con la sesión sincronizada aunque vivan en dominios completamente distintos
-        (ver <a href="/docs/architecture">Arquitectura</a>). Lo que todavía no existe es una pantalla en
-        admin-panel para que una organización registre <em>sus propias</em> aplicaciones de terceros con
-        client_id/secret reales, estilo Auth0 — hoy ese registro se hace a mano contra la API de GoTrue (ver el
-        comando <code>curl</code> en <a href="/docs/getting-started">Instalación</a>). Es el siguiente paso del
-        roadmap del proyecto, no algo bloqueado por el estado de beta del servidor OAuth de GoTrue.
+        La primera vez, una aplicación se registra desde el instalador (paso opcional "3 de 3"), que además
+        entrega una clave de sincronización. Con esa clave, la propia aplicación (Facturación, CRM, lo que sea)
+        puede actualizar su catálogo de permisos desde su propio pipeline de despliegue cada vez que cambia — sin
+        volver a tocar la base de datos de KontrolIA Auth ni re-correr el instalador. Ver la guía{" "}
+        <a href="/docs/guides/application-registration">Registro de aplicaciones</a> para el contrato completo
+        (formato del request, ejemplos en curl/Node) que tu aplicación necesita implementar.
+      </p>
+      <p>
+        Esto es un concepto distinto al servidor OAuth 2.1 de GoTrue que ya usa KontrolIA Auth internamente para
+        mantener auth-server y admin-panel con la sesión sincronizada entre dominios (ver{" "}
+        <a href="/docs/architecture">Arquitectura</a>). Una pantalla en admin-panel para que una organización
+        registre <em>sus propias</em> aplicaciones de terceros como clientes OAuth (client_id/secret, para que
+        inicien sesión contra KontrolIA) sigue en el roadmap — hoy ese registro se hace a mano contra la API de
+        GoTrue (ver el comando <code>curl</code> en <a href="/docs/getting-started">Instalación</a>).
       </p>
 
       <h2>Revocación de permisos: por qué no es instantánea</h2>

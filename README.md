@@ -65,6 +65,22 @@ function Dashboard() {
 }
 ```
 
+### ¿Tu aplicación declara sus propios permisos?
+
+Si tu app tiene su propio catálogo de permisos (por ejemplo `facturacion.facturas.crear`) y ese catálogo puede
+cambiar de un despliegue a otro, no hace falta que un operador de KontrolIA Auth lo edite a mano: tu aplicación
+puede mantenerlo sincronizado ella misma, desde su propio pipeline de CI/CD, llamando a un endpoint con una clave
+que se te entrega al registrarla.
+
+```bash
+curl -X POST "$AUTH_SERVER_URL/api/applications/sync" \
+  -H "Authorization: Bearer $KONTROLIA_APPLICATION_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"slug":"facturacion","permissions":[{"resource":"facturas","action":"crear"}]}'
+```
+
+Guía completa (cómo se registra la primera vez, el contrato exacto del request, ejemplos en Node): [Registro de aplicaciones](apps/documentation/app/docs/guides/application-registration).
+
 Paquetes publicados en npm bajo el scope `@kontrolia`:
 
 | Paquete | Para qué |

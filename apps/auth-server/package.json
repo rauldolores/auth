@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@kontrolia/auth": "workspace:*",
+    "@kontrolia/db": "workspace:*",
     "@kontrolia/next": "workspace:*",
     "@kontrolia/permissions": "workspace:*",
     "@kontrolia/react": "workspace:*",

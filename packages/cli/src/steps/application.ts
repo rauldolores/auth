@@ -77,19 +77,38 @@ export async function askApplicationStep(db: DatabaseAnswer): Promise<void> {
 
   const s = p.spinner();
   s.start(`Registrando ${name} (${slug}) y ${permissions.length} permiso(s)`);
+  let apiKey: string | null;
   try {
-    const { permissionKeys } = await registerApplication({
+    const result = await registerApplication({
       connectionString: db.databaseUrl,
       name,
       slug,
       environment,
       permissions,
     });
-    s.stop(`Aplicación ${slug} registrada: ${permissionKeys.join(", ")}`);
+    apiKey = result.apiKey;
+    s.stop(`Aplicación ${slug} registrada: ${result.permissionKeys.join(", ")}`);
   } catch (error) {
     s.stop("No se pudo registrar la aplicación");
     p.log.error((error as Error).message);
     return;
+  }
+
+  if (apiKey) {
+    p.note(
+      `${apiKey}\n\n` +
+        `Guárdala ahora — no se puede volver a mostrar (solo se guarda su hash). Ponla en ${name} como una variable ` +
+        `de entorno (p. ej. KONTROLIA_APPLICATION_API_KEY) y úsala para actualizar su catálogo de permisos desde su ` +
+        `propio pipeline de despliegue, sin volver a tocar esta base de datos — POST {tu-auth-server}/api/applications/sync. ` +
+        `Ver la guía "Registro de aplicaciones" en la documentación para el formato exacto.`,
+      `Clave de sincronización de ${slug}`,
+    );
+  } else {
+    p.note(
+      `${slug} ya existía — su clave de sincronización (si tiene una) no cambió. Si la perdiste, tendrás que borrar ` +
+        "y volver a registrar la aplicación para generar una nueva.",
+      "Aplicación existente",
+    );
   }
 
   p.note(
