@@ -81,6 +81,27 @@ export default function FaqPage() {
           completamente distintos (ver <a href="/docs/architecture">Arquitectura</a>).
         </p>
       </Q>
+      <Q q="¿Un token emitido para una app de mi ecosistema sirve en otra (llamadas servicio-a-servicio entre mis propias apps)?">
+        <p>
+          Sí, siempre que ambas apps verifiquen tokens del <strong>mismo</strong> proyecto Supabase/KontrolIA
+          Auth (el modelo que este producto asume: un identity provider, varias aplicaciones registradas).{" "}
+          <code>verifyRequest()</code>/<code>requirePermission()</code> no revisan ningún claim de{" "}
+          <code>aud</code> — solo la firma contra el JWKS del proyecto y la expiración. No existe (ni hace falta)
+          un equivalente a <code>skipAudience</code>: nunca hubo una restricción de audiencia que quitar. Un
+          usuario logueado en la App A que use un token de esa sesión contra un endpoint de la App B pasa la
+          verificación igual que si fuera un endpoint de la propia App A.
+        </p>
+        <p>
+          Ojo con la distinción: esto cubre un <em>token de sesión de un usuario real</em>, reenviado entre tus
+          apps. Para una llamada máquina-a-máquina sin ningún usuario de por medio (una app autenticándose como
+          sí misma, no en nombre de nadie), no uses un JWT de usuario — usa un secreto propio de esa aplicación,
+          como el que ya genera el registro de aplicaciones para <code>/api/applications/sync</code> (ver{" "}
+          <a href="/docs/guides/application-registration">Registro de aplicaciones</a>). Ese mecanismo hoy solo
+          autoriza la sincronización del catálogo de permisos — generalizarlo para autorizar cualquier llamada
+          servicio-a-servicio es una extensión posible, pero deliberadamente no construida todavía sin un caso de
+          uso concreto que la necesite.
+        </p>
+      </Q>
     </article>
   );
 }
