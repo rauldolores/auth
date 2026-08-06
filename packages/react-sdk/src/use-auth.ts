@@ -22,6 +22,7 @@ export function useAuth() {
     updatePassword: client.updatePassword.bind(client),
     updateProfile: client.updateProfile.bind(client),
     getMemberships: client.getMemberships.bind(client),
+    isPlatformAdmin: client.isPlatformAdmin.bind(client),
     switchOrganization: client.switchOrganization.bind(client),
     buildOAuthServerAuthorizeUrl: client.buildOAuthServerAuthorizeUrl.bind(client),
     exchangeOAuthServerCode: client.exchangeOAuthServerCode.bind(client),

@@ -102,6 +102,29 @@ export default function ArchitecturePage() {
         refresh de sesión, así que el hook vuelve a correr con la nueva organización activa.
       </p>
 
+      <h2>Platform admins: la única claim cross-tenant</h2>
+      <p>
+        Todo lo anterior es deliberadamente scoped a una sola organización — no hay forma de que{" "}
+        <code>roles</code>/<code>permissions</code> digan nada sobre más de una a la vez. Pero una consola
+        operativa (soporte, monitoreo, facturación de la plataforma) sí necesita ver <em>todas</em> las
+        organizaciones. En vez de que cada aplicación invente su propio permiso tipo{" "}
+        <code>facturacion.admin.ver_todo</code> — cada uno con su propio criterio de qué significa "admin" — hay
+        una única claim reservada, fuera del namespace <code>&lt;app&gt;.&lt;recurso&gt;.&lt;acción&gt;</code>:
+      </p>
+      <pre>
+        <code>{`is_platform_admin: boolean`}</code>
+      </pre>
+      <p>
+        Alimentada por <code>kontrolia.platform_admins</code> (un <code>user_id</code> por fila, sin UI de
+        autoservicio todavía — se otorga insertando directo en la base, el mismo patrón que habilitar una
+        aplicación en una organización). El hook la calcula igual que <code>roles</code>/<code>permissions</code>
+        , así que también queda tan fresca como el token (hasta su TTL). Del lado del cliente:{" "}
+        <code>client.isPlatformAdmin()</code>; del lado del servidor, <code>claims.is_platform_admin</code> de{" "}
+        <code>verifyRequest()</code>. Qué hace tu aplicación con ese booleano — qué endpoints desbloquea, qué
+        bypassea RLS vía service-role — sigue siendo decisión tuya; KontrolIA Auth solo garantiza que la
+        identidad es confiable.
+      </p>
+
       <h2>RLS: quién puede ver/escribir qué</h2>
       <p>
         Cada tabla tiene Row Level Security. El patrón general: los miembros de una organización pueden ver

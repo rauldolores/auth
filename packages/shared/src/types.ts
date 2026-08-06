@@ -43,6 +43,14 @@ export interface KontroliaTokenClaims {
   organization_id: string | null;
   roles: string[];
   permissions: string[];
+  /**
+   * True for a user granted platform-admin status (see
+   * kontrolia.platform_admins) — a reserved claim outside the app
+   * permission-key namespace, for support/ops tooling that needs to see
+   * across every organization instead of just the active one. Not
+   * something an app's own role/permission catalog can grant.
+   */
+  is_platform_admin?: boolean;
   exp: number;
   email?: string | null;
   user_metadata?: {

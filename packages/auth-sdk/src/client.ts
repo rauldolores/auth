@@ -168,6 +168,13 @@ export class KontroliaClient {
     return decodeAccessToken(token)?.permissions ?? [];
   }
 
+  /** True for a user granted cross-tenant platform-admin status — see kontrolia.platform_admins. */
+  async isPlatformAdmin(): Promise<boolean> {
+    const token = await this.getToken();
+    if (!token) return false;
+    return decodeAccessToken(token)?.is_platform_admin ?? false;
+  }
+
   async getChecker(): Promise<PermissionChecker> {
     const [roles, permissions] = await Promise.all([this.getRoles(), this.getPermissions()]);
     return createPermissionChecker({ roles, permissions });
