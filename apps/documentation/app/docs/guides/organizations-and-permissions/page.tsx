@@ -36,6 +36,24 @@ await switchOrganization(memberships[0].organizationId); // refresca la sesión,
 const memberships = await listMemberships(request, { supabaseUrl, supabaseAnonKey });`}</code>
       </pre>
 
+      <h2>Roles: 3 de sistema + uno por aplicación por persona</h2>
+      <p>
+        <code>Owner</code>, <code>Admin</code> y <code>Member</code> son los 3 roles de sistema — generales de
+        toda la instalación, no de una aplicación en particular, y sus permisos no se editan. Cualquier otro rol
+        (personalizado o el "Administrador de &lt;app&gt;" que se crea solo) pertenece a exactamente una
+        aplicación habilitada — así cada aplicación puede tener su propio catálogo de roles (por ejemplo,
+        "Facturación → Contador") sin pisar los de otra. Una persona puede tener un rol distinto en cada
+        aplicación (nunca dos roles a la vez para la misma aplicación — el segundo intento se rechaza), además
+        de su rol de sistema.
+      </p>
+      <p>
+        Al habilitar una aplicación para una organización (ver "Registrar el catálogo de permisos" más abajo),
+        se crea automáticamente un rol "Administrador de &lt;app&gt;" con todos los permisos que esa aplicación
+        declara — se mantiene sincronizado solo cada vez que la aplicación agrega un permiso nuevo a su catálogo,
+        sin que nadie tenga que ir a marcarlo a mano. Owners/admins pueden crear roles personalizados adicionales
+        para esa aplicación desde "Roles" en admin-panel, y gestionar quién tiene cuál desde "Usuarios".
+      </p>
+
       <h2>Permisos jerárquicos</h2>
       <p>
         Cada permiso es una clave de tres segmentos: <code>aplicación.recurso.acción</code> — por ejemplo{" "}

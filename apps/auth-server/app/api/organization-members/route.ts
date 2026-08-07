@@ -48,12 +48,19 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "organizationId es requerido" }, { status: 400, headers: corsHeaders() });
   }
 
+  interface RoleInfo {
+    id: string;
+    name: string;
+    slug: string;
+    application_id: string | null;
+    application: { name: string } | null;
+  }
   interface MembershipWithRoles {
     id: string;
     user_id: string;
     status: string;
     created_at: string;
-    membership_roles: { role: { name: string; slug: string } | null }[];
+    membership_roles: { role: RoleInfo | null }[];
   }
 
   // RLS on the caller's own token is the access check — this only ever
@@ -62,7 +69,9 @@ export async function GET(request: Request) {
   const { data: memberships, error } = await caller
     .schema("kontrolia")
     .from("memberships")
-    .select("id, user_id, status, created_at, membership_roles(role:roles(name, slug))")
+    .select(
+      "id, user_id, status, created_at, membership_roles(role:roles(id, name, slug, application_id, application:applications(name)))",
+    )
     .eq("organization_id", organizationId)
     .returns<MembershipWithRoles[]>();
 
@@ -72,7 +81,7 @@ export async function GET(request: Request) {
   const members = await Promise.all(
     (memberships ?? []).map(async (row) => {
       const { data: user } = await admin.auth.admin.getUserById(row.user_id);
-      const roles = row.membership_roles.map((mr) => mr.role).filter((role): role is { name: string; slug: string } => role !== null);
+      const roles = row.membership_roles.map((mr) => mr.role).filter((role): role is RoleInfo => role !== null);
       return {
         membershipId: row.id,
         userId: row.user_id,

@@ -12,7 +12,9 @@ interface RoleDetail {
   name: string;
   slug: string;
   is_system_role: boolean;
+  grants_all_permissions: boolean;
   organization_id: string | null;
+  application_id: string | null;
 }
 
 interface PermissionRow {
@@ -46,18 +48,27 @@ export default function RoleDetailPage() {
 
     const { data: roleRow } = await supabase
       .from("roles")
-      .select("id, name, slug, is_system_role, organization_id")
+      .select("id, name, slug, is_system_role, grants_all_permissions, organization_id, application_id")
       .eq("id", roleId)
       .maybeSingle();
     setRole(roleRow ?? null);
     if (!roleRow) return;
 
-    const { data: appRows } = await supabase
-      .from("application_organizations")
-      .select("application_id")
-      .eq("organization_id", orgId)
-      .returns<{ application_id: string }[]>();
-    const appIds = (appRows ?? []).map((row) => row.application_id);
+    // Org-wide system roles (Owner/Admin/Member) aren't tied to one
+    // application — show permissions across every app enabled for this org,
+    // same as before. App-scoped roles (custom or the auto-managed
+    // "Administrador de <app>") only ever show that one app's permissions.
+    let appIds: string[];
+    if (roleRow.application_id) {
+      appIds = [roleRow.application_id];
+    } else {
+      const { data: appRows } = await supabase
+        .from("application_organizations")
+        .select("application_id")
+        .eq("organization_id", orgId)
+        .returns<{ application_id: string }[]>();
+      appIds = (appRows ?? []).map((row) => row.application_id);
+    }
 
     if (appIds.length > 0) {
       const { data: permissionRows } = await supabase
@@ -150,9 +161,11 @@ export default function RoleDetailPage() {
           </Badge>
         </div>
         <p className="k-text-sm k-text-muted-foreground">
-          {role.is_system_role
-            ? "Rol de sistema — sus permisos son fijos y no se pueden editar."
-            : "Rol personalizado — activa o desactiva los permisos de las aplicaciones habilitadas para esta organización."}
+          {role.grants_all_permissions
+            ? "Rol automático — siempre tiene todos los permisos de esta aplicación. Se mantiene sincronizado solo cuando la aplicación agrega permisos nuevos; no se edita a mano."
+            : role.is_system_role
+              ? "Rol de sistema — sus permisos son fijos y no se pueden editar."
+              : "Rol personalizado — activa o desactiva los permisos de esta aplicación."}
         </p>
       </div>
 

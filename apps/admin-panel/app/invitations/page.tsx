@@ -8,6 +8,7 @@ import { createKontroliaSchemaClient } from "@/lib/supabase-browser";
 interface RoleOption {
   id: string;
   name: string;
+  application: { name: string } | null;
 }
 
 interface InvitationRow {
@@ -33,9 +34,10 @@ export default function InvitationsPage() {
 
     const { data: roleRows } = await supabase
       .from("roles")
-      .select("id, name")
+      .select("id, name, application:applications(name)")
       .or(`organization_id.is.null,organization_id.eq.${orgId}`)
-      .order("name");
+      .order("name")
+      .returns<RoleOption[]>();
     setRoles(roleRows ?? []);
     if (roleRows?.length && !roleId) setRoleId(roleRows[0]!.id);
 
@@ -117,7 +119,7 @@ export default function InvitationsPage() {
             >
               {roles.map((role) => (
                 <option key={role.id} value={role.id}>
-                  {role.name}
+                  {role.application ? `${role.name} (${role.application.name})` : role.name}
                 </option>
               ))}
             </select>
