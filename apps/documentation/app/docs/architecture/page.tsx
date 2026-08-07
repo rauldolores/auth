@@ -115,14 +115,19 @@ export default function ArchitecturePage() {
         <code>{`is_platform_admin: boolean`}</code>
       </pre>
       <p>
-        Alimentada por <code>kontrolia.platform_admins</code> (un <code>user_id</code> por fila, sin UI de
-        autoservicio todavía — se otorga insertando directo en la base, el mismo patrón que habilitar una
-        aplicación en una organización). El hook la calcula igual que <code>roles</code>/<code>permissions</code>
-        , así que también queda tan fresca como el token (hasta su TTL). Del lado del cliente:{" "}
-        <code>client.isPlatformAdmin()</code>; del lado del servidor, <code>claims.is_platform_admin</code> de{" "}
-        <code>verifyRequest()</code>. Qué hace tu aplicación con ese booleano — qué endpoints desbloquea, qué
-        bypassea RLS vía service-role — sigue siendo decisión tuya; KontrolIA Auth solo garantiza que la
-        identidad es confiable.
+        Alimentada por <code>kontrolia.platform_admins</code> (un <code>user_id</code> por fila). El primer
+        usuario que se registra en una instalación nueva queda ahí automáticamente — un trigger en{" "}
+        <code>auth.users</code> (<code>bootstrap_first_platform_admin()</code>, migración 0017) lo detecta
+        contando que es literalmente el primer signup de la instalación, no solo "la tabla está vacía", para que
+        revocar al único admin más adelante no se lo regale en silencio a quien se registre después. De ahí en
+        adelante, agregar o quitar a alguien más se hace desde admin-panel → "Platform admins" (ver{" "}
+        <a href="/docs/guides/connect-your-app">Conectar tu aplicación</a>) — nadie necesita tocar la base de
+        datos, ni para el primer admin ni para los siguientes. El hook calcula la claim igual que{" "}
+        <code>roles</code>/<code>permissions</code>, así que también queda tan fresca como el token (hasta su
+        TTL). Del lado del cliente: <code>client.isPlatformAdmin()</code>; del lado del servidor,{" "}
+        <code>claims.is_platform_admin</code> de <code>verifyRequest()</code>. Qué hace tu aplicación con ese
+        booleano — qué endpoints desbloquea, qué bypassea RLS vía service-role — sigue siendo decisión tuya;
+        KontrolIA Auth solo garantiza que la identidad es confiable.
       </p>
 
       <h2>RLS: quién puede ver/escribir qué</h2>

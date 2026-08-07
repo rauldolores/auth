@@ -66,7 +66,10 @@ export default function GettingStartedPage() {
       <ol>
         <li>
           Entra a la pantalla de inicio de sesión (por defecto <code>http://localhost:3000</code>) y regístrate
-          en <code>/register</code> con tu correo y una contraseña.
+          en <code>/register</code> con tu correo y una contraseña. Esta primera cuenta queda automáticamente
+          como <em>platform admin</em> de toda la instalación (ve "Platform admins" en la sección "Plataforma"
+          del panel de administración) — desde ahí puedes agregar a alguien más sin volver a tocar la base de
+          datos.
         </li>
         <li>
           En la pantalla de inicio, crea tu primera organización (el nombre de tu equipo/empresa dentro del

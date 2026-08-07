@@ -101,6 +101,19 @@ function IconLink({ className }: IconProps) {
   );
 }
 
+function IconStar({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" className={className} aria-hidden="true">
+      <path
+        d="M8 1.8 9.7 5.6l4.1.4-3.1 2.8.9 4-3.6-2.1-3.6 2.1.9-4-3.1-2.8 4.1-.4L8 1.8Z"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 interface NavItem {
   href: string;
   label: string;
@@ -135,7 +148,10 @@ const NAV_GROUPS: NavGroup[] = [
 
 const PLATFORM_NAV_GROUP: NavGroup = {
   label: "Plataforma",
-  items: [{ href: "/oauth-clients", label: "Clientes OAuth", icon: IconLink }],
+  items: [
+    { href: "/oauth-clients", label: "Clientes OAuth", icon: IconLink },
+    { href: "/platform-admins", label: "Platform admins", icon: IconStar },
+  ],
 };
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
