@@ -101,6 +101,14 @@ const { claims, checker, user } = await requirePermission(request, { supabaseUrl
         (formato del request, ejemplos en curl/Node) que tu aplicación necesita implementar.
       </p>
       <p>
+        Registrar una aplicación la agrega al catálogo global — todavía no la habilita para ninguna
+        organización en particular. Cualquier owner/admin de una organización entra a admin-panel → "Aplicaciones"
+        y la habilita con un clic (misma idea que instalar una app de Slack en un workspace): recién ahí sus
+        permisos aparecen en "Permisos" y se pueden asignar desde "Roles". Es una decisión de cada organización,
+        no del platform admin — dos organizaciones distintas en la misma instalación pueden tener habilitadas
+        aplicaciones completamente distintas.
+      </p>
+      <p>
         Esto es un concepto distinto al servidor OAuth 2.1 de GoTrue que ya usa KontrolIA Auth internamente para
         mantener auth-server y admin-panel con la sesión sincronizada entre dominios (ver{" "}
         <a href="/docs/architecture">Arquitectura</a>). Registrar una app como cliente OAuth (para que inicie
