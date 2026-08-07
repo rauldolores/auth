@@ -21,6 +21,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     title: "Guías",
     items: [
+      { href: "/docs/guides/connect-your-app", label: "Conectar tu aplicación" },
       { href: "/docs/guides/organizations-and-permissions", label: "Organizaciones y permisos" },
       { href: "/docs/guides/application-registration", label: "Registro de aplicaciones" },
       { href: "/docs/guides/invitations-and-sessions", label: "Invitaciones y sesiones" },

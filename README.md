@@ -65,6 +65,13 @@ function Dashboard() {
 }
 ```
 
+### ¿Tu app vive en un dominio distinto al de auth-server?
+
+Si tu aplicación (propia, o un SaaS de terceros de tu ecosistema) necesita que sus usuarios inicien sesión a
+través de auth-server pero vive en un dominio completamente distinto, no basta con una cookie compartida — usa
+el servidor OAuth 2.1 nativo de KontrolIA Auth (el mismo mecanismo que ya usa el panel de administración). Guía
+completa, con el registro del cliente y el código exacto: [Conectar tu aplicación](apps/documentation/app/docs/guides/connect-your-app).
+
 ### ¿Tu aplicación declara sus propios permisos?
 
 Si tu app tiene su propio catálogo de permisos (por ejemplo `facturacion.facturas.crear`) y ese catálogo puede

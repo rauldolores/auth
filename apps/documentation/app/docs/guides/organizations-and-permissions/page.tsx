@@ -103,10 +103,10 @@ const { claims, checker, user } = await requirePermission(request, { supabaseUrl
       <p>
         Esto es un concepto distinto al servidor OAuth 2.1 de GoTrue que ya usa KontrolIA Auth internamente para
         mantener auth-server y admin-panel con la sesión sincronizada entre dominios (ver{" "}
-        <a href="/docs/architecture">Arquitectura</a>). Una pantalla en admin-panel para que una organización
-        registre <em>sus propias</em> aplicaciones de terceros como clientes OAuth (client_id/secret, para que
-        inicien sesión contra KontrolIA) sigue en el roadmap — hoy ese registro se hace a mano contra la API de
-        GoTrue (ver el comando <code>curl</code> en <a href="/docs/getting-started">Instalación</a>).
+        <a href="/docs/architecture">Arquitectura</a>). Registrar una app como cliente OAuth (para que inicie
+        sesión contra KontrolIA Auth) se hace desde admin-panel — sección "Clientes OAuth" del menú, visible
+        solo para platform admins — sin necesitar acceso directo a la base de datos ni la service-role key. Ver{" "}
+        <a href="/docs/guides/connect-your-app">Conectar tu aplicación</a>.
       </p>
 
       <h2>Revocación de permisos: por qué no es instantánea</h2>

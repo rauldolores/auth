@@ -69,8 +69,10 @@ export default function ApplicationsPage() {
           Aplicaciones habilitadas para {organization.name} y el catálogo de permisos que cada una declara. Cada
           aplicación mantiene su propio catálogo sincronizado desde su pipeline de despliegue (ver la guía
           "Registro de aplicaciones" en la documentación) — lo que se ve aquí se actualiza solo, sin que nadie lo
-          edite a mano. Una pantalla para registrar aquí tus propias aplicaciones de terceros (client_id/secret
-          reales, vía OAuth 2.1) está en el roadmap — mientras tanto se habilitan a nivel de plataforma.
+          edite a mano. Habilitar una aplicación para esta organización sigue siendo a nivel de plataforma por
+          ahora. Si lo que buscas es dar de alta un cliente OAuth (para que otra app inicie sesión vía
+          auth-server), eso ya no está aquí — ver "Clientes OAuth" en el menú (solo visible para platform
+          admins).
         </p>
       </div>
       <Card className="k-p-0">

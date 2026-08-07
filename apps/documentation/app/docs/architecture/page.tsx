@@ -155,11 +155,15 @@ export default function ArchitecturePage() {
         autenticado.
       </p>
 
-      <h2>SSO entre auth-server y admin-panel</h2>
+      <h2>SSO entre auth-server y cualquier app cliente</h2>
       <p>
         auth-server y admin-panel son dos apps Next.js separadas (ver{" "}
-        <a href="/docs/faq">FAQ, "¿por qué dos proyectos?"</a>) que necesitan compartir la misma sesión. Hay dos
-        mecanismos, y cuál se usa depende de dónde vivan:
+        <a href="/docs/faq">FAQ, "¿por qué dos proyectos?"</a>) que necesitan compartir la misma sesión — pero
+        el mecanismo que las conecta no es exclusivo de ellas dos. Cualquier aplicación (propia, o un SaaS de
+        terceros dentro de tu ecosistema) que quiera que sus usuarios inicien sesión vía auth-server usa
+        exactamente el mismo camino; admin-panel es solo el ejemplo que ya viene resuelto de fábrica. Ver{" "}
+        <a href="/docs/guides/connect-your-app">Conectar tu aplicación</a> para el paso a paso genérico. Hay dos
+        mecanismos, y cuál se usa depende de dónde viva la app cliente:
       </p>
       <ul>
         <li>

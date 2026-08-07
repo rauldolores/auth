@@ -196,6 +196,13 @@ enabled = true`}</code>
         <code>.env.local</code> del panel de administración (o en <code>OAUTH_CLIENT_ID</code> de{" "}
         <code>docker/.env</code> si despliegas con Docker).
       </p>
+      <p>
+        Esto es específico de admin-panel — si tienes <strong>otra</strong> aplicación (propia o de un tercero)
+        que también necesita que sus usuarios inicien sesión vía auth-server, no hace falta repetir este comando
+        a mano: cualquier platform admin puede registrarla desde admin-panel → "Clientes OAuth". Ver{" "}
+        <a href="/docs/guides/connect-your-app">Conectar tu aplicación</a> para el paso a paso completo (incluida
+        la alternativa por API si prefieres scriptearlo).
+      </p>
 
       <h4>Si conectas a un proyecto Supabase CLI existente</h4>
       <p>

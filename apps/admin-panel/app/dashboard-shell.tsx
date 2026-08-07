@@ -4,7 +4,7 @@ import { AuthGuard, useAuth } from "@kontrolia/react";
 import { OrgSwitcher, UnauthorizedScreen, UserMenu } from "@kontrolia/ui";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { OAUTH_CODE_VERIFIER_KEY } from "@/lib/oauth";
 import { useOrganizations } from "@/lib/use-organizations";
 
@@ -87,6 +87,20 @@ function IconClock({ className }: IconProps) {
   );
 }
 
+function IconLink({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" className={className} aria-hidden="true">
+      <path
+        d="M6.5 9.5 9.5 6.5M6.8 4.3 8 3.1a2.5 2.5 0 0 1 3.5 3.5l-1.2 1.2M9.2 11.7 8 12.9a2.5 2.5 0 0 1-3.5-3.5l1.2-1.2"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 interface NavItem {
   href: string;
   label: string;
@@ -119,10 +133,35 @@ const NAV_GROUPS: NavGroup[] = [
   { label: "Configuración", items: [{ href: "/audit-logs", label: "Audit log", icon: IconClock }] },
 ];
 
+const PLATFORM_NAV_GROUP: NavGroup = {
+  label: "Plataforma",
+  items: [{ href: "/oauth-clients", label: "Clientes OAuth", icon: IconLink }],
+};
+
 export function DashboardShell({ children }: { children: React.ReactNode }) {
-  const { organization, isAuthenticated, isLoading: authLoading, buildOAuthServerAuthorizeUrl } = useAuth();
+  const {
+    organization,
+    isAuthenticated,
+    isLoading: authLoading,
+    buildOAuthServerAuthorizeUrl,
+    isPlatformAdmin,
+  } = useAuth();
   const { organizations, isLoading: orgsLoading, reload } = useOrganizations(isAuthenticated);
   const pathname = usePathname();
+  const [platformAdmin, setPlatformAdmin] = useState(false);
+
+  // Only visible to platform admins — registering an OAuth client affects
+  // every organization, not just the active one. The page itself checks
+  // this again independently (a hidden nav link isn't access control).
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setPlatformAdmin(false);
+      return;
+    }
+    void isPlatformAdmin().then(setPlatformAdmin);
+  }, [isAuthenticated, isPlatformAdmin]);
+
+  const navGroups = platformAdmin ? [...NAV_GROUPS, PLATFORM_NAV_GROUP] : NAV_GROUPS;
   // /oauth/callback manages its own auth/loading UI while the code exchange
   // is in flight — during that window isAuthenticated is still false, and
   // wrapping it in the same guard below would race: this effect would fire
@@ -203,7 +242,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           </div>
 
           <nav className="k-flex k-flex-1 k-flex-col k-gap-4 k-overflow-y-auto">
-            {NAV_GROUPS.map((group, index) => (
+            {navGroups.map((group, index) => (
               <div key={group.label ?? `group-${index}`}>
                 {group.label && (
                   <p className="k-mb-1 k-px-3 k-text-[10px] k-font-semibold k-uppercase k-tracking-wide k-text-sidebar-muted">

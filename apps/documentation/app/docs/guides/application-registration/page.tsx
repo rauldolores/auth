@@ -11,6 +11,11 @@ export default function ApplicationRegistrationPage() {
         agrega o cambia permisos, sin depender de que un operador de KontrolIA Auth toque la base de datos por
         ti.
       </p>
+      <p>
+        <strong>¿Buscas cómo hacer que los usuarios de tu app inicien sesión a través de auth-server?</strong>{" "}
+        Esto no es esa guía — el catálogo de permisos no tiene nada que ver con el login. Ver{" "}
+        <a href="/docs/guides/connect-your-app">Conectar tu aplicación</a>.
+      </p>
 
       <h2>Primera vez: alta desde el instalador</h2>
       <p>
