@@ -22,6 +22,10 @@ export default function OAuthClientsPage() {
   const [error, setError] = useState<string | null>(null);
   const [lastClientId, setLastClientId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editingClientId, setEditingClientId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editRedirectUris, setEditRedirectUris] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
   async function loadClients() {
     const token = await getToken();
@@ -68,6 +72,44 @@ export default function OAuthClientsPage() {
       setError(err instanceof Error ? err.message : "No se pudo registrar el cliente.");
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  function startEditing(client: OAuthClientRow) {
+    setError(null);
+    setEditingClientId(client.client_id);
+    setEditName(client.client_name);
+    setEditRedirectUris(client.redirect_uris.join("\n"));
+  }
+
+  function cancelEditing() {
+    setEditingClientId(null);
+    setEditName("");
+    setEditRedirectUris("");
+  }
+
+  async function handleSaveEdit(clientId: string) {
+    setError(null);
+    setIsSaving(true);
+    try {
+      const token = await getToken();
+      const uris = editRedirectUris
+        .split("\n")
+        .map((uri) => uri.trim())
+        .filter(Boolean);
+      const response = await fetch(`${AUTH_SERVER_URL}/api/oauth-clients?clientId=${clientId}`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ client_name: editName, redirect_uris: uris }),
+      });
+      const data = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(data.error ?? "No se pudo guardar el cliente.");
+      cancelEditing();
+      await loadClients();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo guardar el cliente.");
+    } finally {
+      setIsSaving(false);
     }
   }
 
@@ -149,24 +191,72 @@ export default function OAuthClientsPage() {
               <th className="k-px-5 k-py-3 k-font-semibold">Nombre</th>
               <th className="k-px-5 k-py-3 k-font-semibold">client_id</th>
               <th className="k-px-5 k-py-3 k-font-semibold">Redirect URIs</th>
+              <th className="k-px-5 k-py-3 k-font-semibold" />
             </tr>
           </thead>
           <tbody>
-            {clients?.map((client) => (
-              <tr key={client.client_id} className="k-border-b k-border-border last:k-border-0">
-                <td className="k-px-5 k-py-3 k-font-medium">{client.client_name}</td>
-                <td className="k-px-5 k-py-3">
-                  <code className="k-text-xs k-text-muted-foreground">{client.client_id}</code>
-                </td>
-                <td className="k-px-5 k-py-3">
-                  {client.redirect_uris.map((uri) => (
-                    <Badge key={uri} variant="neutral" className="k-mr-1 k-mb-1">
-                      {uri}
-                    </Badge>
-                  ))}
-                </td>
-              </tr>
-            ))}
+            {clients?.map((client) =>
+              editingClientId === client.client_id ? (
+                <tr key={client.client_id} className="k-border-b k-border-border last:k-border-0">
+                  <td className="k-px-5 k-py-3" colSpan={3}>
+                    <div className="k-flex k-flex-col k-gap-2">
+                      <input
+                        type="text"
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        className="k-rounded-md k-border k-border-border k-bg-background k-px-3 k-py-2 k-text-sm"
+                      />
+                      <textarea
+                        rows={3}
+                        value={editRedirectUris}
+                        onChange={(e) => setEditRedirectUris(e.target.value)}
+                        className="k-rounded-md k-border k-border-border k-bg-background k-px-3 k-py-2 k-font-mono k-text-sm"
+                      />
+                    </div>
+                  </td>
+                  <td className="k-px-5 k-py-3 k-text-right k-align-top k-whitespace-nowrap">
+                    <button
+                      type="button"
+                      disabled={isSaving || !editName.trim() || !editRedirectUris.trim()}
+                      onClick={() => void handleSaveEdit(client.client_id)}
+                      className="k-mr-3 k-text-sm k-font-medium k-text-primary hover:k-underline disabled:k-opacity-60"
+                    >
+                      Guardar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={cancelEditing}
+                      className="k-text-sm k-text-muted-foreground hover:k-underline"
+                    >
+                      Cancelar
+                    </button>
+                  </td>
+                </tr>
+              ) : (
+                <tr key={client.client_id} className="k-border-b k-border-border last:k-border-0">
+                  <td className="k-px-5 k-py-3 k-font-medium">{client.client_name}</td>
+                  <td className="k-px-5 k-py-3">
+                    <code className="k-text-xs k-text-muted-foreground">{client.client_id}</code>
+                  </td>
+                  <td className="k-px-5 k-py-3">
+                    {client.redirect_uris.map((uri) => (
+                      <Badge key={uri} variant="neutral" className="k-mr-1 k-mb-1">
+                        {uri}
+                      </Badge>
+                    ))}
+                  </td>
+                  <td className="k-px-5 k-py-3 k-text-right">
+                    <button
+                      type="button"
+                      onClick={() => startEditing(client)}
+                      className="k-text-sm k-text-muted-foreground hover:k-underline"
+                    >
+                      Editar
+                    </button>
+                  </td>
+                </tr>
+              ),
+            )}
           </tbody>
         </table>
         {clients?.length === 0 && (

@@ -16,7 +16,7 @@ function corsHeaders(): HeadersInit {
   return origin
     ? {
         "Access-Control-Allow-Origin": origin,
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, OPTIONS",
         "Access-Control-Allow-Headers": "Authorization, Content-Type",
       }
     : {};
@@ -74,6 +74,35 @@ export async function POST(request: Request) {
       client_type: "public",
       token_endpoint_auth_method: "none",
     }),
+  });
+  const data = await response.json();
+  return NextResponse.json(data, { status: response.status, headers: corsHeaders() });
+}
+
+export async function PUT(request: Request) {
+  const denied = await authorizePlatformAdmin(request);
+  if (denied) return denied;
+
+  const clientId = new URL(request.url).searchParams.get("clientId");
+  if (!clientId) {
+    return NextResponse.json({ error: "clientId es requerido" }, { status: 400, headers: corsHeaders() });
+  }
+
+  const body = (await request.json().catch(() => null)) as { client_name?: string; redirect_uris?: string[] } | null;
+  if (!body?.client_name || !body.redirect_uris?.length) {
+    return NextResponse.json(
+      { error: "client_name y redirect_uris son requeridos" },
+      { status: 400, headers: corsHeaders() },
+    );
+  }
+
+  const response = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/oauth/clients/${clientId}`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ client_name: body.client_name, redirect_uris: body.redirect_uris }),
   });
   const data = await response.json();
   return NextResponse.json(data, { status: response.status, headers: corsHeaders() });
