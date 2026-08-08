@@ -1,5 +1,14 @@
 # create-kontrolia-auth
 
+## 1.1.3
+
+### Patch Changes
+
+- Updated dependencies [31fc1a7]
+- Updated dependencies [b72d710]
+- Updated dependencies [9cab90f]
+  - @kontrolia/db@1.3.0
+
 ## 1.1.2
 
 ### Patch Changes

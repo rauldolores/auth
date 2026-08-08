@@ -1,5 +1,13 @@
 # @kontrolia/db
 
+## 1.3.0
+
+### Minor Changes
+
+- 31fc1a7: Custom roles now belong to exactly one application instead of being able to span several — each enabled application can define its own catalog of roles (e.g. "Facturación → Contador"), and a membership can hold at most one role per application (enforced by a new trigger). Enabling an application for an organization now also auto-creates an "Administrador de `<app>`" role holding every permission that application currently declares; it stays in sync automatically whenever the application registers a new permission, so nobody has to remember to re-grant it by hand. The 3 global system roles (Owner/Admin/Member) are unchanged — still organization-wide, shared, and immutable.
+- b72d710: The very first user to sign up on a fresh installation is now automatically granted platform-admin status (migration `0017_bootstrap_first_platform_admin.sql`) — closing the bootstrapping gap where granting the very first platform admin required direct database access, something a non-technical operator running `npx create-kontrolia-auth` shouldn't have to do. Guarded so it only ever fires once, on a genuinely fresh install (checks `auth.users` count, not just whether `kontrolia.platform_admins` happens to be empty) — revoking the sole platform admin later never silently hands the role to the next random signup.
+- 9cab90f: Organization admins/owners can now enable or disable a registered application for their own organization directly from admin-panel — closing a gap where `kontrolia.application_organizations` had no write policy, so nothing ever populated it and Aplicaciones/Permisos/Roles stayed empty even after registering an application. The application catalog itself is also now browsable by any authenticated user (previously an app only became visible once already enabled for one of your orgs, a chicken-and-egg problem).
+
 ## 1.2.0
 
 ### Minor Changes
