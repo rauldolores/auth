@@ -32,11 +32,20 @@ pnpm --filter create-kontrolia-auth dev
 
 ## Subcomandos
 
-| Comando                               | Qué hace                                                    |
-| ------------------------------------- | ----------------------------------------------------------- |
-| `npx create-kontrolia-auth [carpeta]` | Instalación completa (el flujo de arriba).                  |
-| `npx create-kontrolia-auth migrate`   | Aplica/re-aplica las migraciones contra una base existente. |
-| `npx create-kontrolia-auth doctor`    | Solo revisa que tengas Node, pnpm, git y Docker.            |
+| Comando                               | Qué hace                                                                     |
+| ------------------------------------- | ----------------------------------------------------------------------------- |
+| `npx create-kontrolia-auth [carpeta]` | Instalación completa (el flujo de arriba).                                   |
+| `npx create-kontrolia-auth update`    | Descarga el código nuevo (`git pull`) sobre una copia ya instalada, instala dependencias, y aplica las migraciones nuevas. |
+| `npx create-kontrolia-auth migrate`   | Aplica/re-aplica las migraciones contra una base existente.                  |
+| `npx create-kontrolia-auth doctor`    | Solo revisa que tengas Node, pnpm, git y Docker.                             |
 
 Las migraciones son **idempotentes** (solo tocan el schema `kontrolia_auth`), así
 que `migrate` es seguro de correr las veces que necesites.
+
+`update` es para quien instaló con `npx create-kontrolia-auth mi-app` y ya
+tiene esa carpeta corriendo — no descarta cambios locales (se detiene si hay
+algo sin guardar) y solo avanza si puede hacer fast-forward sobre `origin/main`.
+Si usas los paquetes `@kontrolia/*` como dependencias npm en tu propia
+aplicación (en vez de tener este repo clonado), actualízalos como a cualquier
+otra dependencia (`pnpm update @kontrolia/db` etc.) y vuelve a correr tu
+propio paso de migración — `update` no aplica a ese caso.

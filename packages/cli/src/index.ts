@@ -7,6 +7,7 @@ import { askDeploymentStep } from "./steps/deployment.js";
 import { bringUpAndMigrate } from "./utils/docker.js";
 import { runPreflight } from "./utils/preflight.js";
 import { ensureRepo, isInsideRepo } from "./utils/scaffold.js";
+import { pullLatest } from "./utils/update.js";
 
 /** Applies the schema against an already-reachable database, with a spinner. */
 async function migrateWithSpinner(connectionString: string): Promise<boolean> {
@@ -46,6 +47,55 @@ async function runDoctor() {
   p.intro("KontrolIA Auth — diagnóstico del entorno");
   const ok = runPreflight({ git: true, docker: true });
   p.outro(ok ? "Todo listo para instalar." : "Instala lo marcado con ✗ y vuelve a correr.");
+}
+
+/**
+ * `create-kontrolia-auth update` — pulls the latest code into an existing
+ * self-hosted clone and re-applies migrations. Only makes sense from inside
+ * a clone (this is not how someone consuming @kontrolia/* as npm
+ * dependencies in their own app updates — for that, bumping the package
+ * versions and re-running the app's own migrate step is the right path).
+ */
+async function runUpdateCommand() {
+  console.clear();
+  p.intro("KontrolIA Auth — actualizar instalación");
+
+  if (!isInsideRepo(process.cwd())) {
+    p.log.error(
+      "Este comando actualiza una copia clonada de KontrolIA Auth — corre esto dentro de la carpeta donde instalaste todo (la que tiene docker/docker-compose.yml).",
+    );
+    p.outro("Nada que hacer aquí.");
+    process.exitCode = 1;
+    return;
+  }
+
+  if (!runPreflight({ git: true })) {
+    p.outro("Instala lo que falta (arriba) y vuelve a correr.");
+    process.exitCode = 1;
+    return;
+  }
+
+  const updated = await pullLatest(process.cwd());
+  if (!updated) {
+    process.exitCode = 1;
+    return;
+  }
+
+  const url = await p.text({
+    message: "Connection string de Postgres (para aplicar las migraciones nuevas, si hay)",
+    placeholder: "postgres://postgres:...@host:5432/postgres",
+  });
+  if (p.isCancel(url) || !url) {
+    p.outro("Código actualizado. Corre `npx create-kontrolia-auth migrate` cuando quieras aplicar la base de datos.");
+    return;
+  }
+
+  const migrated = await migrateWithSpinner(url);
+  p.outro(
+    migrated
+      ? "Listo. Si despliegas con Docker: `docker compose -f docker/docker-compose.yml up -d --build`. Si usas Vercel/Railway/Render/Coolify, vuelve a desplegar (push a tu rama, o su CLI) para que tomen el código nuevo."
+      : "El código ya está actualizado, pero revisa el error de las migraciones antes de redesplegar.",
+  );
 }
 
 /** Default flow: preflight → (scaffold if outside repo) → DB → migrate → app → deploy. */
@@ -117,6 +167,7 @@ async function main() {
 
   if (first === "migrate") return runMigrateCommand();
   if (first === "doctor") return runDoctor();
+  if (first === "update") return runUpdateCommand();
 
   // `create <dir>` / `install <dir>` / `<dir>` / (nothing) all reach install.
   const dir = first === "create" || first === "install" ? args[1] : first;
