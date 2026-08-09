@@ -34,7 +34,7 @@ export default function TroubleshootingPage() {
         symptom='El registro de un usuario nuevo devuelve 500 en /auth/v1/signup'
         cause={
           <p>
-            <code>kontrolia.custom_access_token_hook</code> hace{" "}
+            <code>kontrolia_auth.custom_access_token_hook</code> hace{" "}
             <code>jsonb_set(claims, &apos;&#123;organization_id&#125;&apos;, to_jsonb(active_org_id))</code>. Para
             un usuario sin organización todavía, <code>active_org_id</code> es <code>NULL</code>, y{" "}
             <code>to_jsonb(NULL::uuid)</code> es <code>NULL</code> de SQL — no un <code>jsonb null</code>. Como{" "}
@@ -51,16 +51,16 @@ export default function TroubleshootingPage() {
       />
 
       <Issue
-        symptom={`PostgREST responde "Could not find the table 'public.X' in the schema cache" (404) o "Invalid schema: kontrolia"`}
+        symptom={`PostgREST responde "Could not find the table 'public.X' in the schema cache" (404) o "Invalid schema: kontrolia_auth"`}
         cause={
           <p>
             Por defecto PostgREST solo expone los schemas <code>public</code> y <code>graphql_public</code>. El
-            schema <code>kontrolia</code> no está en esa lista hasta que se agrega explícitamente.
+            schema <code>kontrolia_auth</code> no está en esa lista hasta que se agrega explícitamente.
           </p>
         }
         fix={
           <p>
-            Supabase CLI: agrega <code>&quot;kontrolia&quot;</code> a <code>[api] schemas</code> en{" "}
+            Supabase CLI: agrega <code>&quot;kontrolia_auth&quot;</code> a <code>[api] schemas</code> en{" "}
             <code>config.toml</code> y reinicia con <code>supabase stop &amp;&amp; supabase start</code>{" "}
             (PostgREST necesita reiniciar para tomar el cambio). Docker propio: ya viene en{" "}
             <code>PGRST_DB_SCHEMAS</code> de <code>docker/docker-compose.yml</code>.
@@ -108,17 +108,17 @@ export default function TroubleshootingPage() {
       />
 
       <Issue
-        symptom='La ruta de aceptar invitación (o cualquier código que use el service role) falla con "permission denied for schema kontrolia"'
+        symptom='La ruta de aceptar invitación (o cualquier código que use el service role) falla con "permission denied for schema kontrolia_auth"'
         cause={
           <p>
             <code>service_role</code> tiene <code>BYPASSRLS</code>, pero eso es independiente de los{" "}
             <code>GRANT</code> a nivel de schema/tabla — nunca se le otorgó <code>USAGE</code> sobre el schema{" "}
-            <code>kontrolia</code>.
+            <code>kontrolia_auth</code>.
           </p>
         }
         fix={
           <p>
-            <code>grant usage on schema kontrolia to service_role;</code> más los grants de tabla — ya en{" "}
+            <code>grant usage on schema kontrolia_auth to service_role;</code> más los grants de tabla — ya en{" "}
             <code>packages/db/migrations/0008_grants_and_hook_permissions.sql</code>.
           </p>
         }
@@ -142,7 +142,7 @@ export default function TroubleshootingPage() {
       />
 
       <Issue
-        symptom="Consultas contra el schema kontrolia devuelven 404 aunque el cliente se creó con { db: { schema: 'kontrolia' } }"
+        symptom="Consultas contra el schema kontrolia_auth devuelven 404 aunque el cliente se creó con { db: { schema: 'kontrolia_auth' } }"
         cause={
           <p>
             <code>createBrowserClient</code> de <code>@supabase/ssr</code> no reenvía la opción{" "}
@@ -152,7 +152,7 @@ export default function TroubleshootingPage() {
         }
         fix={
           <p>
-            Llamar <code>.schema(&quot;kontrolia&quot;)</code> explícito en cada query (o guardar el resultado
+            Llamar <code>.schema(&quot;kontrolia_auth&quot;)</code> explícito en cada query (o guardar el resultado
             de esa llamada y reusarlo), en vez de confiar en la opción del constructor.
           </p>
         }

@@ -3,7 +3,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { NextResponse } from "next/server";
 
 /**
- * kontrolia.memberships has no email column (that lives in auth.users,
+ * kontrolia_auth.memberships has no email column (that lives in auth.users,
  * which RLS-scoped browser queries can never reach) — admin-panel's Users
  * page could only ever show a raw user_id. This resolves emails
  * server-side, but only for membership rows the caller's own token can
@@ -67,7 +67,7 @@ export async function GET(request: Request) {
   // returns rows for an org the caller already belongs to.
   const caller = scopedClient(token);
   const { data: memberships, error } = await caller
-    .schema("kontrolia")
+    .schema("kontrolia_auth")
     .from("memberships")
     .select(
       "id, user_id, status, created_at, membership_roles(role:roles(id, name, slug, application_id, application:applications(name)))",
@@ -116,7 +116,7 @@ export async function DELETE(request: Request) {
   }
 
   const { data: membership } = await caller
-    .schema("kontrolia")
+    .schema("kontrolia_auth")
     .from("memberships")
     .select("organization_id, membership_roles(role:roles(slug))")
     .eq("id", membershipId)
@@ -127,7 +127,7 @@ export async function DELETE(request: Request) {
 
   if (membership && roleSlugs.includes("owner")) {
     const { data: ownerRole } = await caller
-      .schema("kontrolia")
+      .schema("kontrolia_auth")
       .from("roles")
       .select("id")
       .is("organization_id", null)
@@ -135,7 +135,7 @@ export async function DELETE(request: Request) {
       .single();
 
     const { count: ownerCount } = await caller
-      .schema("kontrolia")
+      .schema("kontrolia_auth")
       .from("membership_roles")
       .select("membership_id, memberships!inner(organization_id)", { count: "exact", head: true })
       .eq("role_id", ownerRole?.id)
@@ -149,7 +149,7 @@ export async function DELETE(request: Request) {
     }
   }
 
-  const { error } = await caller.schema("kontrolia").from("memberships").delete().eq("id", membershipId);
+  const { error } = await caller.schema("kontrolia_auth").from("memberships").delete().eq("id", membershipId);
   if (error) return NextResponse.json({ error: error.message }, { status: 500, headers: corsHeaders() });
 
   return new NextResponse(null, { status: 204, headers: corsHeaders() });

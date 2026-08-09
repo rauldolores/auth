@@ -20,7 +20,7 @@ export async function GET() {
   }
 
   const { data, error } = await supabase
-    .schema("kontrolia")
+    .schema("kontrolia_auth")
     .from("memberships")
     .select("organization:organizations(id, name, slug)")
     .eq("user_id", user.id)
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "name and slug are required" }, { status: 400 });
   }
 
-  // The kontrolia.on_organization_created trigger auto-enrolls the caller as
+  // The kontrolia_auth.on_organization_created trigger auto-enrolls the caller as
   // Owner in the same transaction — no separate membership call needed.
   //
   // Deliberately NOT using .select().single() (INSERT ... RETURNING) here:
@@ -51,14 +51,14 @@ export async function POST(request: Request) {
   // RETURNING row intermittently fails RLS even though the insert itself
   // succeeded. A follow-up SELECT in a fresh statement sees it correctly.
   const { error: insertError } = await supabase
-    .schema("kontrolia")
+    .schema("kontrolia_auth")
     .from("organizations")
     .insert({ name: body.name, slug: body.slug });
 
   if (insertError) return NextResponse.json({ error: insertError.message }, { status: 400 });
 
   const { data, error } = await supabase
-    .schema("kontrolia")
+    .schema("kontrolia_auth")
     .from("organizations")
     .select("id, name, slug")
     .eq("slug", body.slug)

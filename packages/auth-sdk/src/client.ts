@@ -23,7 +23,7 @@ import type {
   UpdateProfileInput,
 } from "./types.js";
 
-const KONTROLIA_SCHEMA = "kontrolia";
+const KONTROLIA_SCHEMA = "kontrolia_auth";
 
 function toKontroliaUser(session: Session | null): KontroliaUser | null {
   if (!session?.user) return null;
@@ -168,7 +168,7 @@ export class KontroliaClient {
     return decodeAccessToken(token)?.permissions ?? [];
   }
 
-  /** True for a user granted cross-tenant platform-admin status — see kontrolia.platform_admins. */
+  /** True for a user granted cross-tenant platform-admin status — see kontrolia_auth.platform_admins. */
   async isPlatformAdmin(): Promise<boolean> {
     const token = await this.getToken();
     if (!token) return false;
@@ -208,7 +208,7 @@ export class KontroliaClient {
    * Every organization the caller belongs to, with their roles and
    * membership status in each — what a "switch company" selector needs to
    * render before it can call switchOrganization(). Deliberately not on the
-   * JWT (see the architecture doc): this queries kontrolia.memberships
+   * JWT (see the architecture doc): this queries kontrolia_auth.memberships
    * directly, which RLS already scopes to the caller's own rows.
    */
   async getMemberships(): Promise<KontroliaMembershipWithOrganization[]> {
@@ -228,7 +228,7 @@ export class KontroliaClient {
   /**
    * Switches the user's active organization. Because the JWT carries roles
    * and permissions for a single organization at a time (see the Custom
-   * Access Token Hook), this updates kontrolia.sessions_context and forces
+   * Access Token Hook), this updates kontrolia_auth.sessions_context and forces
    * an immediate session refresh so the new token reflects the new org.
    */
   async switchOrganization(organizationId: string): Promise<void> {

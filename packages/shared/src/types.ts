@@ -28,7 +28,7 @@ export interface KontroliaMembershipWithOrganization extends KontroliaMembership
 }
 
 /**
- * Shape of the custom claims injected by kontrolia.custom_access_token_hook
+ * Shape of the custom claims injected by kontrolia_auth.custom_access_token_hook
  * (see packages/db/migrations/0007_custom_access_token_hook.sql), plus the
  * standard GoTrue claims every Supabase-issued access token already carries
  * (`email`, `user_metadata`) — present under the top-level JWT claims,
@@ -45,7 +45,7 @@ export interface KontroliaTokenClaims {
   permissions: string[];
   /**
    * True for a user granted platform-admin status (see
-   * kontrolia.platform_admins) — a reserved claim outside the app
+   * kontrolia_auth.platform_admins) — a reserved claim outside the app
    * permission-key namespace, for support/ops tooling that needs to see
    * across every organization instead of just the active one. Not
    * something an app's own role/permission catalog can grant.

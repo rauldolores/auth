@@ -99,7 +99,7 @@ export default function GettingStartedPage() {
       <p>
         <strong>Ya tengo un proyecto</strong> (Cloud o self-hosted): corre las migraciones apuntando a su
         connection string. No se toca nada de tu schema <code>public</code> — todo vive aislado en el schema{" "}
-        <code>kontrolia</code>.
+        <code>kontrolia_auth</code>.
       </p>
       <pre>
         <code>{`DATABASE_URL="postgresql://usuario:password@host:5432/postgres" \\
@@ -132,13 +132,13 @@ DATABASE_URL="postgres://postgres:postgres@localhost:5432/postgres" \\
           <pre>
             <code>{`[auth.hook.custom_access_token]
 enabled = true
-uri = "pg-functions://postgres/kontrolia/custom_access_token_hook"`}</code>
+uri = "pg-functions://postgres/kontrolia_auth/custom_access_token_hook"`}</code>
           </pre>
           y reinicia con <code>supabase stop && supabase start</code>.
         </li>
         <li>
           <strong>Supabase Cloud</strong>: Dashboard → Authentication → Hooks → Custom Access Token → selecciona{" "}
-          <code>kontrolia.custom_access_token_hook</code>. No hay API pública para automatizar esto.
+          <code>kontrolia_auth.custom_access_token_hook</code>. No hay API pública para automatizar esto.
         </li>
       </ul>
 
@@ -209,12 +209,12 @@ enabled = true`}</code>
 
       <h4>Si conectas a un proyecto Supabase CLI existente</h4>
       <p>
-        Por defecto, PostgREST solo expone el schema <code>public</code>. Agrega <code>kontrolia</code> a la
+        Por defecto, PostgREST solo expone el schema <code>public</code>. Agrega <code>kontrolia_auth</code> a la
         lista de schemas expuestos en <code>config.toml</code> y reinicia:
       </p>
       <pre>
         <code>{`[api]
-schemas = ["public", "graphql_public", "kontrolia"]`}</code>
+schemas = ["public", "graphql_public", "kontrolia_auth"]`}</code>
       </pre>
 
       <h3>¿Dónde despliegas auth-server / admin-panel?</h3>

@@ -5,11 +5,11 @@ export default function ArchitecturePage() {
     <article>
       <h1 className="k-mb-4 k-text-2xl k-font-semibold">Arquitectura</h1>
 
-      <h2>El schema kontrolia</h2>
+      <h2>El schema kontrolia_auth</h2>
       <p>
-        Todas las tablas propias viven en un schema Postgres dedicado, <code>kontrolia</code>, nunca en{" "}
+        Todas las tablas propias viven en un schema Postgres dedicado, <code>kontrolia_auth</code>, nunca en{" "}
         <code>public</code>. Eso hace que instalar sobre un proyecto Supabase que ya tiene tablas de tu
-        aplicación sea no-destructivo, y que desinstalar sea un <code>drop schema kontrolia cascade</code>.
+        aplicación sea no-destructivo, y que desinstalar sea un <code>drop schema kontrolia_auth cascade</code>.
       </p>
       <table>
         <thead>
@@ -79,7 +79,7 @@ export default function ArchitecturePage() {
       <h2>El Custom Access Token Hook</h2>
       <p>
         Cada vez que Supabase Auth emite un JWT (login o refresh), Postgres ejecuta{" "}
-        <code>kontrolia.custom_access_token_hook</code> dentro de la misma transacción, sin round-trip de red.
+        <code>kontrolia_auth.custom_access_token_hook</code> dentro de la misma transacción, sin round-trip de red.
         Agrega tres claims:
       </p>
       <ul>
@@ -115,7 +115,7 @@ export default function ArchitecturePage() {
         <code>{`is_platform_admin: boolean`}</code>
       </pre>
       <p>
-        Alimentada por <code>kontrolia.platform_admins</code> (un <code>user_id</code> por fila). El primer
+        Alimentada por <code>kontrolia_auth.platform_admins</code> (un <code>user_id</code> por fila). El primer
         usuario que se registra en una instalación nueva queda ahí automáticamente — un trigger en{" "}
         <code>auth.users</code> (<code>bootstrap_first_platform_admin()</code>, migración 0017) lo detecta
         contando que es literalmente el primer signup de la instalación, no solo "la tabla está vacía", para que
@@ -134,7 +134,7 @@ export default function ArchitecturePage() {
       <p>
         Cada tabla tiene Row Level Security. El patrón general: los miembros de una organización pueden ver
         sus propios datos; solo Owner/Admin pueden escribir. Dos funciones helper (
-        <code>kontrolia.is_org_member(org_id)</code>, <code>kontrolia.is_org_admin(org_id)</code>) evalúan esto
+        <code>kontrolia_auth.is_org_member(org_id)</code>, <code>kontrolia_auth.is_org_admin(org_id)</code>) evalúan esto
         contra <code>auth.uid()</code>.
       </p>
       <p>
@@ -205,8 +205,8 @@ export default function ArchitecturePage() {
         No existe un método admin de <code>supabase-js</code> para revocar un <code>session_id</code>{" "}
         arbitrario. La forma documentada es correlacionar el claim <code>session_id</code> del JWT con{" "}
         <code>auth.sessions.id</code> y borrar ese renglón directamente.{" "}
-        <code>kontrolia.revoke_session(session_id)</code> hace exactamente eso — verifica que la sesión
-        pertenezca al llamador (vía <code>kontrolia.devices</code>) antes de borrar, expuesta como RPC.
+        <code>kontrolia_auth.revoke_session(session_id)</code> hace exactamente eso — verifica que la sesión
+        pertenezca al llamador (vía <code>kontrolia_auth.devices</code>) antes de borrar, expuesta como RPC.
       </p>
 
       <h2>Auditoría: triggers, no llamadas desde la aplicación</h2>

@@ -107,7 +107,7 @@ export default function DocsIntroPage() {
             <td>
               <code>packages/db</code>
             </td>
-            <td>Migraciones SQL del schema <code>kontrolia</code>, RLS, triggers</td>
+            <td>Migraciones SQL del schema <code>kontrolia_auth</code>, RLS, triggers</td>
           </tr>
           <tr>
             <td>

@@ -26,7 +26,7 @@ async function main() {
   }
 
   const s = p.spinner();
-  s.start("Aplicando migraciones del schema kontrolia");
+  s.start("Aplicando migraciones del schema kontrolia_auth");
   try {
     await migrate({ connectionString: db.databaseUrl });
     s.stop("Migraciones aplicadas");

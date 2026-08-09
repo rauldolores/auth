@@ -102,7 +102,7 @@ function CreateOrganizationForm({ onCreated }: { onCreated: () => void }) {
         throw new Error(body.error ?? "No se pudo crear la organización.");
       }
 
-      // The trigger on kontrolia.organizations auto-enrolls the caller as
+      // The trigger on kontrolia_auth.organizations auto-enrolls the caller as
       // Owner. refresh() only matters for the very first org (there was no
       // active org yet for the hook to fall back to); switching to an
       // organization created while another was already active still

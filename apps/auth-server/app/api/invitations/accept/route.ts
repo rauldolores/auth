@@ -17,7 +17,7 @@ interface InvitationLookup {
 async function findInvitation(token: string) {
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
-    .schema("kontrolia")
+    .schema("kontrolia_auth")
     .from("invitations")
     .select("id, email, role_id, organization_id, invited_by, accepted_at, expires_at, organization:organizations(name), role:roles(name)")
     .eq("token", token)
@@ -75,7 +75,7 @@ export async function POST(request: Request) {
   const admin = createSupabaseAdminClient();
 
   const { data: existingMembership } = await admin
-    .schema("kontrolia")
+    .schema("kontrolia_auth")
     .from("memberships")
     .select("id")
     .eq("user_id", user.id)
@@ -86,7 +86,7 @@ export async function POST(request: Request) {
 
   if (!membershipId) {
     const { data: newMembership, error: membershipError } = await admin
-      .schema("kontrolia")
+      .schema("kontrolia_auth")
       .from("memberships")
       .insert({
         user_id: user.id,
@@ -103,12 +103,12 @@ export async function POST(request: Request) {
 
   if (invitation.role_id) {
     await admin
-      .schema("kontrolia")
+      .schema("kontrolia_auth")
       .from("membership_roles")
       .upsert({ membership_id: membershipId, role_id: invitation.role_id }, { onConflict: "membership_id,role_id" });
   }
 
-  await admin.schema("kontrolia").from("invitations").update({ accepted_at: new Date().toISOString() }).eq("id", invitation.id);
+  await admin.schema("kontrolia_auth").from("invitations").update({ accepted_at: new Date().toISOString() }).eq("id", invitation.id);
 
   return NextResponse.json({ organizationId: invitation.organization_id });
 }

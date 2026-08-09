@@ -125,7 +125,7 @@ export async function listMemberships(
   });
 
   const { data, error } = await supabase
-    .schema("kontrolia")
+    .schema("kontrolia_auth")
     .from("memberships")
     .select("id, organization_id, status, organization:organizations(id, name, slug, settings), membership_roles(role:roles(slug))");
 

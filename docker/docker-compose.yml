@@ -1,7 +1,7 @@
 # KontrolIA Auth — minimal self-hosted Supabase stack.
 #
 # Only the pieces KontrolIA Auth actually needs: Postgres, GoTrue (Auth) and
-# PostgREST (the REST layer @kontrolia/auth's `.schema('kontrolia')` calls
+# PostgREST (the REST layer @kontrolia/auth's `.schema('kontrolia_auth')` calls
 # depend on), fronted by a thin Kong gateway so the SDK only ever talks to
 # one SUPABASE_URL. Realtime, Storage, Studio, Edge Functions, Analytics
 # etc. from the full Supabase stack are intentionally omitted — add them
@@ -49,9 +49,9 @@ services:
       GOTRUE_DISABLE_SIGNUP: "false"
       # Dev convenience only — wire up real SMTP before going to production.
       GOTRUE_MAILER_AUTOCONFIRM: ${GOTRUE_MAILER_AUTOCONFIRM:-true}
-      # Activates kontrolia.custom_access_token_hook (packages/db/migrations/0007).
+      # Activates kontrolia_auth.custom_access_token_hook (packages/db/migrations/0007).
       GOTRUE_HOOK_CUSTOM_ACCESS_TOKEN_ENABLED: "true"
-      GOTRUE_HOOK_CUSTOM_ACCESS_TOKEN_URI: pg-functions://postgres/kontrolia/custom_access_token_hook
+      GOTRUE_HOOK_CUSTOM_ACCESS_TOKEN_URI: pg-functions://postgres/kontrolia_auth/custom_access_token_hook
       # Per-installation config, not part of the product — every install that
       # wants Google login creates its own Google Cloud OAuth client and
       # registers its own redirect URI (${SUPABASE_PUBLIC_URL}/auth/v1/callback)
@@ -80,8 +80,8 @@ services:
     environment:
       PGRST_DB_URI: postgres://authenticator:${POSTGRES_PASSWORD}@db:5432/postgres
       # Both schemas exposed: `public` for the host app's own tables (if
-      # any), `kontrolia` for everything this product owns.
-      PGRST_DB_SCHEMAS: public,kontrolia
+      # any), `kontrolia_auth` for everything this product owns.
+      PGRST_DB_SCHEMAS: public,kontrolia_auth
       PGRST_DB_ANON_ROLE: anon
       PGRST_JWT_SECRET: ${JWT_SECRET}
 

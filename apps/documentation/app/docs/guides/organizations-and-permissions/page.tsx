@@ -106,7 +106,7 @@ const { claims, checker, user } = await requirePermission(request, { supabaseUrl
 
       <h2>Registrar el catálogo de permisos de una aplicación</h2>
       <p>
-        Los permisos se declaran contra una fila en <code>kontrolia.applications</code>. Una organización solo
+        Los permisos se declaran contra una fila en <code>kontrolia_auth.applications</code>. Una organización solo
         puede asignar, en sus roles, permisos de aplicaciones que tiene habilitadas (
         <code>application_organizations</code>).
       </p>
@@ -140,7 +140,7 @@ const { claims, checker, user } = await requirePermission(request, { supabaseUrl
         Los permisos viven en el JWT, que es de vida corta (por defecto 1 hora) pero sigue siendo válido hasta
         que expira — la limitación estándar de cualquier sistema basado en JWT stateless (Auth0 y Clerk tienen
         la misma). Para una acción especialmente sensible (borrar datos, cambiar de plan, etc.), no confíes solo
-        en el claim del token: vuelve a consultar <code>kontrolia.role_permissions</code>/
+        en el claim del token: vuelve a consultar <code>kontrolia_auth.role_permissions</code>/
         <code>user_permissions</code> directo en la base antes de ejecutarla.
       </p>
     </article>

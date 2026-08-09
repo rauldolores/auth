@@ -43,7 +43,7 @@ export async function POST(request: Request) {
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
 
   const { error } = await supabase
-    .schema("kontrolia")
+    .schema("kontrolia_auth")
     .from("devices")
     .upsert(
       {

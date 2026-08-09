@@ -54,7 +54,7 @@ export async function POST(request: Request) {
   const admin = createSupabaseAdminClient();
 
   const { data: application, error: lookupError } = await admin
-    .schema("kontrolia")
+    .schema("kontrolia_auth")
     .from("applications")
     .select("id, api_key_hash")
     .eq("slug", body.slug)
@@ -77,7 +77,7 @@ export async function POST(request: Request) {
 
   if (body.name || body.environment) {
     await admin
-      .schema("kontrolia")
+      .schema("kontrolia_auth")
       .from("applications")
       .update({
         ...(body.name ? { name: body.name } : {}),
@@ -91,7 +91,7 @@ export async function POST(request: Request) {
     if (!permission.resource || !permission.action) continue;
     const key = `${body.slug}.${permission.resource}.${permission.action}`;
     const { error: upsertError } = await admin
-      .schema("kontrolia")
+      .schema("kontrolia_auth")
       .from("permissions")
       .upsert(
         {

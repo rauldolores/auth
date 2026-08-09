@@ -9,7 +9,7 @@ const MIGRATIONS_DIR = join(__dirname, "..", "migrations");
 export interface MigrateOptions {
   /** Postgres connection string. Works against a fresh self-hosted instance
    * or an existing Supabase project (Cloud or self-hosted) — the migrations
-   * only ever touch the `kontrolia` schema. */
+   * only ever touch the `kontrolia_auth` schema. */
   connectionString: string;
   /** Print each statement before running it. */
   verbose?: boolean;

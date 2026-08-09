@@ -14,7 +14,7 @@ function slugify(name: string): string {
 
 /**
  * Optional final step: registers a first application and its permission
- * catalog. kontrolia.applications/permissions have no write policy for
+ * catalog. kontrolia_auth.applications/permissions have no write policy for
  * regular users (see migrations/0010_rls_policies.sql) and no admin API
  * exists yet for it, so this writes directly against Postgres — the same
  * platform-admin path migrate() already uses to apply schema changes.
@@ -30,7 +30,7 @@ export async function askApplicationStep(db: DatabaseAnswer): Promise<void> {
   }
   if (!wantsApp) {
     p.note(
-      "Puedes registrar aplicaciones más tarde corriendo este wizard de nuevo, o insertando directamente en kontrolia.applications / kontrolia.permissions.",
+      "Puedes registrar aplicaciones más tarde corriendo este wizard de nuevo, o insertando directamente en kontrolia_auth.applications / kontrolia_auth.permissions.",
       "Omitido",
     );
     return;
@@ -112,7 +112,7 @@ export async function askApplicationStep(db: DatabaseAnswer): Promise<void> {
   }
 
   p.note(
-    "Para habilitarla en una organización (kontrolia.application_organizations) y asignarla a un rol, hazlo por ahora directo en la base de datos — el admin panel todavía solo permite verla, no darla de alta.",
+    "Para habilitarla en una organización, entra a admin-panel → \"Aplicaciones\" — cualquier owner/admin puede activarla ahí con un clic.",
     "Siguiente paso",
   );
 }

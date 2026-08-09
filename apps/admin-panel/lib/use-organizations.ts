@@ -6,7 +6,7 @@ import { createKontroliaSchemaClient } from "./supabase-browser";
 
 /**
  * Organizations the signed-in admin belongs to. Unlike auth-server (which
- * goes through its own API route), this queries kontrolia.organizations
+ * goes through its own API route), this queries kontrolia_auth.organizations
  * directly — the "members can view their organizations" RLS policy already
  * scopes the result to the caller's memberships, same end result.
  */

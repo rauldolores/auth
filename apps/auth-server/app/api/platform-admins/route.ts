@@ -53,7 +53,7 @@ export async function GET(request: Request) {
   if (authResult instanceof NextResponse) return authResult;
 
   const admin = createSupabaseAdminClient();
-  const { data, error } = await admin.schema("kontrolia").from("platform_admins").select("user_id, granted_at");
+  const { data, error } = await admin.schema("kontrolia_auth").from("platform_admins").select("user_id, granted_at");
   if (error) return NextResponse.json({ error: error.message }, { status: 500, headers: corsHeaders() });
 
   const admins = await Promise.all(
@@ -85,7 +85,7 @@ export async function POST(request: Request) {
 
   const admin = createSupabaseAdminClient();
   const { error } = await admin
-    .schema("kontrolia")
+    .schema("kontrolia_auth")
     .from("platform_admins")
     .upsert({ user_id: user.id, granted_by: authResult.userId }, { onConflict: "user_id" });
   if (error) return NextResponse.json({ error: error.message }, { status: 500, headers: corsHeaders() });
@@ -102,7 +102,7 @@ export async function DELETE(request: Request) {
 
   const admin = createSupabaseAdminClient();
   const { count } = await admin
-    .schema("kontrolia")
+    .schema("kontrolia_auth")
     .from("platform_admins")
     .select("user_id", { count: "exact", head: true });
   if ((count ?? 0) <= 1) {
@@ -112,7 +112,7 @@ export async function DELETE(request: Request) {
     );
   }
 
-  const { error } = await admin.schema("kontrolia").from("platform_admins").delete().eq("user_id", userId);
+  const { error } = await admin.schema("kontrolia_auth").from("platform_admins").delete().eq("user_id", userId);
   if (error) return NextResponse.json({ error: error.message }, { status: 500, headers: corsHeaders() });
 
   return new NextResponse(null, { status: 204, headers: corsHeaders() });

@@ -44,7 +44,7 @@ export async function askDatabaseStep(repoRoot: string): Promise<DatabaseAnswer>
     const databaseUrl = await textOrExit("Connection string de Postgres", "postgres://postgres:...@db.tu-proyecto.supabase.co:5432/postgres");
 
     p.note(
-      "Si tu proyecto es Supabase Cloud, activa el Custom Access Token Hook manualmente en Dashboard → Authentication → Hooks → selecciona kontrolia.custom_access_token_hook. No se puede automatizar por API.",
+      "Si tu proyecto es Supabase Cloud, activa el Custom Access Token Hook manualmente en Dashboard → Authentication → Hooks → selecciona kontrolia_auth.custom_access_token_hook. No se puede automatizar por API.",
       "Paso manual pendiente",
     );
 

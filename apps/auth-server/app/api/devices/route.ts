@@ -2,7 +2,7 @@ import { decodeAccessToken } from "@kontrolia/auth";
 import { createRouteHandlerSupabaseClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
 
-/** The caller's own devices/sessions — kontrolia.devices RLS already scopes this to auth.uid(). */
+/** The caller's own devices/sessions — kontrolia_auth.devices RLS already scopes this to auth.uid(). */
 export async function GET() {
   const supabase = await createRouteHandlerSupabaseClient();
 
@@ -14,7 +14,7 @@ export async function GET() {
   const currentSessionId = decodeAccessToken(session.access_token)?.session_id ?? null;
 
   const { data, error } = await supabase
-    .schema("kontrolia")
+    .schema("kontrolia_auth")
     .from("devices")
     .select("session_id, label, ip, last_seen_at, created_at")
     .order("last_seen_at", { ascending: false });

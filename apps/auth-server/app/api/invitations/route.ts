@@ -17,7 +17,7 @@ export async function POST(request: Request) {
   }
 
   const { data, error } = await supabase
-    .schema("kontrolia")
+    .schema("kontrolia_auth")
     .from("invitations")
     .insert({ organization_id: body.organizationId, email: body.email, role_id: body.roleId ?? null })
     .select("id, email, token, expires_at")

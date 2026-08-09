@@ -8,7 +8,7 @@ export default function InvitationsAndSessionsPage() {
       <h2>Invitar a alguien</h2>
       <p>
         Desde <code>admin-panel</code> → Invitaciones: correo + rol. El insert va directo contra{" "}
-        <code>kontrolia.invitations</code> desde el navegador — la policy RLS{" "}
+        <code>kontrolia_auth.invitations</code> desde el navegador — la policy RLS{" "}
         <code>&quot;org admins manage invitations&quot;</code> es lo único que decide si el insert pasa, no
         código de aplicación.
       </p>
@@ -36,7 +36,7 @@ export default function InvitationsAndSessionsPage() {
 
       <h2>Dispositivos y sesiones</h2>
       <p>
-        Cada sesión de Supabase queda registrada como un dispositivo (<code>kontrolia.devices</code>), a partir
+        Cada sesión de Supabase queda registrada como un dispositivo (<code>kontrolia_auth.devices</code>), a partir
         del claim <code>session_id</code> del JWT — no hay nada que instalar aparte, <code>auth-server</code>{" "}
         llama a <code>POST /api/devices/touch</code> una vez por sesión.
       </p>
@@ -45,7 +45,7 @@ export default function InvitationsAndSessionsPage() {
 POST /api/devices/revoke   // cierra una sesión específica`}</code>
       </pre>
       <p>
-        Revocar usa <code>kontrolia.revoke_session()</code> — verifica que la sesión te pertenezca antes de
+        Revocar usa <code>kontrolia_auth.revoke_session()</code> — verifica que la sesión te pertenezca antes de
         borrarla de <code>auth.sessions</code>. El access token de esa sesión sigue siendo técnicamente válido
         hasta que expira (igual que la revocación de permisos), pero ya no se puede refrescar.
       </p>

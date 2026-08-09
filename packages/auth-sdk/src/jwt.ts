@@ -3,7 +3,7 @@ import type { KontroliaTokenClaims } from "@kontrolia/shared";
 /**
  * Decodes (does NOT verify — GoTrue already signed and the app receives this
  * over an authenticated Supabase session) the payload of a JWT access token
- * issued by kontrolia.custom_access_token_hook.
+ * issued by kontrolia_auth.custom_access_token_hook.
  */
 export function decodeAccessToken(accessToken: string): KontroliaTokenClaims | null {
   const parts = accessToken.split(".");

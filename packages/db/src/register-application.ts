@@ -31,7 +31,7 @@ export interface RegisteredApplication {
 
 /**
  * Inserts an application and its permission catalog directly against
- * Postgres. kontrolia.applications/permissions have no insert policy for
+ * Postgres. kontrolia_auth.applications/permissions have no insert policy for
  * regular users (see migrations/0010_rls_policies.sql — writes are meant to
  * go through a platform-admin path), so this is that path: a direct,
  * service-role-equivalent write, the same way migrate() bypasses RLS to
@@ -48,7 +48,7 @@ export async function registerApplication(options: RegisterApplicationOptions): 
     const {
       rows: [application],
     } = await client.query<{ id: string; inserted: boolean }>(
-      `insert into kontrolia.applications (name, slug, environment, api_key_hash)
+      `insert into kontrolia_auth.applications (name, slug, environment, api_key_hash)
        values ($1, $2, $3, $4)
        on conflict (slug) do update set name = excluded.name, environment = excluded.environment
        returning id, (xmax = 0) as inserted`,
@@ -60,7 +60,7 @@ export async function registerApplication(options: RegisterApplicationOptions): 
     for (const permission of options.permissions) {
       const key = `${options.slug}.${permission.resource}.${permission.action}`;
       await client.query(
-        `insert into kontrolia.permissions (application_id, resource, action, key, description)
+        `insert into kontrolia_auth.permissions (application_id, resource, action, key, description)
          values ($1, $2, $3, $4, $5)
          on conflict (key) do update set description = excluded.description`,
         [application.id, permission.resource, permission.action, key, permission.description ?? null],

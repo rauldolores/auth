@@ -29,9 +29,9 @@ export default function MigrationPage() {
 
       <h2>2. Organizaciones y membresías</h2>
       <p>
-        Mapea tus tenants/equipos actuales a <code>kontrolia.organizations</code>, y las relaciones
-        usuario-tenant a <code>kontrolia.memberships</code> + <code>membership_roles</code>. Como son tablas
-        Postgres normales (dentro del schema <code>kontrolia</code>), un script de migración es un INSERT
+        Mapea tus tenants/equipos actuales a <code>kontrolia_auth.organizations</code>, y las relaciones
+        usuario-tenant a <code>kontrolia_auth.memberships</code> + <code>membership_roles</code>. Como son tablas
+        Postgres normales (dentro del schema <code>kontrolia_auth</code>), un script de migración es un INSERT
         masivo directo, respetando las foreign keys.
       </p>
 
