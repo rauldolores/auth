@@ -1,5 +1,28 @@
 # create-kontrolia-auth
 
+## 2.0.0
+
+### Major Changes
+
+- da0ba79: **Breaking:** renamed the Postgres schema from `kontrolia` to `kontrolia_auth` — clearer, and avoids any collision with a host app's own tables/schemas literally named `kontrolia`. Applying the new migration on an existing install renames the schema in place (`alter schema ... rename to ...`), so existing data and rows are untouched; only the schema's name changes. Every function that referenced other tables by a hardcoded `kontrolia.` prefix internally has been redefined against the new name — this matters because, unlike RLS policies and views (which Postgres binds to stable object IDs at creation time and survive a rename untouched), a function's own body is literal text re-resolved on each call, so it would otherwise start failing with "schema kontrolia does not exist" the next time it ran.
+
+  Two things outside the database also need to change on upgrade, both already covered by `npx create-kontrolia-auth` for new installs — existing installs must update these by hand after migrating, or auth breaks:
+  - The Custom Access Token Hook URI: `pg-functions://postgres/kontrolia_auth/custom_access_token_hook`.
+  - The exposed PostgREST schema list must include `kontrolia_auth` instead of `kontrolia` (`docker/docker-compose.yml`'s `PGRST_DB_SCHEMAS`, or `[api] schemas` in `config.toml` for the Supabase CLI).
+
+### Minor Changes
+
+- b221185: Added `npx create-kontrolia-auth update` for anyone who already installed via a self-hosted clone and wants to pull the latest code and apply new migrations, instead of doing it by hand. Refuses to touch a working tree with uncommitted local changes, and only fast-forwards from `origin/main` — if history has diverged it stops and points at git rather than guessing. (Consuming `@kontrolia/*` as npm dependencies in your own app is a separate path — update those like any other dependency and re-run your own migration step.)
+- 9d000ae: `npx create-kontrolia-auth mi-app` is now a genuinely turnkey installer instead of assuming you're already inside a clone of the repo: it checks requirements (Node, pnpm, git/Docker) with plain-language install hints for anything missing, clones the repo into the target folder and runs `pnpm install` for you, and — for the self-hosted database path — brings up `docker compose` and retries the migration until Postgres finishes booting instead of asking you to confirm it's ready by hand. Also adds `migrate` and `doctor` subcommands, and Render as a deployment target alongside the existing Vercel/Railway/Coolify/Docker/manual instructions.
+
+### Patch Changes
+
+- Updated dependencies [31fc1a7]
+- Updated dependencies [b72d710]
+- Updated dependencies [9cab90f]
+- Updated dependencies [da0ba79]
+  - @kontrolia/db@2.0.0
+
 ## 1.1.2
 
 ### Patch Changes

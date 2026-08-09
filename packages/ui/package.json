@@ -1,6 +1,6 @@
 {
   "name": "@kontrolia/ui",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "license": "MIT",
   "description": "Shared UI components (shadcn/ui + Tailwind): login/forgot/reset password forms, org switcher, user menu, 401/403/session-expired screens.",
   "keywords": [

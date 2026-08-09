@@ -1,6 +1,6 @@
 {
   "name": "@kontrolia/react",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "license": "MIT",
   "description": "React bindings for KontrolIA Auth: <AuthProvider>, <AuthGuard>, <GuestGuard>, <RequireRole>, <RequirePermission> and useAuth().",
   "keywords": [
