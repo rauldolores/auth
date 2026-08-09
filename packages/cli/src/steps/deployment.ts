@@ -3,14 +3,31 @@ import { updateEnvValue, writeEnvFile } from "../utils/files.js";
 import { registerOAuthClient } from "../utils/oauth-client.js";
 import type { DatabaseAnswer } from "./database.js";
 
-type DeployTarget = "docker" | "vercel" | "coolify" | "railway" | "manual";
+type DeployTarget = "docker" | "vercel" | "railway" | "render" | "coolify" | "manual";
 
 const NEXT_STEPS: Record<DeployTarget, string> = {
-  docker: "Se despliegan como parte del mismo docker/docker-compose.yml (servicios auth-server y admin-panel).",
-  vercel: "vercel deploy en apps/auth-server y apps/admin-panel por separado, configurando las mismas variables en el dashboard de Vercel.",
-  coolify: "Crea dos recursos 'Next.js App' en Coolify apuntando a apps/auth-server y apps/admin-panel, con las variables de .env.local generadas.",
-  railway: "railway up en apps/auth-server y apps/admin-panel, o conéctalos como servicios desde el repo en el dashboard de Railway.",
-  manual: "Corre `pnpm build && pnpm start` en apps/auth-server y apps/admin-panel en el servidor/K8s de tu elección, usando los .env.local generados.",
+  docker:
+    "Ya está: los servicios auth-server y admin-panel viven en el mismo docker/docker-compose.yml. Corre `docker compose -f docker/docker-compose.yml up -d` para tenerlos arriba.",
+  vercel:
+    "1) Instala la CLI: npm i -g vercel\n" +
+    "2) En apps/auth-server corre `vercel` y sigue el asistente (crea 1 proyecto).\n" +
+    "3) En apps/admin-panel corre `vercel` (crea otro proyecto).\n" +
+    "4) En cada proyecto → Settings → Environment Variables, pega las variables de su .env.local (las acabo de generar).\n" +
+    "5) `vercel --prod` en cada carpeta para publicar.",
+  railway:
+    "1) Instala la CLI: npm i -g @railway/cli && railway login\n" +
+    "2) En apps/auth-server: `railway init` y luego `railway up`.\n" +
+    "3) Repite en apps/admin-panel.\n" +
+    "4) En cada servicio (dashboard de Railway → Variables) pega su .env.local.",
+  render:
+    "1) Sube el repo a GitHub.\n" +
+    "2) En Render → New → Web Service, apúntalo a apps/auth-server (Build: `pnpm install && pnpm build`, Start: `pnpm start`).\n" +
+    "3) Repite para apps/admin-panel.\n" +
+    "4) En cada servicio → Environment, pega su .env.local.",
+  coolify:
+    "Crea dos recursos 'Next.js App' en Coolify apuntando a apps/auth-server y apps/admin-panel, y pega en cada uno las variables de su .env.local.",
+  manual:
+    "Corre `pnpm build && pnpm start` en apps/auth-server y apps/admin-panel en el servidor/K8s de tu elección, usando los .env.local generados.",
 };
 
 /**
@@ -24,8 +41,9 @@ export async function askDeploymentStep(repoRoot: string, db: DatabaseAnswer): P
     options: [
       { value: "docker", label: "Docker (incluido en el mismo docker-compose)" },
       { value: "vercel", label: "Vercel" },
-      { value: "coolify", label: "Coolify" },
       { value: "railway", label: "Railway" },
+      { value: "render", label: "Render" },
+      { value: "coolify", label: "Coolify" },
       { value: "manual", label: "Otro / Kubernetes / manual" },
     ],
   });
