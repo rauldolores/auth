@@ -1,6 +1,6 @@
 {
   "name": "@kontrolia/auth",
-  "version": "1.2.0",
+  "version": "2.0.0",
   "license": "MIT",
   "description": "Official framework-agnostic KontrolIA Auth SDK. The only supported way to integrate an application — no app should ever import supabase-js, handle OAuth redirects, or parse a JWT directly.",
   "keywords": [

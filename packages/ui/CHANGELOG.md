@@ -1,5 +1,11 @@
 # @kontrolia/ui
 
+## 1.0.3
+
+### Patch Changes
+
+- @kontrolia/react@1.2.1
+
 ## 1.0.2
 
 ### Patch Changes

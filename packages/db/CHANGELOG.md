@@ -1,5 +1,21 @@
 # @kontrolia/db
 
+## 2.0.0
+
+### Major Changes
+
+- da0ba79: **Breaking:** renamed the Postgres schema from `kontrolia` to `kontrolia_auth` — clearer, and avoids any collision with a host app's own tables/schemas literally named `kontrolia`. Applying the new migration on an existing install renames the schema in place (`alter schema ... rename to ...`), so existing data and rows are untouched; only the schema's name changes. Every function that referenced other tables by a hardcoded `kontrolia.` prefix internally has been redefined against the new name — this matters because, unlike RLS policies and views (which Postgres binds to stable object IDs at creation time and survive a rename untouched), a function's own body is literal text re-resolved on each call, so it would otherwise start failing with "schema kontrolia does not exist" the next time it ran.
+
+  Two things outside the database also need to change on upgrade, both already covered by `npx create-kontrolia-auth` for new installs — existing installs must update these by hand after migrating, or auth breaks:
+  - The Custom Access Token Hook URI: `pg-functions://postgres/kontrolia_auth/custom_access_token_hook`.
+  - The exposed PostgREST schema list must include `kontrolia_auth` instead of `kontrolia` (`docker/docker-compose.yml`'s `PGRST_DB_SCHEMAS`, or `[api] schemas` in `config.toml` for the Supabase CLI).
+
+### Minor Changes
+
+- 31fc1a7: Custom roles now belong to exactly one application instead of being able to span several — each enabled application can define its own catalog of roles (e.g. "Facturación → Contador"), and a membership can hold at most one role per application (enforced by a new trigger). Enabling an application for an organization now also auto-creates an "Administrador de `<app>`" role holding every permission that application currently declares; it stays in sync automatically whenever the application registers a new permission, so nobody has to remember to re-grant it by hand. The 3 global system roles (Owner/Admin/Member) are unchanged — still organization-wide, shared, and immutable.
+- b72d710: The very first user to sign up on a fresh installation is now automatically granted platform-admin status (migration `0017_bootstrap_first_platform_admin.sql`) — closing the bootstrapping gap where granting the very first platform admin required direct database access, something a non-technical operator running `npx create-kontrolia-auth` shouldn't have to do. Guarded so it only ever fires once, on a genuinely fresh install (checks `auth.users` count, not just whether `kontrolia.platform_admins` happens to be empty) — revoking the sole platform admin later never silently hands the role to the next random signup.
+- 9cab90f: Organization admins/owners can now enable or disable a registered application for their own organization directly from admin-panel — closing a gap where `kontrolia.application_organizations` had no write policy, so nothing ever populated it and Aplicaciones/Permisos/Roles stayed empty even after registering an application. The application catalog itself is also now browsable by any authenticated user (previously an app only became visible once already enabled for one of your orgs, a chicken-and-egg problem).
+
 ## 1.2.0
 
 ### Minor Changes
