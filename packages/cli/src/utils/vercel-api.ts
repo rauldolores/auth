@@ -18,6 +18,16 @@ export async function detectGitHubRepo(repoRoot: string): Promise<string | null>
   }
 }
 
+/** The branch actually checked out — what should get deployed, not an assumed "main". */
+export async function detectCurrentBranch(repoRoot: string): Promise<string> {
+  try {
+    const branch = (await run("git", ["branch", "--show-current"], { cwd: repoRoot })).trim();
+    return branch || "main";
+  } catch {
+    return "main";
+  }
+}
+
 export interface CreateVercelProjectOptions {
   token: string;
   /** "owner/repo" on GitHub. */
@@ -66,6 +76,52 @@ export async function createVercelProject(options: CreateVercelProjectOptions): 
         gitRepository: { type: "github", repo: options.repo },
         rootDirectory: options.rootDirectory,
         environmentVariables,
+      }),
+    });
+  } catch (error) {
+    return { ok: false, error: (error as Error).message };
+  }
+
+  if (response.ok) return { ok: true };
+
+  const body = (await response.json().catch(() => null)) as { error?: { message?: string } } | null;
+  return { ok: false, error: body?.error?.message ?? `HTTP ${response.status}` };
+}
+
+export interface TriggerDeploymentOptions {
+  token: string;
+  /** "owner/repo" on GitHub. */
+  repo: string;
+  branch: string;
+  /** Must match the `name` used in createVercelProject — that's how this targets the right project. */
+  projectName: string;
+}
+
+/**
+ * Creating a project via the API (createVercelProject above) connects the
+ * GitHub repo but does NOT build or deploy anything by itself — that's a
+ * separate resource. Without this, a freshly created project just sits
+ * there until something else (a push, or clicking "Deploy" in the
+ * dashboard) triggers its first build, which defeats the point of
+ * automating this in the first place.
+ *
+ * https://vercel.com/docs/rest-api/reference/endpoints/deployments/create-a-new-deployment
+ */
+export async function triggerVercelDeployment(options: TriggerDeploymentOptions): Promise<CreateVercelProjectResult> {
+  const [org, repo] = options.repo.split("/");
+
+  let response: Response;
+  try {
+    response = await fetch("https://api.vercel.com/v13/deployments", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${options.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: options.projectName,
+        target: "production",
+        gitSource: { type: "github", ref: options.branch, org, repo },
       }),
     });
   } catch (error) {

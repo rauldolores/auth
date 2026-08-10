@@ -1,7 +1,7 @@
 import * as p from "@clack/prompts";
 import { type EnvValues, updateEnvValue, writeEnvFile } from "../utils/files.js";
 import { registerOAuthClient } from "../utils/oauth-client.js";
-import { createVercelProject, detectGitHubRepo } from "../utils/vercel-api.js";
+import { createVercelProject, detectCurrentBranch, detectGitHubRepo, triggerVercelDeployment } from "../utils/vercel-api.js";
 import type { DatabaseAnswer } from "./database.js";
 
 type DeployTarget = "docker" | "vercel" | "railway" | "render" | "coolify" | "manual";
@@ -39,12 +39,59 @@ const NEXT_STEPS: Record<DeployTarget, string> = {
 };
 
 /**
- * Offers to create both Vercel projects via the REST API instead of walking
- * the user through the dashboard/CLI by hand — the same three fields that
- * are easy to get wrong doing this manually (gitRepository, rootDirectory,
- * environmentVariables) are just fields in one request body here. Returns
- * true only if both projects were created, so the caller knows whether to
- * still show the manual fallback instructions.
+ * Creates one Vercel project and immediately triggers its first deployment
+ * — creating the project alone only connects the GitHub repo, it doesn't
+ * build or deploy anything by itself, so skipping this step would leave the
+ * user with a project that just sits there until something else (a push, or
+ * clicking "Deploy" by hand) triggers a build. Reports both outcomes
+ * separately since either can fail independently of the other.
+ */
+async function createAndDeployVercelProject(options: {
+  token: string;
+  repo: string;
+  branch: string;
+  appLabel: string;
+  projectName: string;
+  rootDirectory: string;
+  env: EnvValues;
+}): Promise<boolean> {
+  const createSpinner = p.spinner();
+  createSpinner.start(`Creando proyecto de Vercel para ${options.appLabel}`);
+  const created = await createVercelProject({
+    token: options.token,
+    repo: options.repo,
+    name: options.projectName,
+    rootDirectory: options.rootDirectory,
+    env: options.env,
+  });
+  createSpinner.stop(created.ok ? `Proyecto ${options.appLabel} creado` : `Falló creando ${options.appLabel}: ${created.error}`);
+  if (!created.ok) return false;
+
+  const deploySpinner = p.spinner();
+  deploySpinner.start(`Desplegando ${options.appLabel} (primer build)`);
+  const deployed = await triggerVercelDeployment({
+    token: options.token,
+    repo: options.repo,
+    branch: options.branch,
+    projectName: options.projectName,
+  });
+  deploySpinner.stop(
+    deployed.ok
+      ? `${options.appLabel} desplegándose — sigue el progreso en vercel.com/dashboard`
+      : `Proyecto creado, pero no se pudo disparar el despliegue: ${deployed.error} — dale "Deploy" a mano en el dashboard.`,
+  );
+  return true;
+}
+
+/**
+ * Offers to create both Vercel projects (and deploy them) via the REST API
+ * instead of walking the user through the dashboard/CLI by hand — the same
+ * fields that are easy to get wrong doing this manually (gitRepository,
+ * rootDirectory, environmentVariables) are just fields in two request
+ * bodies here. Returns true if both projects were at least created, so the
+ * caller knows whether to still show the manual fallback instructions (a
+ * project that was created but failed to deploy still doesn't need those —
+ * the user just clicks "Deploy" once in the dashboard).
  */
 async function tryAutoCreateVercelProjects(
   repoRoot: string,
@@ -63,47 +110,49 @@ async function tryAutoCreateVercelProjects(
   }
 
   const auto = await p.confirm({
-    message: `¿Quieres que cree los dos proyectos de Vercel automáticamente (conectados a ${repo}, con sus variables ya puestas)? Solo necesito un API token de Vercel.`,
+    message: `¿Quieres que cree y despliegue los dos proyectos de Vercel automáticamente (conectados a ${repo}, con sus variables ya puestas)? Solo necesito un API token de Vercel.`,
     initialValue: true,
   });
   if (p.isCancel(auto) || !auto) return false;
 
+  p.note(
+    "1. Entra a vercel.com/account/tokens (inicia sesión con tu cuenta de Vercel si te lo pide)\n" +
+      '2. Dale click a "Create Token"\n' +
+      '3. Ponle un nombre (por ejemplo "kontrolia-auth"), deja lo demás por defecto y confirma\n' +
+      "4. Copia el token que te muestra (solo se ve una vez) y pégalo aquí abajo",
+    "Cómo conseguir el API token de Vercel",
+  );
   const token = await p.password({
-    message: "API token de Vercel (vercel.com/account/tokens — no se guarda, solo se usa ahora)",
+    message: "API token de Vercel (no se guarda, solo se usa ahora)",
     validate: (value) => (value.trim() ? undefined : "Requerido"),
   });
   if (p.isCancel(token)) return false;
 
+  const branch = await detectCurrentBranch(repoRoot);
   const namePrefix = repo.split("/")[1] ?? "kontrolia-auth";
 
-  const authSpinner = p.spinner();
-  authSpinner.start("Creando proyecto de Vercel para auth-server");
-  const authResult = await createVercelProject({
+  const authOk = await createAndDeployVercelProject({
     token,
     repo,
-    name: `${namePrefix}-auth-server`,
+    branch,
+    appLabel: "auth-server",
+    projectName: `${namePrefix}-auth-server`,
     rootDirectory: "apps/auth-server",
     env: authServerEnv,
   });
-  authSpinner.stop(authResult.ok ? "Proyecto auth-server creado" : `Falló auth-server: ${authResult.error}`);
 
-  const adminSpinner = p.spinner();
-  adminSpinner.start("Creando proyecto de Vercel para admin-panel");
-  const adminResult = await createVercelProject({
+  const adminOk = await createAndDeployVercelProject({
     token,
     repo,
-    name: `${namePrefix}-admin-panel`,
+    branch,
+    appLabel: "admin-panel",
+    projectName: `${namePrefix}-admin-panel`,
     rootDirectory: "apps/admin-panel",
     env: adminPanelEnv,
   });
-  adminSpinner.stop(adminResult.ok ? "Proyecto admin-panel creado" : `Falló admin-panel: ${adminResult.error}`);
 
-  if (authResult.ok && adminResult.ok) {
-    p.note(
-      "Los dos proyectos ya están conectados a tu repo, con la carpeta y las variables correctas. Entra a " +
-        "vercel.com/dashboard y dale \"Deploy\" a cada uno (o empuja un commit a tu rama principal) para el primer despliegue.",
-      "Listo",
-    );
+  if (authOk && adminOk) {
+    p.note("Revisa el progreso del build en vercel.com/dashboard — cada uno toma un par de minutos.", "Listo");
     return true;
   }
 

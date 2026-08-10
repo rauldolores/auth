@@ -22,10 +22,11 @@ Eso hace, en orden:
 4. **Primera aplicación** (opcional): registra tu app y su catálogo de permisos.
 5. **Despliegue**: genera los `.env.local` de `auth-server` y `admin-panel`. Si
    eliges Vercel y el repo ya está en GitHub, puede **crear los dos proyectos
-   por ti** vía la API de Vercel (carpeta y variables de entorno correctas de
-   una vez, sin tocar el dashboard ni la CLI de Vercel) — solo pide un API
-   token de vercel.com/account/tokens. Para Docker, Railway, Render o
-   Coolify te da los pasos exactos.
+   y desplegarlos por ti** vía la API de Vercel (carpeta y variables de
+   entorno correctas, y el primer build disparado automáticamente — sin
+   tocar el dashboard ni la CLI de Vercel) — solo pide un API token de
+   vercel.com/account/tokens (el instalador explica cómo generarlo). Para
+   Docker, Railway, Render o Coolify te da los pasos exactos.
 
 Si ya estás **dentro del repo** (desarrollo), el instalador lo detecta y se
 salta la descarga:
