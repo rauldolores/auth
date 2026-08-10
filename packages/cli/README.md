@@ -16,6 +16,12 @@ Eso hace, en orden:
 2. **Descarga** el repositorio en `./mi-app` e instala dependencias.
 3. **Base de datos** — dos caminos independientes:
    - _Ya tengo Supabase_ (Cloud o self-hosted): pegas URL + keys, sin Docker.
+     Si es un proyecto Supabase Cloud, además ofrece **configurar
+     automáticamente** los dos ajustes que solo viven en su Dashboard —
+     exponer el schema `kontrolia_auth` en la API y activar el Custom Access
+     Token Hook — vía la Management API de Supabase (pide un Personal Access
+     Token de tu cuenta, distinto a las keys del proyecto; no se guarda). Si
+     lo saltas, muestra las instrucciones manuales exactas.
    - _Crear uno nuevo self-hosted_: genera `docker/.env`, **levanta los
      contenedores por ti** (`docker compose up -d`) y aplica las migraciones
      en cuanto Postgres está listo.

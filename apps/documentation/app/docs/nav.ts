@@ -15,6 +15,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/docs", label: "Introducción" },
       { href: "/docs/concepts", label: "Conceptos" },
       { href: "/docs/getting-started", label: "Instalación" },
+      { href: "/docs/cli-reference", label: "Comandos del CLI" },
       { href: "/docs/architecture", label: "Arquitectura" },
     ],
   },

@@ -37,6 +37,19 @@ Al terminar, tendrás dos pantallas abiertas en tu navegador:
 
 📖 La guía completa, con capturas y explicaciones más detalladas de cada paso, está en **[la documentación](apps/documentation)** (o córrela localmente con `pnpm --filter @kontrolia/documentation dev`).
 
+### Otros comandos del instalador
+
+`npx create-kontrolia-auth` no es solo para la primera instalación:
+
+| Comando   | Para qué |
+| --------- | -------- |
+| `npx create-kontrolia-auth update` | Trae el código y las migraciones más recientes a una instalación que ya tienes corriendo. |
+| `npx create-kontrolia-auth deploy` | (Re)conecta un despliegue (por ejemplo, agregar `admin-panel` en Vercel después de `auth-server`) sin repetir las preguntas de base de datos. |
+| `npx create-kontrolia-auth migrate` | Aplica las migraciones a mano contra cualquier base de datos. |
+| `npx create-kontrolia-auth doctor` | Solo revisa que tu entorno tenga lo necesario (Node, pnpm, git, Docker). |
+
+Detalle completo de cada uno, con ejemplos, en la sección "Comandos del CLI" de **[la documentación](apps/documentation)**.
+
 ## Para desarrolladores
 
 El SDK es la única forma soportada de integrar tu aplicación — nunca importas Supabase, manejas un redirect de OAuth, ni decodificas un JWT directamente.

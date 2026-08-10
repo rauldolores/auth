@@ -137,8 +137,10 @@ uri = "pg-functions://postgres/kontrolia_auth/custom_access_token_hook"`}</code>
           y reinicia con <code>supabase stop && supabase start</code>.
         </li>
         <li>
-          <strong>Supabase Cloud</strong>: Dashboard → Authentication → Hooks → Custom Access Token → selecciona{" "}
-          <code>kontrolia_auth.custom_access_token_hook</code>. No hay API pública para automatizar esto.
+          <strong>Supabase Cloud</strong>: el instalador (y <code>deploy</code>) te ofrecen automatizarlo — solo
+          pide un Personal Access Token de tu cuenta Supabase (distinto a las keys del proyecto). Si prefieres
+          hacerlo a mano: Dashboard → Authentication → Hooks → Custom Access Token → selecciona{" "}
+          <code>kontrolia_auth.custom_access_token_hook</code>.
         </li>
       </ul>
 
@@ -207,21 +209,43 @@ enabled = true`}</code>
         la alternativa por API si prefieres scriptearlo).
       </p>
 
-      <h4>Si conectas a un proyecto Supabase CLI existente</h4>
+      <h4>Si conectas a un proyecto Supabase existente</h4>
       <p>
-        Por defecto, PostgREST solo expone el schema <code>public</code>. Agrega <code>kontrolia_auth</code> a la
-        lista de schemas expuestos en <code>config.toml</code> y reinicia:
+        Por defecto, PostgREST solo expone los schemas <code>public</code> y <code>graphql_public</code> —{" "}
+        <code>kontrolia_auth</code> tiene que agregarse explícitamente, o cualquier operación contra él falla con{" "}
+        <code>Invalid schema: kontrolia_auth</code>. El instalador (y <code>deploy</code>) ya ofrecen
+        automatizar esto para Supabase Cloud (ver arriba). A mano:
       </p>
-      <pre>
-        <code>{`[api]
+      <ul>
+        <li>
+          <strong>Supabase Cloud</strong>: Dashboard → Project Settings → Data API → agrega{" "}
+          <code>kontrolia_auth</code> a &quot;Exposed schemas&quot;.
+        </li>
+        <li>
+          <strong>Supabase CLI (desarrollo local)</strong>: agrega <code>kontrolia_auth</code> a{" "}
+          <code>config.toml</code> y reinicia:
+          <pre>
+            <code>{`[api]
 schemas = ["public", "graphql_public", "kontrolia_auth"]`}</code>
-      </pre>
+          </pre>
+        </li>
+      </ul>
 
       <h3>¿Dónde despliegas auth-server / admin-panel?</h3>
       <p>
         Son apps Next.js estándar — Docker (incluido en el mismo <code>docker-compose</code>), Vercel, Coolify,
         Railway, o cualquier plataforma compatible con Next.js/Node. Solo necesitan las variables de{" "}
         <code>.env.example</code> de cada app.
+      </p>
+
+      <hr />
+
+      <h2>Después de instalar: mantener la instalación al día</h2>
+      <p>
+        El instalador no es lo único que ofrece el CLI — también trae <code>update</code> (traer el código y
+        las migraciones más recientes) y <code>deploy</code> (reconectar un despliegue, o agregar una segunda
+        app, sin repetir las preguntas de base de datos). Ver el detalle de cada uno, con ejemplos, en{" "}
+        <a href="/docs/cli-reference">Comandos del CLI</a>.
       </p>
     </article>
   );
