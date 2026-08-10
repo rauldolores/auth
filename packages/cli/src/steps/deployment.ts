@@ -1,6 +1,7 @@
 import * as p from "@clack/prompts";
-import { updateEnvValue, writeEnvFile } from "../utils/files.js";
+import { type EnvValues, updateEnvValue, writeEnvFile } from "../utils/files.js";
 import { registerOAuthClient } from "../utils/oauth-client.js";
+import { createVercelProject, detectGitHubRepo } from "../utils/vercel-api.js";
 import type { DatabaseAnswer } from "./database.js";
 
 type DeployTarget = "docker" | "vercel" | "railway" | "render" | "coolify" | "manual";
@@ -36,6 +37,79 @@ const NEXT_STEPS: Record<DeployTarget, string> = {
   manual:
     "Corre `pnpm build && pnpm start` en apps/auth-server y apps/admin-panel en el servidor/K8s de tu elección, usando los .env.local generados.",
 };
+
+/**
+ * Offers to create both Vercel projects via the REST API instead of walking
+ * the user through the dashboard/CLI by hand — the same three fields that
+ * are easy to get wrong doing this manually (gitRepository, rootDirectory,
+ * environmentVariables) are just fields in one request body here. Returns
+ * true only if both projects were created, so the caller knows whether to
+ * still show the manual fallback instructions.
+ */
+async function tryAutoCreateVercelProjects(
+  repoRoot: string,
+  authServerEnv: EnvValues,
+  adminPanelEnv: EnvValues,
+): Promise<boolean> {
+  const repo = await detectGitHubRepo(repoRoot);
+  if (!repo) {
+    p.note(
+      "No encontré un remoto de GitHub en este repo (`git remote get-url origin`) — sin eso no puedo crear los " +
+        "proyectos de Vercel por ti. Sube el repo a GitHub y vuelve a correr el instalador, o sigue los pasos " +
+        "manuales de abajo.",
+      "Creación automática no disponible",
+    );
+    return false;
+  }
+
+  const auto = await p.confirm({
+    message: `¿Quieres que cree los dos proyectos de Vercel automáticamente (conectados a ${repo}, con sus variables ya puestas)? Solo necesito un API token de Vercel.`,
+    initialValue: true,
+  });
+  if (p.isCancel(auto) || !auto) return false;
+
+  const token = await p.password({
+    message: "API token de Vercel (vercel.com/account/tokens — no se guarda, solo se usa ahora)",
+    validate: (value) => (value.trim() ? undefined : "Requerido"),
+  });
+  if (p.isCancel(token)) return false;
+
+  const namePrefix = repo.split("/")[1] ?? "kontrolia-auth";
+
+  const authSpinner = p.spinner();
+  authSpinner.start("Creando proyecto de Vercel para auth-server");
+  const authResult = await createVercelProject({
+    token,
+    repo,
+    name: `${namePrefix}-auth-server`,
+    rootDirectory: "apps/auth-server",
+    env: authServerEnv,
+  });
+  authSpinner.stop(authResult.ok ? "Proyecto auth-server creado" : `Falló auth-server: ${authResult.error}`);
+
+  const adminSpinner = p.spinner();
+  adminSpinner.start("Creando proyecto de Vercel para admin-panel");
+  const adminResult = await createVercelProject({
+    token,
+    repo,
+    name: `${namePrefix}-admin-panel`,
+    rootDirectory: "apps/admin-panel",
+    env: adminPanelEnv,
+  });
+  adminSpinner.stop(adminResult.ok ? "Proyecto admin-panel creado" : `Falló admin-panel: ${adminResult.error}`);
+
+  if (authResult.ok && adminResult.ok) {
+    p.note(
+      "Los dos proyectos ya están conectados a tu repo, con la carpeta y las variables correctas. Entra a " +
+        "vercel.com/dashboard y dale \"Deploy\" a cada uno (o empuja un commit a tu rama principal) para el primer despliegue.",
+      "Listo",
+    );
+    return true;
+  }
+
+  p.note("Algo falló creando los proyectos — usa los pasos manuales de abajo para lo que no se haya creado.", "Revisa el error de arriba");
+  return false;
+}
 
 /**
  * Question B from the architecture plan: where do auth-server/admin-panel
@@ -128,22 +202,24 @@ export async function askDeploymentStep(repoRoot: string, db: DatabaseAnswer): P
   const s = p.spinner();
   s.start("Generando apps/auth-server/.env.local y apps/admin-panel/.env.local");
 
-  await writeEnvFile(`${repoRoot}/apps/auth-server/.env.local`, {
+  const authServerEnv: EnvValues = {
     NEXT_PUBLIC_SUPABASE_URL: db.supabaseUrl,
     NEXT_PUBLIC_SUPABASE_ANON_KEY: db.anonKey,
     SUPABASE_URL: db.supabaseUrl,
     SUPABASE_SERVICE_ROLE_KEY: db.serviceRoleKey,
     NEXT_PUBLIC_ADMIN_PANEL_URL: adminPanelUrl,
     NEXT_PUBLIC_COOKIE_DOMAIN: cookieDomain,
-  });
+  };
+  await writeEnvFile(`${repoRoot}/apps/auth-server/.env.local`, authServerEnv);
 
-  await writeEnvFile(`${repoRoot}/apps/admin-panel/.env.local`, {
+  const adminPanelEnv: EnvValues = {
     NEXT_PUBLIC_SUPABASE_URL: db.supabaseUrl,
     NEXT_PUBLIC_SUPABASE_ANON_KEY: db.anonKey,
     NEXT_PUBLIC_AUTH_SERVER_URL: authServerUrl,
     NEXT_PUBLIC_COOKIE_DOMAIN: cookieDomain,
     NEXT_PUBLIC_OAUTH_CLIENT_ID: oauthClientId ?? "",
-  });
+  };
+  await writeEnvFile(`${repoRoot}/apps/admin-panel/.env.local`, adminPanelEnv);
 
   if (db.mode === "new-self-hosted") {
     // database.ts wrote SITE_URL="http://localhost:3000" as a fixed default
@@ -171,5 +247,9 @@ export async function askDeploymentStep(repoRoot: string, db: DatabaseAnswer): P
     );
   }
 
-  p.note(NEXT_STEPS[target], `Despliegue: ${target}`);
+  const autoCreated = target === "vercel" && (await tryAutoCreateVercelProjects(repoRoot, authServerEnv, adminPanelEnv));
+
+  if (!autoCreated) {
+    p.note(NEXT_STEPS[target], `Despliegue: ${target}`);
+  }
 }
