@@ -1,5 +1,15 @@
 # create-kontrolia-auth
 
+## 2.3.0
+
+### Minor Changes
+
+- 9817868: Cuando conectas un proyecto Supabase Cloud existente, el instalador ahora ofrece configurar automáticamente los dos ajustes que antes eran 100% manuales — exponer el schema `kontrolia_auth` en la API de datos y activar el Custom Access Token Hook — vía la Management API de Supabase. Pide un Personal Access Token de tu cuenta (distinto a las keys del proyecto, no se guarda). Si lo saltas, o si el proyecto es self-hosted/dominio propio (sin Management API), sigue mostrando las instrucciones manuales exactas para lo que falte.
+
+### Patch Changes
+
+- b3c49a8: Cuando conectas un proyecto Supabase existente, el instalador ahora también avisa que hay que agregar `kontrolia_auth` a "Exposed schemas" en Dashboard → Project Settings → Data API (además del Custom Access Token Hook que ya avisaba). Sin ese paso, cualquier operación contra el schema (crear una organización, etc.) falla con `Invalid schema: kontrolia_auth` — un error de PostgREST poco descriptivo que antes no quedaba explicado en ningún lado del flujo.
+
 ## 2.2.2
 
 ### Patch Changes
