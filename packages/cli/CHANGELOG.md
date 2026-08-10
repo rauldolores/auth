@@ -1,5 +1,18 @@
 # create-kontrolia-auth
 
+## 2.4.0
+
+### Minor Changes
+
+- 18ad91b: La automatización de configuración de Supabase Cloud (schema expuesto + Custom Access Token Hook) ahora también activa el servidor OAuth 2.1 de GoTrue en el mismo paso — la función que hace posible que otras aplicaciones, en dominios distintos, inicien sesión contra tu auth-server. Antes solo se podía activar a mano desde el Dashboard (si el proyecto ya tenía el toggle disponible, por ser una función en beta); ahora usa el mismo Personal Access Token y la misma llamada a la Management API que ya se pedía para el hook.
+- 6abc401: Nuevo comando `npx create-kontrolia-auth grant-admin <email>` — otorga platform admin directo contra la base de datos (misma connection string que `migrate`), sin pasar por login. Es la única vía de recuperación cuando una instalación se queda sin ningún platform admin: por ejemplo, al instalar sobre un proyecto Supabase que ya tenía usuarios de otra aplicación, el trigger que asciende automáticamente "al primer usuario" nunca dispara (cuenta filas de `auth.users`, que es compartida por todo el proyecto Supabase, no solo por KontrolIA Auth) — y la página "Platform admins" del admin-panel no se puede usar para arreglarlo porque requiere ya ser platform admin.
+
+### Patch Changes
+
+- Updated dependencies [6abc401]
+- Updated dependencies [b6de82d]
+  - @kontrolia/db@2.1.0
+
 ## 2.3.0
 
 ### Minor Changes
