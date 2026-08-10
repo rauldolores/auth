@@ -1,5 +1,6 @@
 import * as p from "@clack/prompts";
 import { registerApplication } from "@kontrolia/db";
+import { textOrExit } from "../utils/prompts.js";
 import type { DatabaseAnswer } from "./database.js";
 
 function slugify(name: string): string {
@@ -115,13 +116,4 @@ export async function askApplicationStep(db: DatabaseAnswer): Promise<void> {
     "Para habilitarla en una organización, entra a admin-panel → \"Aplicaciones\" — cualquier owner/admin puede activarla ahí con un clic.",
     "Siguiente paso",
   );
-}
-
-async function textOrExit(message: string, placeholder?: string): Promise<string> {
-  const value = await p.text({ message, placeholder });
-  if (p.isCancel(value)) {
-    p.cancel("Instalación cancelada.");
-    process.exit(0);
-  }
-  return value;
 }

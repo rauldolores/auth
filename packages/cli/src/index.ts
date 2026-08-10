@@ -2,10 +2,11 @@
 import * as p from "@clack/prompts";
 import { migrate } from "@kontrolia/db";
 import { askApplicationStep } from "./steps/application.js";
-import { askDatabaseStep } from "./steps/database.js";
+import { askDatabaseStep, type DatabaseAnswer } from "./steps/database.js";
 import { askDeploymentStep } from "./steps/deployment.js";
 import { bringUpAndMigrate } from "./utils/docker.js";
 import { runPreflight } from "./utils/preflight.js";
+import { textOrExit } from "./utils/prompts.js";
 import { ensureRepo, isInsideRepo } from "./utils/scaffold.js";
 import { pullLatest } from "./utils/update.js";
 
@@ -98,6 +99,38 @@ async function runUpdateCommand() {
   );
 }
 
+/**
+ * `create-kontrolia-auth deploy` — jumps straight to the deployment step
+ * (URLs, OAuth client, .env.local generation, and the Vercel auto-create
+ * offer) without repeating the database/application questions. For anyone
+ * who already has everything running and just wants to (re)connect a
+ * deploy target — e.g. adding admin-panel after auth-server was already
+ * deployed. Doesn't persist Supabase credentials anywhere between runs, so
+ * it still has to ask for them once here.
+ */
+async function runDeployCommand() {
+  console.clear();
+  p.intro("KontrolIA Auth — desplegar auth-server / admin-panel");
+
+  if (!isInsideRepo(process.cwd())) {
+    p.log.error(
+      "Corre esto dentro de la carpeta donde instalaste KontrolIA Auth (la que tiene docker/docker-compose.yml).",
+    );
+    p.outro("Nada que hacer aquí.");
+    process.exitCode = 1;
+    return;
+  }
+
+  const supabaseUrl = await textOrExit("URL de tu proyecto Supabase", "https://tu-proyecto.supabase.co");
+  const anonKey = await textOrExit("Anon/public key");
+  const serviceRoleKey = await textOrExit("Service role key (server-only, nunca la expongas al navegador)");
+
+  const db: DatabaseAnswer = { mode: "existing", databaseUrl: "", supabaseUrl, anonKey, serviceRoleKey };
+
+  await askDeploymentStep(process.cwd(), db);
+  p.outro("Listo.");
+}
+
 /** Default flow: preflight → (scaffold if outside repo) → DB → migrate → app → deploy. */
 async function runInstall(targetDirArg?: string) {
   console.clear();
@@ -168,6 +201,7 @@ async function main() {
   if (first === "migrate") return runMigrateCommand();
   if (first === "doctor") return runDoctor();
   if (first === "update") return runUpdateCommand();
+  if (first === "deploy") return runDeployCommand();
 
   // `create <dir>` / `install <dir>` / `<dir>` / (nothing) all reach install.
   const dir = first === "create" || first === "install" ? args[1] : first;

@@ -40,6 +40,7 @@ pnpm --filter create-kontrolia-auth dev
 | ------------------------------------- | ----------------------------------------------------------------------------- |
 | `npx create-kontrolia-auth [carpeta]` | Instalación completa (el flujo de arriba).                                   |
 | `npx create-kontrolia-auth update`    | Descarga el código nuevo (`git pull`) sobre una copia ya instalada, instala dependencias, y aplica las migraciones nuevas. |
+| `npx create-kontrolia-auth deploy`    | Va directo al paso de despliegue (URLs, cliente OAuth, `.env.local`, creación automática en Vercel) sin repetir las preguntas de base de datos ni de aplicación — para cuando ya tienes todo corriendo y solo quieres (re)conectar auth-server o admin-panel a un nuevo destino. |
 | `npx create-kontrolia-auth migrate`   | Aplica/re-aplica las migraciones contra una base existente.                  |
 | `npx create-kontrolia-auth doctor`    | Solo revisa que tengas Node, pnpm, git y Docker.                             |
 

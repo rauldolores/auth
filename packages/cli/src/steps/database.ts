@@ -2,6 +2,7 @@ import * as p from "@clack/prompts";
 import { generateJwtSecret } from "../utils/secrets.js";
 import { generateSupabaseKeys } from "../utils/supabase-keys.js";
 import { writeEnvFile } from "../utils/files.js";
+import { textOrExit } from "../utils/prompts.js";
 
 export interface DatabaseAnswer {
   mode: "existing" | "new-self-hosted";
@@ -82,13 +83,4 @@ export async function askDatabaseStep(repoRoot: string): Promise<DatabaseAnswer>
     anonKey,
     serviceRoleKey,
   };
-}
-
-async function textOrExit(message: string, placeholder?: string): Promise<string> {
-  const value = await p.text({ message, placeholder });
-  if (p.isCancel(value)) {
-    p.cancel("Instalación cancelada.");
-    process.exit(0);
-  }
-  return value;
 }
