@@ -255,6 +255,30 @@ export default function TroubleshootingPage() {
           </p>
         }
       />
+
+      <Issue
+        symptom='Registrar/editar un cliente OAuth desde admin-panel falla con "Failed to fetch" (sin más detalle en la UI)'
+        cause={
+          <p>
+            <code>NEXT_PUBLIC_ADMIN_PANEL_URL</code> en la configuración de auth-server tenía{" "}
+            <code>http://</code> en vez de <code>https://</code>. Esa variable es la que{" "}
+            <code>/api/oauth-clients</code> usa para armar su header{" "}
+            <code>Access-Control-Allow-Origin</code> — y CORS exige coincidencia exacta, protocolo incluido.
+            El navegador manda <code>Origin: https://tu-panel.com</code>, el servidor solo permite{" "}
+            <code>http://tu-panel.com</code>, y bloquea la petición antes de que llegue código de respuesta
+            — de ahí el "Failed to fetch" genérico, sin pista de que el problema es un solo carácter.
+          </p>
+        }
+        fix={
+          <p>
+            Corrige <code>NEXT_PUBLIC_ADMIN_PANEL_URL</code> a <code>https://</code> en las variables de
+            entorno de auth-server y vuelve a desplegar. El instalador (<code>npx create-kontrolia-auth</code>{" "}
+            o <code>deploy</code>) ahora valida que estas URLs usen <code>https://</code> para un dominio real
+            (<code>http://</code> solo se acepta para <code>localhost</code>), así que no debería volver a
+            pasar en una instalación nueva.
+          </p>
+        }
+      />
     </article>
   );
 }

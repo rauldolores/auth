@@ -6,6 +6,25 @@ import type { DatabaseAnswer } from "./database.js";
 
 type DeployTarget = "docker" | "vercel" | "railway" | "render" | "coolify" | "manual";
 
+/**
+ * Catches a `http://` URL for a real domain before it gets baked into env
+ * vars — this exact typo shipped once already and broke CORS silently: the
+ * browser sends `Origin: https://panel.example.com`, the server only
+ * allow-lists the `http://` variant from this value, and every fetch()
+ * from admin-panel to auth-server fails with an unhelpful "Failed to
+ * fetch" that gives no hint the mismatch is just one character. `http://`
+ * is still fine for localhost/127.0.0.1 since nothing serves plain HTTP
+ * during local dev.
+ */
+function validateDeployUrl(value: string): string | undefined {
+  if (!value.trim()) return "Requerido";
+  if (/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/?$/i.test(value.trim())) return undefined;
+  if (!/^https:\/\//i.test(value.trim())) {
+    return 'Usa https:// para un dominio real (http:// solo vale para localhost) — si no, el navegador bloquea las llamadas entre auth-server y admin-panel por CORS.';
+  }
+  return undefined;
+}
+
 const NEXT_STEPS: Record<DeployTarget, string> = {
   docker:
     "Ya está: los servicios auth-server y admin-panel viven en el mismo docker/docker-compose.yml. Corre `docker compose -f docker/docker-compose.yml up -d` para tenerlos arriba.",
@@ -197,6 +216,7 @@ export async function askDeploymentStep(repoRoot: string, db: DatabaseAnswer): P
     placeholder: "http://localhost:3000",
     defaultValue: "http://localhost:3000",
     initialValue: prevAuthServerUrl,
+    validate: validateDeployUrl,
   });
   if (p.isCancel(authServerUrl)) {
     p.cancel("Instalación cancelada.");
@@ -209,6 +229,7 @@ export async function askDeploymentStep(repoRoot: string, db: DatabaseAnswer): P
     placeholder: "http://localhost:3001",
     defaultValue: "http://localhost:3001",
     initialValue: prevAdminPanelUrl,
+    validate: validateDeployUrl,
   });
   if (p.isCancel(adminPanelUrl)) {
     p.cancel("Instalación cancelada.");
