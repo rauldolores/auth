@@ -279,6 +279,30 @@ export default function TroubleshootingPage() {
           </p>
         }
       />
+
+      <Issue
+        symptom='Registrar/editar un cliente OAuth falla con "No API key found in request" (visible solo después de arreglar el error genérico de arriba)'
+        cause={
+          <p>
+            <code>/api/oauth-clients</code> y <code>/api/platform-admins</code> llamaban a la API admin de
+            GoTrue (<code>/auth/v1/admin/...</code>) mandando solo{" "}
+            <code>Authorization: Bearer &lt;service_role_key&gt;</code>, sin el header <code>apikey</code>. En
+            Supabase Cloud, Kong (el gateway delante de GoTrue) exige <code>apikey</code> en{" "}
+            <em>toda</em> petición, sin importar que <code>Authorization</code> ya traiga un JWT válido de
+            service role — son dos checks independientes. El Kong local que levanta{" "}
+            <code>supabase start</code> es más permisivo con esto, así que el problema no aparece probando en
+            local — solo contra un proyecto Cloud real.
+          </p>
+        }
+        fix={
+          <p>
+            Manda <code>apikey</code> con el mismo valor que <code>Authorization</code> en toda llamada
+            server-to-server a la API admin de GoTrue — <code>packages/cli/src/utils/oauth-client.ts</code> ya
+            lo hacía bien desde el principio; las dos rutas de admin-panel simplemente no seguían el mismo
+            patrón.
+          </p>
+        }
+      />
     </article>
   );
 }

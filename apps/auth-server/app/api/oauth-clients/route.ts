@@ -61,7 +61,16 @@ async function callGotrueAdmin(path: string, init?: RequestInit): Promise<{ stat
   try {
     const response = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/oauth/clients${path}`, {
       ...init,
-      headers: { Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`, ...init?.headers },
+      // Supabase Cloud's gateway (Kong) rejects requests missing `apikey`
+      // even when Authorization already carries a valid service-role JWT —
+      // the two checks are independent. Without this, every call here
+      // failed with "No API key found in request", previously invisible
+      // because the old error-forwarding code didn't surface `.message`.
+      headers: {
+        Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+        apikey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        ...init?.headers,
+      },
     });
     const data = await response.json().catch(() => ({}));
     return { status: response.status, body: response.ok ? data : normalizeGotrueError(data) };

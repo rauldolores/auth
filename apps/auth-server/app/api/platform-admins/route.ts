@@ -41,7 +41,14 @@ async function authorizePlatformAdmin(request: Request): Promise<{ userId: strin
 async function findUserByEmail(email: string): Promise<{ id: string; email: string } | null> {
   const response = await fetch(
     `${process.env.SUPABASE_URL}/auth/v1/admin/users?filter=${encodeURIComponent(email)}`,
-    { headers: { Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}` } },
+    {
+      // Kong (Supabase Cloud's gateway) requires `apikey` on every request
+      // independent of Authorization — same gap fixed in oauth-clients.
+      headers: {
+        Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+        apikey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      },
+    },
   );
   if (!response.ok) return null;
   const data = (await response.json()) as { users: { id: string; email: string }[] };
