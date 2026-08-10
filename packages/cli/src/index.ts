@@ -5,6 +5,7 @@ import { askApplicationStep } from "./steps/application.js";
 import { askDatabaseStep, type DatabaseAnswer } from "./steps/database.js";
 import { askDeploymentStep } from "./steps/deployment.js";
 import { bringUpAndMigrate } from "./utils/docker.js";
+import { readEnvFile } from "./utils/files.js";
 import { runPreflight } from "./utils/preflight.js";
 import { textOrExit } from "./utils/prompts.js";
 import { ensureRepo, isInsideRepo } from "./utils/scaffold.js";
@@ -105,8 +106,10 @@ async function runUpdateCommand() {
  * offer) without repeating the database/application questions. For anyone
  * who already has everything running and just wants to (re)connect a
  * deploy target — e.g. adding admin-panel after auth-server was already
- * deployed. Doesn't persist Supabase credentials anywhere between runs, so
- * it still has to ask for them once here.
+ * deployed. A previous install/deploy already wrote these same Supabase
+ * values into apps/auth-server/.env.local, so this reuses them instead of
+ * asking again every time — only falls back to asking when that file is
+ * missing or incomplete (e.g. first run, or the file got deleted).
  */
 async function runDeployCommand() {
   console.clear();
@@ -121,9 +124,41 @@ async function runDeployCommand() {
     return;
   }
 
-  const supabaseUrl = await textOrExit("URL de tu proyecto Supabase", "https://tu-proyecto.supabase.co");
-  const anonKey = await textOrExit("Anon/public key");
-  const serviceRoleKey = await textOrExit("Service role key (server-only, nunca la expongas al navegador)");
+  const existingEnv = await readEnvFile(`${process.cwd()}/apps/auth-server/.env.local`);
+  const found =
+    existingEnv?.SUPABASE_URL && existingEnv?.NEXT_PUBLIC_SUPABASE_ANON_KEY && existingEnv?.SUPABASE_SERVICE_ROLE_KEY
+      ? {
+          supabaseUrl: existingEnv.SUPABASE_URL,
+          anonKey: existingEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+          serviceRoleKey: existingEnv.SUPABASE_SERVICE_ROLE_KEY,
+        }
+      : null;
+
+  let supabaseUrl: string;
+  let anonKey: string;
+  let serviceRoleKey: string;
+
+  if (found) {
+    const reuse = await p.confirm({
+      message: `Ya tengo las credenciales de Supabase que usaste antes (${found.supabaseUrl}) — ¿las uso, o quieres capturar otras?`,
+      initialValue: true,
+    });
+    if (p.isCancel(reuse)) {
+      p.cancel("Cancelado.");
+      process.exit(0);
+    }
+    if (reuse) {
+      ({ supabaseUrl, anonKey, serviceRoleKey } = found);
+    } else {
+      supabaseUrl = await textOrExit("URL de tu proyecto Supabase", "https://tu-proyecto.supabase.co");
+      anonKey = await textOrExit("Anon/public key");
+      serviceRoleKey = await textOrExit("Service role key (server-only, nunca la expongas al navegador)");
+    }
+  } else {
+    supabaseUrl = await textOrExit("URL de tu proyecto Supabase", "https://tu-proyecto.supabase.co");
+    anonKey = await textOrExit("Anon/public key");
+    serviceRoleKey = await textOrExit("Service role key (server-only, nunca la expongas al navegador)");
+  }
 
   const db: DatabaseAnswer = { mode: "existing", databaseUrl: "", supabaseUrl, anonKey, serviceRoleKey };
 

@@ -1,5 +1,5 @@
 import * as p from "@clack/prompts";
-import { type EnvValues, updateEnvValue, writeEnvFile } from "../utils/files.js";
+import { type EnvValues, readEnvFile, updateEnvValue, writeEnvFile } from "../utils/files.js";
 import { registerOAuthClient } from "../utils/oauth-client.js";
 import { createVercelProject, detectCurrentBranch, detectGitHubRepo, triggerVercelDeployment } from "../utils/vercel-api.js";
 import type { DatabaseAnswer } from "./database.js";
@@ -166,6 +166,15 @@ async function tryAutoCreateVercelProjects(
  * ever generates env files, it never touches the database connection.
  */
 export async function askDeploymentStep(repoRoot: string, db: DatabaseAnswer): Promise<void> {
+  // A previous install/deploy already wrote these into .env.local — reuse
+  // them as editable defaults instead of making the user retype the same
+  // URLs every time they run `deploy` again.
+  const prevAuthServerEnv = await readEnvFile(`${repoRoot}/apps/auth-server/.env.local`);
+  const prevAdminPanelEnv = await readEnvFile(`${repoRoot}/apps/admin-panel/.env.local`);
+  const prevAuthServerUrl = prevAdminPanelEnv?.NEXT_PUBLIC_AUTH_SERVER_URL;
+  const prevAdminPanelUrl = prevAuthServerEnv?.NEXT_PUBLIC_ADMIN_PANEL_URL;
+  const prevCookieDomain = prevAuthServerEnv?.NEXT_PUBLIC_COOKIE_DOMAIN ?? prevAdminPanelEnv?.NEXT_PUBLIC_COOKIE_DOMAIN;
+
   const target = await p.select<DeployTarget>({
     message: "¿Dónde vas a desplegar auth-server / admin-panel?",
     options: [
@@ -187,6 +196,7 @@ export async function askDeploymentStep(repoRoot: string, db: DatabaseAnswer): P
     message: "¿En qué URL va a vivir auth-server? (admin-panel la usa para enviar ahí a quien no tenga sesión)",
     placeholder: "http://localhost:3000",
     defaultValue: "http://localhost:3000",
+    initialValue: prevAuthServerUrl,
   });
   if (p.isCancel(authServerUrl)) {
     p.cancel("Instalación cancelada.");
@@ -198,6 +208,7 @@ export async function askDeploymentStep(repoRoot: string, db: DatabaseAnswer): P
       "¿Y en qué URL va a vivir admin-panel? (auth-server la usa para regresar ahí después de iniciar sesión, en vez de mandarte a su propia pantalla de inicio)",
     placeholder: "http://localhost:3001",
     defaultValue: "http://localhost:3001",
+    initialValue: prevAdminPanelUrl,
   });
   if (p.isCancel(adminPanelUrl)) {
     p.cancel("Instalación cancelada.");
@@ -210,6 +221,7 @@ export async function askDeploymentStep(repoRoot: string, db: DatabaseAnswer): P
       "Si es así, escribe el dominio compartido empezando con un punto (ej. .tuempresa.com). Si comparten el mismo host, o no lo sabes todavía, déjalo vacío.",
     placeholder: "",
     defaultValue: "",
+    initialValue: prevCookieDomain,
   });
   if (p.isCancel(cookieDomain)) {
     p.cancel("Instalación cancelada.");
