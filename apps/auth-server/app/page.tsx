@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import { useOrganizations } from "@/lib/use-organizations";
 
 export default function HomePage() {
-  const { user, organization, isAuthenticated } = useAuth();
+  const { user, organization, isAuthenticated, hasRole } = useAuth();
   const { organizations, isLoading, reload } = useOrganizations(isAuthenticated);
   const [showCreateForm, setShowCreateForm] = useState(false);
 
@@ -68,9 +68,212 @@ export default function HomePage() {
               }}
             />
           )}
+
+          {organization && (
+            <OrganizationCard organization={organization} isOwner={hasRole(["owner"])} onChanged={() => void reload()} />
+          )}
+
+          {organization && <OrganizationApplications organizationId={organization.id} />}
         </div>
       </div>
     </AuthGuard>
+  );
+}
+
+function OrganizationCard({
+  organization,
+  isOwner,
+  onChanged,
+}: {
+  organization: { id: string; name: string };
+  isOwner: boolean;
+  onChanged: () => void;
+}) {
+  const { refresh } = useAuth();
+  const [mode, setMode] = useState<"view" | "rename" | "delete">("view");
+  const [name, setName] = useState(organization.name);
+  const [confirmText, setConfirmText] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // The active org can change out from under this component (OrgSwitcher) —
+  // keep the rename input in sync instead of showing a stale name.
+  useEffect(() => {
+    setName(organization.name);
+    setMode("view");
+    setConfirmText("");
+    setError(null);
+  }, [organization.id, organization.name]);
+
+  async function handleRename(event: React.FormEvent) {
+    event.preventDefault();
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`/api/organizations/${organization.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      if (!response.ok) {
+        const body = (await response.json()) as { error?: string };
+        throw new Error(body.error ?? "No se pudo renombrar la organización.");
+      }
+      // organization.name comes from the JWT, not the row we just updated —
+      // without this it'd keep showing the old name until the token
+      // naturally refreshes (up to its full TTL).
+      await refresh();
+      setMode("view");
+      onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo renombrar la organización.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleDelete() {
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`/api/organizations/${organization.id}`, { method: "DELETE" });
+      if (!response.ok && response.status !== 204) {
+        const body = (await response.json()) as { error?: string };
+        throw new Error(body.error ?? "No se pudo eliminar la organización.");
+      }
+      // The active org just disappeared — refresh() falls back to whatever
+      // the hook resolves next (another membership, or none).
+      await refresh();
+      onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo eliminar la organización.");
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <Card className="k-flex k-flex-col k-gap-3">
+      <div className="k-flex k-items-center k-justify-between">
+        <p className="k-text-sm k-font-semibold">{organization.name}</p>
+        {mode === "view" && (
+          <div className="k-flex k-items-center k-gap-4">
+            <button type="button" onClick={() => setMode("rename")} className="k-text-sm k-text-muted-foreground hover:k-underline">
+              Editar
+            </button>
+            {isOwner && (
+              <button type="button" onClick={() => setMode("delete")} className="k-text-sm k-text-destructive hover:k-underline">
+                Eliminar
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {error && <p className="k-text-sm k-text-destructive">{error}</p>}
+
+      {mode === "rename" && (
+        <form onSubmit={handleRename} className="k-flex k-items-center k-gap-2">
+          <input
+            type="text"
+            required
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="k-flex-1 k-rounded-md k-border k-border-border k-bg-background k-px-3 k-py-2 k-text-sm"
+          />
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="k-rounded-md k-bg-primary k-px-3 k-py-2 k-text-sm k-font-medium k-text-primary-foreground disabled:k-opacity-60"
+          >
+            Guardar
+          </button>
+          <button type="button" onClick={() => setMode("view")} className="k-text-sm k-text-muted-foreground">
+            Cancelar
+          </button>
+        </form>
+      )}
+
+      {mode === "delete" && (
+        <div className="k-flex k-flex-col k-gap-2 k-rounded-md k-border k-border-destructive/40 k-bg-destructive/5 k-p-3">
+          <p className="k-text-sm">
+            Esto elimina <strong>{organization.name}</strong> de forma permanente — todos sus miembros, roles,
+            invitaciones y el historial de auditoría se pierden. No se puede deshacer.
+          </p>
+          <p className="k-text-sm k-text-muted-foreground">
+            Escribe <strong>{organization.name}</strong> para confirmar:
+          </p>
+          <input
+            type="text"
+            value={confirmText}
+            onChange={(e) => setConfirmText(e.target.value)}
+            className="k-rounded-md k-border k-border-border k-bg-background k-px-3 k-py-2 k-text-sm"
+          />
+          <div className="k-flex k-gap-2">
+            <button
+              type="button"
+              disabled={confirmText !== organization.name || isSubmitting}
+              onClick={() => void handleDelete()}
+              className="k-rounded-md k-bg-destructive k-px-3 k-py-2 k-text-sm k-font-medium k-text-destructive-foreground disabled:k-opacity-60"
+            >
+              Eliminar definitivamente
+            </button>
+            <button type="button" onClick={() => setMode("view")} className="k-text-sm k-text-muted-foreground">
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+interface LauncherApplication {
+  id: string;
+  name: string;
+  slug: string;
+  homepage_url: string | null;
+}
+
+function OrganizationApplications({ organizationId }: { organizationId: string }) {
+  const [applications, setApplications] = useState<LauncherApplication[] | null>(null);
+
+  useEffect(() => {
+    setApplications(null);
+    void fetch(`/api/organizations/${organizationId}/applications`)
+      .then((res) => (res.ok ? res.json() : { applications: [] }))
+      .then((body: { applications: LauncherApplication[] }) => setApplications(body.applications));
+  }, [organizationId]);
+
+  if (applications === null) return null;
+  if (applications.length === 0) return null;
+
+  return (
+    <Card className="k-flex k-flex-col k-gap-3">
+      <p className="k-text-sm k-font-semibold">Tus aplicaciones</p>
+      <div className="k-flex k-flex-wrap k-gap-2">
+        {applications.map((app) =>
+          app.homepage_url ? (
+            <a
+              key={app.id}
+              href={app.homepage_url}
+              target="_blank"
+              rel="noreferrer"
+              className="k-rounded-md k-border k-border-border k-bg-background k-px-3 k-py-2 k-text-sm k-font-medium hover:k-border-primary"
+            >
+              {app.name}
+            </a>
+          ) : (
+            <span
+              key={app.id}
+              title="Aún no tiene una URL configurada"
+              className="k-rounded-md k-border k-border-border k-bg-background k-px-3 k-py-2 k-text-sm k-text-muted-foreground"
+            >
+              {app.name}
+            </span>
+          ),
+        )}
+      </div>
+    </Card>
   );
 }
 

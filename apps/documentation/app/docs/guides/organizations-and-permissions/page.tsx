@@ -36,6 +36,25 @@ await switchOrganization(memberships[0].organizationId); // refresca la sesión,
 const memberships = await listMemberships(request, { supabaseUrl, supabaseAnonKey });`}</code>
       </pre>
 
+      <h2>Editar, eliminar, y ver tus aplicaciones</h2>
+      <p>
+        Desde la pantalla de inicio (auth-server), cualquier miembro puede renombrar la organización activa
+        (<code>PATCH /api/organizations/&#123;id&#125;</code>, requiere Owner o Admin — RLS lo aplica del lado
+        del servidor, no solo la UI). Eliminarla es más delicado — borra en cascada todos sus miembros, roles,
+        invitaciones y su historial de auditoría, sin poder deshacerse — así que está reservado solo al{" "}
+        <code>Owner</code> (<code>DELETE /api/organizations/&#123;id&#125;</code>), con una confirmación que
+        exige escribir el nombre exacto de la organización.
+      </p>
+      <p>
+        La misma pantalla también muestra <strong>tus aplicaciones</strong> dentro de la organización activa —
+        un lanzador con las apps a las que realmente tienes acceso, no solo las que la organización tiene
+        habilitadas. Si eres Owner o Admin ves todas las habilitadas; si no, solo las que tienen un rol
+        asignado a ti específicamente (por ejemplo &quot;Administrador de Facturación&quot;) — pertenecer a la
+        organización no es, por sí solo, acceso a ninguna aplicación en particular. Cada aplicación necesita
+        declarar su <code>homepage_url</code> (editable desde &quot;Aplicaciones&quot; en el admin-panel, por
+        un admin de la organización que la registró) para aparecer como un enlace en vez de solo un nombre.
+      </p>
+
       <h2>Roles: 3 de sistema + uno por aplicación por persona</h2>
       <p>
         <code>Owner</code>, <code>Admin</code> y <code>Member</code> son los 3 roles de sistema — generales de

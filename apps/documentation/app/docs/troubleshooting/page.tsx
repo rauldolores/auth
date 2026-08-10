@@ -233,6 +233,28 @@ export default function TroubleshootingPage() {
           </p>
         }
       />
+
+      <Issue
+        symptom={'Eliminar una organización falla con "insert or update on table \\"audit_logs\\" violates foreign key constraint \\"audit_logs_organization_id_fkey\\""'}
+        cause={
+          <p>
+            Borrar una organización hace cascade sobre <code>memberships</code>, que a su vez hace cascade
+            sobre <code>membership_roles</code> — y los triggers de auditoría <code>AFTER DELETE</code> en
+            ambas tablas intentaban insertar un registro nuevo en <code>audit_logs</code> referenciando esa
+            misma organización, en pleno cascade de su propio borrado. Como <code>audit_logs.organization_id</code>{" "}
+            también hace cascade al borrar la organización, para cuando esos triggers disparaban la fila de{" "}
+            <code>organizations</code> ya no existía — de ahí la violación de foreign key.
+          </p>
+        }
+        fix={
+          <p>
+            <code>log_membership_change()</code> y <code>log_role_assignment_change()</code> ahora verifican
+            que la organización siga existiendo antes de insertar el registro de auditoría — si no existe, es
+            porque el borrado es un efecto secundario de eliminar la organización completa (que se va a
+            llevar su propio historial de auditoría de todas formas), así que no hay nada que registrar.
+          </p>
+        }
+      />
     </article>
   );
 }

@@ -10,6 +10,8 @@ interface ApplicationRow {
   name: string;
   slug: string;
   environment: string;
+  owner_organization_id: string | null;
+  homepage_url: string | null;
   permissionCount: number;
 }
 
@@ -19,13 +21,15 @@ export default function ApplicationsPage() {
   const [available, setAvailable] = useState<ApplicationRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [editingUrlId, setEditingUrlId] = useState<string | null>(null);
+  const [urlDraft, setUrlDraft] = useState("");
   const canManage = hasRole(["owner", "admin"]);
 
   async function loadApplications(orgId: string) {
     const supabase = createKontroliaSchemaClient();
 
     const [{ data: allApps }, { data: enabledRows }] = await Promise.all([
-      supabase.from("applications").select("id, name, slug, environment"),
+      supabase.from("applications").select("id, name, slug, environment, owner_organization_id, homepage_url"),
       supabase
         .from("application_organizations")
         .select("application_id")
@@ -100,6 +104,25 @@ export default function ApplicationsPage() {
     }
   }
 
+  async function handleSaveUrl(applicationId: string) {
+    setError(null);
+    setPendingId(applicationId);
+    try {
+      const supabase = createKontroliaSchemaClient();
+      const { error: updateError } = await supabase
+        .from("applications")
+        .update({ homepage_url: urlDraft.trim() || null })
+        .eq("id", applicationId);
+      if (updateError) throw updateError;
+      setEditingUrlId(null);
+      if (organization) await loadApplications(organization.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo guardar la URL.");
+    } finally {
+      setPendingId(null);
+    }
+  }
+
   if (!organization) {
     return <p className="k-text-sm k-text-muted-foreground">Selecciona una organización primero.</p>;
   }
@@ -130,6 +153,7 @@ export default function ApplicationsPage() {
                 <th className="k-px-5 k-py-3 k-font-semibold">Slug</th>
                 <th className="k-px-5 k-py-3 k-font-semibold">Entorno</th>
                 <th className="k-px-5 k-py-3 k-font-semibold">Permisos</th>
+                <th className="k-px-5 k-py-3 k-font-semibold">URL</th>
                 {canManage && <th className="k-px-5 k-py-3 k-font-semibold" />}
               </tr>
             </thead>
@@ -142,6 +166,60 @@ export default function ApplicationsPage() {
                     <Badge variant={app.environment === "production" ? "success" : "neutral"}>{app.environment}</Badge>
                   </td>
                   <td className="k-px-5 k-py-3 k-text-muted-foreground">{app.permissionCount}</td>
+                  <td className="k-px-5 k-py-3">
+                    {editingUrlId === app.id ? (
+                      <div className="k-flex k-items-center k-gap-2">
+                        <input
+                          type="url"
+                          autoFocus
+                          placeholder="https://..."
+                          value={urlDraft}
+                          onChange={(e) => setUrlDraft(e.target.value)}
+                          className="k-w-48 k-rounded-md k-border k-border-border k-bg-background k-px-2 k-py-1 k-text-sm"
+                        />
+                        <button
+                          type="button"
+                          disabled={pendingId === app.id}
+                          onClick={() => void handleSaveUrl(app.id)}
+                          className="k-text-sm k-font-medium k-text-primary hover:k-underline disabled:k-opacity-60"
+                        >
+                          Guardar
+                        </button>
+                        <button type="button" onClick={() => setEditingUrlId(null)} className="k-text-sm k-text-muted-foreground">
+                          Cancelar
+                        </button>
+                      </div>
+                    ) : app.homepage_url ? (
+                      <a href={app.homepage_url} target="_blank" rel="noreferrer" className="k-text-sm k-text-primary hover:k-underline">
+                        {app.homepage_url}
+                      </a>
+                    ) : app.owner_organization_id === organization.id ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingUrlId(app.id);
+                          setUrlDraft("");
+                        }}
+                        className="k-text-sm k-text-muted-foreground hover:k-underline"
+                      >
+                        Configurar URL
+                      </button>
+                    ) : (
+                      <span className="k-text-sm k-text-muted-foreground">—</span>
+                    )}
+                    {app.owner_organization_id === organization.id && app.homepage_url && editingUrlId !== app.id && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingUrlId(app.id);
+                          setUrlDraft(app.homepage_url ?? "");
+                        }}
+                        className="k-ml-2 k-text-sm k-text-muted-foreground hover:k-underline"
+                      >
+                        Editar
+                      </button>
+                    )}
+                  </td>
                   {canManage && (
                     <td className="k-px-5 k-py-3 k-text-right">
                       <button
