@@ -1,5 +1,16 @@
 # @kontrolia/db
 
+## 2.1.0
+
+### Minor Changes
+
+- 6abc401: Nuevo comando `npx create-kontrolia-auth grant-admin <email>` — otorga platform admin directo contra la base de datos (misma connection string que `migrate`), sin pasar por login. Es la única vía de recuperación cuando una instalación se queda sin ningún platform admin: por ejemplo, al instalar sobre un proyecto Supabase que ya tenía usuarios de otra aplicación, el trigger que asciende automáticamente "al primer usuario" nunca dispara (cuenta filas de `auth.users`, que es compartida por todo el proyecto Supabase, no solo por KontrolIA Auth) — y la página "Platform admins" del admin-panel no se puede usar para arreglarlo porque requiere ya ser platform admin.
+- b6de82d: Nuevas migraciones para soportar editar/eliminar organizaciones desde auth-server y un "launcher" de aplicaciones por organización:
+
+  - `is_org_owner()` + política de DELETE en `organizations` (solo el Owner puede eliminar — a diferencia de `is_org_admin()`, que incluye Admin, para operaciones normales).
+  - Columna `applications.homepage_url` (dónde vive la app para un usuario final, distinto de `redirect_urls` que son URIs de OAuth) + política de UPDATE para admins de la organización dueña de la aplicación.
+  - Corrige los triggers de audit log (`log_membership_change`, `log_role_assignment_change`) para que no truenen con una violación de foreign key al eliminar una organización: ambos intentaban insertar un registro nuevo referenciando la organización que se está borrando en ese mismo cascade.
+
 ## 2.0.0
 
 ### Major Changes
