@@ -3,7 +3,7 @@ import { generateJwtSecret } from "../utils/secrets.js";
 import { generateSupabaseKeys } from "../utils/supabase-keys.js";
 import { writeEnvFile } from "../utils/files.js";
 import { textOrExit } from "../utils/prompts.js";
-import { addExposedSchema, enableCustomAccessTokenHook, extractProjectRef } from "../utils/supabase-management-api.js";
+import { addExposedSchema, enableCustomAccessTokenHook, enableOAuthServer, extractProjectRef } from "../utils/supabase-management-api.js";
 
 export interface DatabaseAnswer {
   mode: "existing" | "new-self-hosted";
@@ -14,27 +14,30 @@ export interface DatabaseAnswer {
 }
 
 /**
- * Offers to configure the two Supabase Cloud dashboard-only settings
- * (exposed schemas + Custom Access Token Hook) via the Management API
- * instead of leaving them as manual steps — mirrors the Vercel deploy
- * automation: a separate, more powerful "Personal Access Token" (account
- * level, not the project's anon/service keys), captured with masked input
- * and never persisted. Only offered for Supabase Cloud URLs (self-hosted
- * projects and custom domains have no Management API to call). Returns
- * which parts actually succeeded so the caller can fall back to a manual
- * note for whichever one didn't.
+ * Offers to configure the three Supabase Cloud dashboard-only settings
+ * (exposed schemas, Custom Access Token Hook, OAuth 2.1 server) via the
+ * Management API instead of leaving them as manual steps — mirrors the
+ * Vercel deploy automation: a separate, more powerful "Personal Access
+ * Token" (account level, not the project's anon/service keys), captured
+ * with masked input and never persisted. Only offered for Supabase Cloud
+ * URLs (self-hosted projects and custom domains have no Management API to
+ * call). Returns which parts actually succeeded so the caller can fall back
+ * to a manual note for whichever one didn't.
  */
-async function tryAutoConfigureSupabaseCloud(supabaseUrl: string): Promise<{ schemaDone: boolean; hookDone: boolean }> {
+async function tryAutoConfigureSupabaseCloud(
+  supabaseUrl: string,
+): Promise<{ schemaDone: boolean; hookDone: boolean; oauthServerDone: boolean }> {
   const projectRef = extractProjectRef(supabaseUrl);
-  if (!projectRef) return { schemaDone: false, hookDone: false };
+  if (!projectRef) return { schemaDone: false, hookDone: false, oauthServerDone: false };
 
   const auto = await p.confirm({
     message:
-      "¿Quieres que configure automáticamente el schema expuesto y el Custom Access Token Hook en tu proyecto Supabase? " +
+      "¿Quieres que configure automáticamente el schema expuesto, el Custom Access Token Hook, y el servidor OAuth 2.1 " +
+      "(necesario para que otras apps de dominios distintos inicien sesión) en tu proyecto Supabase? " +
       "Necesito un Personal Access Token de tu cuenta Supabase (distinto a las keys del proyecto que ya diste).",
     initialValue: true,
   });
-  if (p.isCancel(auto) || !auto) return { schemaDone: false, hookDone: false };
+  if (p.isCancel(auto) || !auto) return { schemaDone: false, hookDone: false, oauthServerDone: false };
 
   p.note(
     "1. Entra a supabase.com/dashboard/account/tokens\n" +
@@ -47,7 +50,7 @@ async function tryAutoConfigureSupabaseCloud(supabaseUrl: string): Promise<{ sch
     message: "Personal Access Token de Supabase (no se guarda, solo se usa ahora)",
     validate: (value) => (value.trim() ? undefined : "Requerido"),
   });
-  if (p.isCancel(managementToken)) return { schemaDone: false, hookDone: false };
+  if (p.isCancel(managementToken)) return { schemaDone: false, hookDone: false, oauthServerDone: false };
 
   const schemaSpinner = p.spinner();
   schemaSpinner.start("Exponiendo el schema kontrolia_auth en la API de datos");
@@ -59,7 +62,12 @@ async function tryAutoConfigureSupabaseCloud(supabaseUrl: string): Promise<{ sch
   const hookResult = await enableCustomAccessTokenHook(managementToken, projectRef);
   hookSpinner.stop(hookResult.ok ? "Hook activado" : `Falló: ${hookResult.error}`);
 
-  return { schemaDone: schemaResult.ok, hookDone: hookResult.ok };
+  const oauthSpinner = p.spinner();
+  oauthSpinner.start("Activando el servidor OAuth 2.1");
+  const oauthResult = await enableOAuthServer(managementToken, projectRef);
+  oauthSpinner.stop(oauthResult.ok ? "Servidor OAuth 2.1 activado" : `Falló: ${oauthResult.error}`);
+
+  return { schemaDone: schemaResult.ok, hookDone: hookResult.ok, oauthServerDone: oauthResult.ok };
 }
 
 /**
@@ -94,15 +102,22 @@ export async function askDatabaseStep(repoRoot: string): Promise<DatabaseAnswer>
     const serviceRoleKey = await textOrExit("Service role key (server-only, nunca la expongas al navegador)");
     const databaseUrl = await textOrExit("Connection string de Postgres", "postgres://postgres:...@db.tu-proyecto.supabase.co:5432/postgres");
 
-    const { schemaDone, hookDone } = await tryAutoConfigureSupabaseCloud(supabaseUrl);
+    const { schemaDone, hookDone, oauthServerDone } = await tryAutoConfigureSupabaseCloud(supabaseUrl);
 
-    if (!schemaDone || !hookDone) {
+    if (!schemaDone || !hookDone || !oauthServerDone) {
       const pending: string[] = [];
       if (!hookDone) pending.push("Authentication → Hooks → activa kontrolia_auth.custom_access_token_hook.");
       if (!schemaDone) {
         pending.push(
           "Project Settings → Data API → en \"Exposed schemas\" agrega kontrolia_auth (queda como: public, graphql_public, kontrolia_auth). " +
             "Sin esto, crear una organización u otras operaciones fallan con \"Invalid schema: kontrolia_auth\".",
+        );
+      }
+      if (!oauthServerDone) {
+        pending.push(
+          "Servidor OAuth 2.1 (necesario para que otras apps de dominios distintos inicien sesión): actívalo desde el Dashboard si ya " +
+            "tiene el toggle disponible (función en beta) — sin él, el registro de clientes OAuth y el login desde otros dominios fallan " +
+            'con "OAuth server is disabled".',
         );
       }
       p.note(

@@ -34,8 +34,9 @@ npx create-kontrolia-auth doctor      # solo revisar requisitos del entorno`}</c
         <li>
           Pregunta de dónde sale tu base de datos: un proyecto Supabase que ya tengas (Cloud o self-hosted), o
           uno nuevo que levanta por ti con Docker. Si eliges un proyecto Supabase Cloud existente, además ofrece
-          configurar automáticamente los dos ajustes que solo viven en su Dashboard — exponer el schema{" "}
-          <code>kontrolia_auth</code> en la API y activar el Custom Access Token Hook — pidiéndote un{" "}
+          configurar automáticamente los tres ajustes que solo viven en su Dashboard — exponer el schema{" "}
+          <code>kontrolia_auth</code> en la API, activar el Custom Access Token Hook, y activar el servidor
+          OAuth 2.1 (necesario para que apps de otros dominios inicien sesión) — pidiéndote un{" "}
           <em>Personal Access Token</em> de tu cuenta Supabase (distinto a las keys del proyecto; no se guarda).
         </li>
         <li>Aplica las migraciones contra esa base de datos.</li>

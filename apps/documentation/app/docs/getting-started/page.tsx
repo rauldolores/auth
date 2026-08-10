@@ -144,7 +144,7 @@ uri = "pg-functions://postgres/kontrolia_auth/custom_access_token_hook"`}</code>
         </li>
       </ul>
 
-      <h4>Paso manual: servidor OAuth 2.1 (SSO entre dominios distintos)</h4>
+      <h4>Servidor OAuth 2.1 (SSO entre dominios distintos)</h4>
       <p>
         Por defecto, el panel de administración y la pantalla de login mantienen la sesión compartiendo una
         cookie — funciona automáticamente si viven en el mismo host, y con{" "}
@@ -176,10 +176,11 @@ enabled = true`}</code>
           y reinicia con <code>supabase stop && supabase start</code>.
         </li>
         <li>
-          <strong>Supabase Cloud / proyecto existente</strong>: esta función está en beta pública — revisa en el
-          Dashboard si tu proyecto ya la tiene disponible. Si no la tiene, el instalador simplemente lo detecta,
-          te avisa, y el panel sigue funcionando con el enlace de login normal (válido mientras auth-server y
-          admin-panel compartan dominio o subdominios).
+          <strong>Supabase Cloud</strong>: el instalador (y <code>deploy</code>) te ofrecen activarlo
+          automáticamente junto con el schema expuesto y el hook (mismo Personal Access Token). Si lo saltas,
+          o si el proyecto es self-hosted fuera de nuestro docker-compose, el panel sigue funcionando con el
+          enlace de login normal mientras tanto (válido si auth-server y admin-panel comparten dominio o
+          subdominios).
         </li>
       </ul>
       <p>

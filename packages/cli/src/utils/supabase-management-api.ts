@@ -1,4 +1,6 @@
 const CUSTOM_ACCESS_TOKEN_HOOK_URI = "pg-functions://postgres/kontrolia_auth/custom_access_token_hook";
+/** GoTrue's internal route for the OAuth 2.1 authorization endpoint — the API rejects oauth_server_enabled without it. */
+const OAUTH_SERVER_AUTHORIZATION_PATH = "/oauth/authorize";
 
 export interface ManagementApiResult {
   ok: boolean;
@@ -78,6 +80,35 @@ export async function enableCustomAccessTokenHook(token: string, projectRef: str
       body: JSON.stringify({
         hook_custom_access_token_enabled: true,
         hook_custom_access_token_uri: CUSTOM_ACCESS_TOKEN_HOOK_URI,
+      }),
+    });
+  } catch (error) {
+    return { ok: false, error: (error as Error).message };
+  }
+  if (res.ok) return { ok: true };
+  const body = (await res.json().catch(() => null)) as { message?: string } | null;
+  return { ok: false, error: body?.message ?? `HTTP ${res.status}` };
+}
+
+/**
+ * Enables GoTrue's OAuth 2.1 authorization server — what makes cross-domain
+ * SSO possible (admin-panel exchanging a PKCE code for its own session
+ * instead of relying on a shared cookie). Without this, registering an OAuth
+ * client during install/deploy silently fails with
+ * `{"error_code":"feature_disabled","msg":"OAuth server is disabled"}`, and
+ * any third-party app trying to log in via the OAuth flow hits the same
+ * error. The API rejects `oauth_server_enabled` unless
+ * `oauth_server_authorization_path` is sent in the same request, even though
+ * conceptually it's just an on/off toggle.
+ */
+export async function enableOAuthServer(token: string, projectRef: string): Promise<ManagementApiResult> {
+  let res: Response;
+  try {
+    res = await managementApiFetch(`/projects/${projectRef}/config/auth`, token, {
+      method: "PATCH",
+      body: JSON.stringify({
+        oauth_server_enabled: true,
+        oauth_server_authorization_path: OAUTH_SERVER_AUTHORIZATION_PATH,
       }),
     });
   } catch (error) {
