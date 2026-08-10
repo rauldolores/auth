@@ -9,16 +9,23 @@ const NEXT_STEPS: Record<DeployTarget, string> = {
   docker:
     "Ya está: los servicios auth-server y admin-panel viven en el mismo docker/docker-compose.yml. Corre `docker compose -f docker/docker-compose.yml up -d` para tenerlos arriba.",
   vercel:
-    "1) Instala la CLI: npm i -g vercel\n" +
-    "2) En apps/auth-server corre `vercel` y sigue el asistente (crea 1 proyecto).\n" +
-    "3) En apps/admin-panel corre `vercel` (crea otro proyecto).\n" +
-    "4) En cada proyecto → Settings → Environment Variables, pega las variables de su .env.local (las acabo de generar).\n" +
-    "5) `vercel --prod` en cada carpeta para publicar.",
+    "Lo más confiable con un monorepo pnpm es conectar el repo desde el dashboard (no desplegar carpetas sueltas por CLI):\n" +
+    "1) vercel.com → Add New → Project → importa este repo de GitHub.\n" +
+    "2) Root Directory: apps/auth-server. Framework: Next.js (se detecta solo) — Vercel ve el pnpm-lock.yaml de la raíz del repo y usa pnpm automáticamente.\n" +
+    "3) Settings → Environment Variables, pega las variables de apps/auth-server/.env.local.\n" +
+    "4) Repite con un segundo proyecto: Root Directory apps/admin-panel y las variables de admin-panel/.env.local.\n" +
+    "\n" +
+    "Si prefieres la CLI (`npm i -g vercel`): corre `vercel` desde la RAÍZ del repo, nunca estando ya dentro de apps/auth-server — " +
+    "cuando pregunte en qué carpeta está el código, contesta apps/auth-server. Si corres `vercel` estando ya adentro de esa " +
+    "carpeta, solo sube esos archivos (sin el pnpm-lock.yaml ni los paquetes hermanos de la raíz) y el build falla con " +
+    '"npm error Unsupported URL Type workspace:". Repite desde la raíz para admin-panel.',
   railway:
-    "1) Instala la CLI: npm i -g @railway/cli && railway login\n" +
-    "2) En apps/auth-server: `railway init` y luego `railway up`.\n" +
-    "3) Repite en apps/admin-panel.\n" +
-    "4) En cada servicio (dashboard de Railway → Variables) pega su .env.local.",
+    "Recomendado: conecta el repo desde el dashboard de Railway (New Project → Deploy from GitHub repo), un servicio con " +
+    "Root Directory apps/auth-server y otro con apps/admin-panel — así Railway siempre parte del repo completo.\n" +
+    "Por CLI (`npm i -g @railway/cli && railway login`): corre `railway init`/`railway up` desde la RAÍZ del repo, nunca " +
+    "estando ya dentro de apps/auth-server — igual que con Vercel, si subes solo esa carpeta te falta el pnpm-lock.yaml de " +
+    "la raíz y el install falla contra los paquetes @kontrolia/* (workspace:*).\n" +
+    "En cada servicio (dashboard de Railway → Variables) pega su .env.local.",
   render:
     "1) Sube el repo a GitHub.\n" +
     "2) En Render → New → Web Service, apúntalo a apps/auth-server (Build: `pnpm install && pnpm build`, Start: `pnpm start`).\n" +
