@@ -32,9 +32,12 @@ export default function OAuthClientsPage() {
     const response = await fetch(`${AUTH_SERVER_URL}/api/oauth-clients`, {
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (!response.ok) return;
-    const data = (await response.json()) as { clients: OAuthClientRow[] };
-    setClients(data.clients);
+    const data = (await response.json().catch(() => ({}))) as { clients?: OAuthClientRow[]; error?: string };
+    if (!response.ok) {
+      setError(data.error ?? "No se pudo cargar la lista de clientes OAuth.");
+      return;
+    }
+    setClients(data.clients ?? []);
   }
 
   useEffect(() => {

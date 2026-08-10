@@ -39,15 +39,43 @@ async function authorizePlatformAdmin(request: Request): Promise<NextResponse | 
   }
 }
 
+/**
+ * GoTrue's own error responses don't consistently use an `error` field —
+ * e.g. the OAuth-server-disabled case is `{code, error_code, msg}`, with
+ * no `error` key at all. Forwarding that shape as-is left admin-panel's
+ * `data.error ?? "No se pudo registrar el cliente."` fallback swallowing
+ * the real reason every time GoTrue's response didn't happen to match.
+ * Normalize so `.error` always carries something readable, whatever GoTrue
+ * actually called it, while still passing through the raw fields too.
+ */
+function normalizeGotrueError(data: unknown): Record<string, unknown> {
+  const body = (data ?? {}) as Record<string, unknown>;
+  const message = [body.error_description, body.msg, body.error, body.message].find(
+    (value): value is string => typeof value === "string" && value.length > 0,
+  );
+  return message ? { ...body, error: message } : body;
+}
+
+/** Wraps the call to GoTrue's admin OAuth API — a network-level failure (bad SUPABASE_URL, DNS, etc.) here would otherwise throw uncaught and crash the route with an opaque 500. */
+async function callGotrueAdmin(path: string, init?: RequestInit): Promise<{ status: number; body: Record<string, unknown> }> {
+  try {
+    const response = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/oauth/clients${path}`, {
+      ...init,
+      headers: { Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`, ...init?.headers },
+    });
+    const data = await response.json().catch(() => ({}));
+    return { status: response.status, body: response.ok ? data : normalizeGotrueError(data) };
+  } catch (error) {
+    return { status: 502, body: { error: `No se pudo contactar a Supabase: ${(error as Error).message}` } };
+  }
+}
+
 export async function GET(request: Request) {
   const denied = await authorizePlatformAdmin(request);
   if (denied) return denied;
 
-  const response = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/oauth/clients`, {
-    headers: { Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}` },
-  });
-  const data = await response.json();
-  return NextResponse.json(data, { status: response.status, headers: corsHeaders() });
+  const { status, body } = await callGotrueAdmin("");
+  return NextResponse.json(body, { status, headers: corsHeaders() });
 }
 
 export async function POST(request: Request) {
@@ -62,12 +90,9 @@ export async function POST(request: Request) {
     );
   }
 
-  const response = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/oauth/clients`, {
+  const { status, body: responseBody } = await callGotrueAdmin("", {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       client_name: body.client_name,
       redirect_uris: body.redirect_uris,
@@ -75,8 +100,7 @@ export async function POST(request: Request) {
       token_endpoint_auth_method: "none",
     }),
   });
-  const data = await response.json();
-  return NextResponse.json(data, { status: response.status, headers: corsHeaders() });
+  return NextResponse.json(responseBody, { status, headers: corsHeaders() });
 }
 
 export async function PUT(request: Request) {
@@ -96,14 +120,10 @@ export async function PUT(request: Request) {
     );
   }
 
-  const response = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/oauth/clients/${clientId}`, {
+  const { status, body: responseBody } = await callGotrueAdmin(`/${clientId}`, {
     method: "PUT",
-    headers: {
-      Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ client_name: body.client_name, redirect_uris: body.redirect_uris }),
   });
-  const data = await response.json();
-  return NextResponse.json(data, { status: response.status, headers: corsHeaders() });
+  return NextResponse.json(responseBody, { status, headers: corsHeaders() });
 }
