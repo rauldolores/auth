@@ -51,10 +51,19 @@ pnpm --filter create-kontrolia-auth dev
 | `npx create-kontrolia-auth update`    | Descarga el código nuevo (`git pull`) sobre una copia ya instalada, instala dependencias, y aplica las migraciones nuevas. |
 | `npx create-kontrolia-auth deploy`    | Va directo al paso de despliegue (URLs, cliente OAuth, `.env.local`, creación automática en Vercel) sin repetir las preguntas de base de datos ni de aplicación — para cuando ya tienes todo corriendo y solo quieres (re)conectar auth-server o admin-panel a un nuevo destino. |
 | `npx create-kontrolia-auth migrate`   | Aplica/re-aplica las migraciones contra una base existente.                  |
+| `npx create-kontrolia-auth grant-admin <email>` | Otorga platform admin a un usuario ya registrado, directo contra la base de datos (connection string, sin pasar por login). Es el camino de recuperación cuando no hay ningún platform admin — por ejemplo si instalaste sobre un proyecto Supabase que ya tenía usuarios de otra app, y por eso el primer registro no se ascendió automáticamente. |
 | `npx create-kontrolia-auth doctor`    | Solo revisa que tengas Node, pnpm, git y Docker.                             |
 
 Las migraciones son **idempotentes** (solo tocan el schema `kontrolia_auth`), así
 que `migrate` es seguro de correr las veces que necesites.
+
+`grant-admin` usa el mismo modelo de confianza que `migrate`: quien tiene la
+connection string de Postgres ya puede hacer cualquier cosa en esa base de
+datos, así que no pasa por el login ni por el check de `is_platform_admin` de
+la app — por diseño, es la única vía que funciona cuando no hay ningún
+platform admin (la página "Platform admins" del admin-panel requiere ya serlo
+para poder usarla). Una vez que tengas al menos uno, agregar más se hace desde
+ahí, sin volver a tocar la terminal.
 
 `update` es para quien instaló con `npx create-kontrolia-auth mi-app` y ya
 tiene esa carpeta corriendo — no descarta cambios locales (se detiene si hay

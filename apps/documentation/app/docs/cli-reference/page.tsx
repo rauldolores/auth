@@ -10,11 +10,12 @@ export default function CliReferencePage() {
         comandos se corren con <code>npx</code>, así que nunca necesitas instalar nada de forma permanente:
       </p>
       <pre>
-        <code>{`npx create-kontrolia-auth [carpeta]   # instalación completa (por defecto)
-npx create-kontrolia-auth update      # traer el código/migraciones más recientes
-npx create-kontrolia-auth deploy      # (re)conectar un despliegue sin repetir preguntas
-npx create-kontrolia-auth migrate     # aplicar migraciones contra cualquier base
-npx create-kontrolia-auth doctor      # solo revisar requisitos del entorno`}</code>
+        <code>{`npx create-kontrolia-auth [carpeta]        # instalación completa (por defecto)
+npx create-kontrolia-auth update           # traer el código/migraciones más recientes
+npx create-kontrolia-auth deploy           # (re)conectar un despliegue sin repetir preguntas
+npx create-kontrolia-auth migrate          # aplicar migraciones contra cualquier base
+npx create-kontrolia-auth grant-admin <email>  # otorgar platform admin si no queda ninguno
+npx create-kontrolia-auth doctor           # solo revisar requisitos del entorno`}</code>
       </pre>
 
       <h2>Instalación completa</h2>
@@ -103,6 +104,32 @@ npx create-kontrolia-auth doctor      # solo revisar requisitos del entorno`}</c
         contra ella. Útil si administras la base de datos por separado del resto del flujo, o si quieres
         aplicar migraciones sin pasar por ninguna otra pregunta. Es lo mismo que corren internamente el
         instalador y <code>update</code> — pero puedes correrlo solo, las veces que quieras (es idempotente).
+      </p>
+
+      <h2>
+        <code>grant-admin</code> — recuperar acceso de platform admin
+      </h2>
+      <pre>
+        <code>npx create-kontrolia-auth grant-admin correo@ejemplo.com</code>
+      </pre>
+      <p>
+        Otorga el rol de <em>platform admin</em> a un usuario ya registrado, escribiendo directo en la base de
+        datos (pide la connection string de Postgres, igual que <code>migrate</code>) — no pasa por login ni por
+        ningún chequeo de permisos de la aplicación.
+      </p>
+      <p>
+        <strong>Para qué sirve:</strong> normalmente, agregar un platform admin se hace desde la página
+        &quot;Platform admins&quot; del panel de administración — pero esa página necesita que quien la usa{" "}
+        <em>ya</em> sea platform admin. Si tu instalación se queda sin ninguno (el caso más común: instalaste
+        KontrolIA Auth sobre un proyecto Supabase que ya tenía usuarios de otra aplicación, así que el primer
+        registro no calificó como &quot;el primer usuario del proyecto&quot; y no se ascendió automáticamente),
+        no hay forma de entrar a esa página. Este comando es la única vía de recuperación — mismo modelo de
+        confianza que <code>migrate</code>: quien tiene la connection string ya puede hacer lo que quiera en esa
+        base de datos.
+      </p>
+      <p>
+        Una vez que tengas al menos un platform admin, para agregar más ya no hace falta la terminal — se hace
+        desde el panel de administración.
       </p>
 
       <h2>

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import * as p from "@clack/prompts";
-import { migrate } from "@kontrolia/db";
+import { grantPlatformAdmin, migrate } from "@kontrolia/db";
 import { askApplicationStep } from "./steps/application.js";
 import { askDatabaseStep, type DatabaseAnswer } from "./steps/database.js";
 import { askDeploymentStep } from "./steps/deployment.js";
@@ -41,6 +41,56 @@ async function runMigrateCommand() {
   const ok = await migrateWithSpinner(url);
   if (!ok) process.exitCode = 1;
   p.outro(ok ? "Base de datos al día." : "Revisa la connection string y vuelve a intentar.");
+}
+
+/**
+ * `create-kontrolia-auth grant-admin <email>` — the break-glass recovery
+ * path for platform admins. The normal way to grant one (admin-panel's
+ * "Platform admins" page) requires already being a platform admin to call
+ * its API — which is exactly the problem when the automatic first-admin
+ * bootstrap didn't fire (e.g. installing onto an existing Supabase project
+ * that already had unrelated `auth.users` rows, so the "first user ever"
+ * check never matched) or a project ends up with zero admins some other
+ * way. This bypasses the app's authorization layer entirely, same trust
+ * model as `migrate`: whoever has the Postgres connection string can
+ * already do anything in that database.
+ */
+async function runGrantAdminCommand(email: string | undefined) {
+  console.clear();
+  p.intro("KontrolIA Auth — otorgar platform admin");
+
+  if (!email) {
+    p.log.error("Uso: npx create-kontrolia-auth grant-admin <email>");
+    p.outro("Falta el correo.");
+    process.exitCode = 1;
+    return;
+  }
+
+  const url = await p.text({
+    message: "Connection string de Postgres",
+    placeholder: "postgres://postgres:...@host:5432/postgres",
+  });
+  if (p.isCancel(url) || !url) {
+    p.cancel("Cancelado.");
+    process.exit(0);
+  }
+
+  const s = p.spinner();
+  s.start(`Buscando a ${email} y otorgando platform admin`);
+  try {
+    const result = await grantPlatformAdmin({ connectionString: url, email });
+    s.stop(
+      result.alreadyGranted
+        ? `${result.email} ya era platform admin — nada que hacer.`
+        : `${result.email} ahora es platform admin.`,
+    );
+    p.outro("Listo. Si tenía una sesión abierta, debe cerrarla y volver a entrar para que el token nuevo lleve el claim.");
+  } catch (error) {
+    s.stop("Falló");
+    p.log.error((error as Error).message);
+    process.exitCode = 1;
+    p.outro("Revisa el correo y la connection string, y vuelve a intentar.");
+  }
 }
 
 /** `create-kontrolia-auth doctor` — just the requirements check. */
@@ -237,6 +287,7 @@ async function main() {
   if (first === "doctor") return runDoctor();
   if (first === "update") return runUpdateCommand();
   if (first === "deploy") return runDeployCommand();
+  if (first === "grant-admin") return runGrantAdminCommand(args[1]);
 
   // `create <dir>` / `install <dir>` / `<dir>` / (nothing) all reach install.
   const dir = first === "create" || first === "install" ? args[1] : first;
