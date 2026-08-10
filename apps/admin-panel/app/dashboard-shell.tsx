@@ -1,7 +1,7 @@
 "use client";
 
 import { AuthGuard, useAuth } from "@kontrolia/react";
-import { OrgSwitcher, UnauthorizedScreen, UserMenu } from "@kontrolia/ui";
+import { ForbiddenScreen, OrgSwitcher, UnauthorizedScreen, UserMenu } from "@kontrolia/ui";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -161,10 +161,12 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     isLoading: authLoading,
     buildOAuthServerAuthorizeUrl,
     isPlatformAdmin,
+    hasRole,
   } = useAuth();
   const { organizations, isLoading: orgsLoading, reload } = useOrganizations(isAuthenticated);
   const pathname = usePathname();
   const [platformAdmin, setPlatformAdmin] = useState(false);
+  const [platformAdminChecked, setPlatformAdminChecked] = useState(false);
 
   // Only visible to platform admins — registering an OAuth client affects
   // every organization, not just the active one. The page itself checks
@@ -172,12 +174,31 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!isAuthenticated) {
       setPlatformAdmin(false);
+      setPlatformAdminChecked(false);
       return;
     }
-    void isPlatformAdmin().then(setPlatformAdmin);
+    void isPlatformAdmin().then((result) => {
+      setPlatformAdmin(result);
+      setPlatformAdminChecked(true);
+    });
   }, [isAuthenticated, isPlatformAdmin]);
 
   const navGroups = platformAdmin ? [...NAV_GROUPS, PLATFORM_NAV_GROUP] : NAV_GROUPS;
+
+  // admin-panel manages access to every application, not just one — a
+  // "Member" of the active organization has no business seeing (let alone
+  // touching) that surface just because they're authenticated. Only the
+  // active organization's Owner/Admin system role gets in; app-scoped
+  // custom roles (e.g. "Administrador de Facturación") intentionally don't
+  // count here — those grant permissions inside that one app, not access to
+  // this cross-app control plane. Platform admins bypass this per-org check
+  // entirely, same as they already bypass it for the Plataforma pages.
+  const isOrgAdmin = hasRole(["owner", "admin"]);
+  const canAccessAdmin = platformAdmin || isOrgAdmin;
+  // Wait for the platform-admin check to resolve at least once before
+  // deciding — otherwise an actual platform admin who's merely a Member of
+  // their active org would flash the Forbidden screen for a tick.
+  const roleCheckReady = !orgsLoading && platformAdminChecked;
   // /oauth/callback manages its own auth/loading UI while the code exchange
   // is in flight — during that window isAuthenticated is still false, and
   // wrapping it in the same guard below would race: this effect would fire
@@ -243,71 +264,88 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         />
       }
     >
-      <div className="k-flex k-min-h-screen k-bg-background">
-        <aside className="k-flex k-w-[220px] k-shrink-0 k-flex-col k-bg-sidebar k-p-3">
-          <div className="k-mb-6 k-flex k-items-center k-gap-2.5 k-px-2 k-pt-2">
-            <div className="k-flex k-h-8 k-w-8 k-shrink-0 k-items-center k-justify-center k-rounded-lg k-bg-gradient-to-br k-from-primary k-to-[#4c2a8c] k-text-sm k-font-extrabold k-text-white">
-              K
-            </div>
-            <div className="k-leading-tight">
-              <p className="k-text-sm k-font-extrabold k-text-sidebar-foreground">KontrolIA Auth</p>
-              <p className="k-text-[10px] k-font-semibold k-uppercase k-tracking-wide k-text-sidebar-muted">
-                Auth &amp; Access Platform
-              </p>
-            </div>
-          </div>
-
-          <nav className="k-flex k-flex-1 k-flex-col k-gap-4 k-overflow-y-auto">
-            {navGroups.map((group, index) => (
-              <div key={group.label ?? `group-${index}`}>
-                {group.label && (
-                  <p className="k-mb-1 k-px-3 k-text-[10px] k-font-semibold k-uppercase k-tracking-wide k-text-sidebar-muted">
-                    {group.label}
+      {!roleCheckReady ? (
+        <p className="k-p-8 k-text-sm k-text-muted-foreground">Cargando...</p>
+      ) : (
+        <div className="k-flex k-min-h-screen k-bg-background">
+          {canAccessAdmin && (
+            <aside className="k-flex k-w-[220px] k-shrink-0 k-flex-col k-bg-sidebar k-p-3">
+              <div className="k-mb-6 k-flex k-items-center k-gap-2.5 k-px-2 k-pt-2">
+                <div className="k-flex k-h-8 k-w-8 k-shrink-0 k-items-center k-justify-center k-rounded-lg k-bg-gradient-to-br k-from-primary k-to-[#4c2a8c] k-text-sm k-font-extrabold k-text-white">
+                  K
+                </div>
+                <div className="k-leading-tight">
+                  <p className="k-text-sm k-font-extrabold k-text-sidebar-foreground">KontrolIA Auth</p>
+                  <p className="k-text-[10px] k-font-semibold k-uppercase k-tracking-wide k-text-sidebar-muted">
+                    Auth &amp; Access Platform
                   </p>
-                )}
-                <div className="k-flex k-flex-col k-gap-0.5">
-                  {group.items.map((item) => {
-                    const isActive = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
-                    return (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        className={
-                          isActive
-                            ? "k-flex k-items-center k-gap-2.5 k-rounded-lg k-bg-sidebar-active k-px-3 k-py-2 k-text-sm k-font-medium k-text-white"
-                            : "k-flex k-items-center k-gap-2.5 k-rounded-lg k-px-3 k-py-2 k-text-sm k-font-medium k-text-sidebar-foreground/80 hover:k-bg-white/5 hover:k-text-sidebar-foreground"
-                        }
-                      >
-                        <item.icon className="k-h-4 k-w-4 k-shrink-0" />
-                        {item.label}
-                      </Link>
-                    );
-                  })}
                 </div>
               </div>
-            ))}
-          </nav>
-        </aside>
 
-        <div className="k-flex k-flex-1 k-flex-col">
-          <header className="k-flex k-items-center k-justify-between k-border-b k-border-border k-bg-card k-px-6 k-py-3">
-            {!orgsLoading && organizations.length > 0 ? (
-              <OrgSwitcher organizations={organizations} onSwitched={() => void reload()} />
+              <nav className="k-flex k-flex-1 k-flex-col k-gap-4 k-overflow-y-auto">
+                {navGroups.map((group, index) => (
+                  <div key={group.label ?? `group-${index}`}>
+                    {group.label && (
+                      <p className="k-mb-1 k-px-3 k-text-[10px] k-font-semibold k-uppercase k-tracking-wide k-text-sidebar-muted">
+                        {group.label}
+                      </p>
+                    )}
+                    <div className="k-flex k-flex-col k-gap-0.5">
+                      {group.items.map((item) => {
+                        const isActive = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+                        return (
+                          <Link
+                            key={item.href}
+                            href={item.href}
+                            className={
+                              isActive
+                                ? "k-flex k-items-center k-gap-2.5 k-rounded-lg k-bg-sidebar-active k-px-3 k-py-2 k-text-sm k-font-medium k-text-white"
+                                : "k-flex k-items-center k-gap-2.5 k-rounded-lg k-px-3 k-py-2 k-text-sm k-font-medium k-text-sidebar-foreground/80 hover:k-bg-white/5 hover:k-text-sidebar-foreground"
+                            }
+                          >
+                            <item.icon className="k-h-4 k-w-4 k-shrink-0" />
+                            {item.label}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </nav>
+            </aside>
+          )}
+
+          <div className="k-flex k-flex-1 k-flex-col">
+            <header className="k-flex k-items-center k-justify-between k-border-b k-border-border k-bg-card k-px-6 k-py-3">
+              {!orgsLoading && organizations.length > 0 ? (
+                <OrgSwitcher organizations={organizations} onSwitched={() => void reload()} />
+              ) : (
+                <span />
+              )}
+              <UserMenu />
+            </header>
+            {canAccessAdmin ? (
+              <main className="k-flex-1 k-p-8">
+                {organization && (
+                  <p className="k-mb-5 k-text-xs k-font-semibold k-uppercase k-tracking-wide k-text-muted-foreground">
+                    {organization.name}
+                  </p>
+                )}
+                {children}
+              </main>
             ) : (
-              <span />
+              <ForbiddenScreen
+                title="Sin acceso al panel"
+                description={
+                  organizations.length === 0
+                    ? "No perteneces a ninguna organización todavía."
+                    : `Tu rol en "${organization?.name ?? "esta organización"}" no da acceso al panel de administración — solo Owner y Admin pueden entrar. Si perteneces a otra organización donde sí tienes ese rol, cámbiate arriba.`
+                }
+              />
             )}
-            <UserMenu />
-          </header>
-          <main className="k-flex-1 k-p-8">
-            {organization && (
-              <p className="k-mb-5 k-text-xs k-font-semibold k-uppercase k-tracking-wide k-text-muted-foreground">
-                {organization.name}
-              </p>
-            )}
-            {children}
-          </main>
+          </div>
         </div>
-      </div>
+      )}
     </AuthGuard>
   );
 }

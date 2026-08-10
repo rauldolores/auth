@@ -47,6 +47,12 @@ const memberships = await listMemberships(request, { supabaseUrl, supabaseAnonKe
         de su rol de sistema.
       </p>
       <p>
+        <strong>Solo Owner y Admin entran al admin-panel</strong> — es la consola que gestiona los accesos de
+        toda la instalación, así que un <code>Member</code> no lo ve, aunque tenga un rol de "Administrador de
+        &lt;app&gt;" en alguna aplicación específica (ese rol da permisos dentro de esa app, no acceso a esta
+        consola). Los platform admins entran sin importar su rol de sistema en la organización activa.
+      </p>
+      <p>
         Al habilitar una aplicación para una organización (ver "Registrar el catálogo de permisos" más abajo),
         se crea automáticamente un rol "Administrador de &lt;app&gt;" con todos los permisos que esa aplicación
         declara — se mantiene sincronizado solo cada vez que la aplicación agrega un permiso nuevo a su catálogo,
