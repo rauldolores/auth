@@ -1,5 +1,12 @@
 # create-kontrolia-auth
 
+## 2.0.1
+
+### Patch Changes
+
+- 3d3cd9c: Fixed `npx create-kontrolia-auth update` refusing to run when the working tree had untracked files it had never seen edited — a stray `.vercel/` folder left behind by a manual `vercel` deploy attempt was enough to trip it, even with zero actual local edits. The dirty-tree guard now only blocks on modifications to files git already tracks (untracked files can't be silently discarded by `git pull` anyway — it refuses on its own if one would collide with an incoming file). Also added `.vercel` to `.gitignore`, since it's a normal by-product of deploying from this monorepo and was never meant to be tracked.
+- 0dbae63: Fixed the installer's Vercel/Railway deployment instructions — they previously told you to `cd apps/auth-server` (or `apps/admin-panel`) before running `vercel`/`railway init`, which uploads only that subfolder in isolation. Without the repo root's `pnpm-lock.yaml` and sibling `@kontrolia/*` packages, the cloud build falls back to `npm install` and fails with `Unsupported URL Type "workspace:"`. The instructions now lead with connecting the repo via each platform's dashboard (Root Directory set to the app folder, always builds from the full repo), with the CLI path as a documented alternative that explicitly warns against running it from inside the app subfolder.
+
 ## 2.0.0
 
 ### Major Changes
