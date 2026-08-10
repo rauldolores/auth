@@ -12,7 +12,12 @@ import { run } from "./exec.js";
  * not it actually moved), false if it stopped short of that for any reason.
  */
 export async function pullLatest(repoRoot: string): Promise<boolean> {
-  const dirty = (await run("git", ["status", "--porcelain"], { cwd: repoRoot })).trim();
+  // Untracked files (a stray .vercel/ from a manual deploy, editor scratch
+  // files, anything not in .gitignore yet) are deliberately not treated as
+  // "dirty" here — git pull can't silently discard something it was never
+  // tracking, and it refuses on its own if an incoming file would collide
+  // with one. Only local edits to files git already tracks block the pull.
+  const dirty = (await run("git", ["status", "--porcelain", "--untracked-files=no"], { cwd: repoRoot })).trim();
   if (dirty) {
     p.log.error(
       "Hay cambios sin guardar en esta copia — no los voy a tocar. Guárdalos (git commit / git stash) y vuelve a correr `npx create-kontrolia-auth update`.",
