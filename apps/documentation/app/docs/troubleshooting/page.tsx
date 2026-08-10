@@ -60,7 +60,10 @@ export default function TroubleshootingPage() {
         }
         fix={
           <p>
-            Supabase CLI: agrega <code>&quot;kontrolia_auth&quot;</code> a <code>[api] schemas</code> en{" "}
+            Supabase Cloud: Dashboard → Project Settings → Data API → agrega{" "}
+            <code>kontrolia_auth</code> al campo &quot;Exposed schemas&quot; (queda como{" "}
+            <code>public, graphql_public, kontrolia_auth</code>). Se aplica solo, sin reiniciar nada. Supabase CLI
+            (desarrollo local): agrega <code>&quot;kontrolia_auth&quot;</code> a <code>[api] schemas</code> en{" "}
             <code>config.toml</code> y reinicia con <code>supabase stop &amp;&amp; supabase start</code>{" "}
             (PostgREST necesita reiniciar para tomar el cambio). Docker propio: ya viene en{" "}
             <code>PGRST_DB_SCHEMAS</code> de <code>docker/docker-compose.yml</code>.

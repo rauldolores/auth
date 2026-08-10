@@ -45,8 +45,11 @@ export async function askDatabaseStep(repoRoot: string): Promise<DatabaseAnswer>
     const databaseUrl = await textOrExit("Connection string de Postgres", "postgres://postgres:...@db.tu-proyecto.supabase.co:5432/postgres");
 
     p.note(
-      "Si tu proyecto es Supabase Cloud, activa el Custom Access Token Hook manualmente en Dashboard → Authentication → Hooks → selecciona kontrolia_auth.custom_access_token_hook. No se puede automatizar por API.",
-      "Paso manual pendiente",
+      "Si tu proyecto es Supabase Cloud (o self-hosted fuera de nuestro docker-compose), hay dos ajustes que solo se pueden hacer desde el Dashboard — la API de Supabase no los expone:\n\n" +
+        "1. Authentication → Hooks → activa kontrolia_auth.custom_access_token_hook.\n" +
+        "2. Project Settings → Data API → en \"Exposed schemas\" agrega kontrolia_auth (queda como: public, graphql_public, kontrolia_auth). " +
+        "Sin esto, crear una organización u otras operaciones fallan con \"Invalid schema: kontrolia_auth\".",
+      "2 pasos manuales pendientes",
     );
 
     return { mode, databaseUrl, supabaseUrl, anonKey, serviceRoleKey };
