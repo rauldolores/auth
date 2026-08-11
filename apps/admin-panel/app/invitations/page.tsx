@@ -14,10 +14,17 @@ interface RoleOption {
 interface InvitationRow {
   id: string;
   email: string;
+  token: string;
   created_at: string;
   expires_at: string;
   accepted_at: string | null;
   role: { name: string } | null;
+}
+
+const AUTH_SERVER_URL = process.env.NEXT_PUBLIC_AUTH_SERVER_URL;
+
+function invitationLink(token: string): string {
+  return `${AUTH_SERVER_URL}/invitations/accept?token=${token}`;
 }
 
 export default function InvitationsPage() {
@@ -28,6 +35,9 @@ export default function InvitationsPage() {
   const [roleId, setRoleId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pendingId, setPendingId] = useState<string | null>(null);
+  const [lastInviteLink, setLastInviteLink] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   async function loadData(orgId: string) {
     const supabase = createKontroliaSchemaClient();
@@ -43,7 +53,7 @@ export default function InvitationsPage() {
 
     const { data: invitationRows } = await supabase
       .from("invitations")
-      .select("id, email, created_at, expires_at, accepted_at, role:roles(name)")
+      .select("id, email, token, created_at, expires_at, accepted_at, role:roles(name)")
       .eq("organization_id", orgId)
       .order("created_at", { ascending: false })
       .returns<InvitationRow[]>();
@@ -59,19 +69,66 @@ export default function InvitationsPage() {
     event.preventDefault();
     if (!organization) return;
     setError(null);
+    setLastInviteLink(null);
     setIsSubmitting(true);
     try {
       const supabase = createKontroliaSchemaClient();
-      const { error: insertError } = await supabase
+      const { data, error: insertError } = await supabase
         .from("invitations")
-        .insert({ organization_id: organization.id, email, role_id: roleId || null });
+        .insert({ organization_id: organization.id, email, role_id: roleId || null })
+        .select("token")
+        .single();
       if (insertError) throw insertError;
       setEmail("");
+      setLastInviteLink(invitationLink(data.token));
       await loadData(organization.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo crear la invitación.");
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  async function handleCopyLink(row: InvitationRow) {
+    await navigator.clipboard.writeText(invitationLink(row.token));
+    setCopiedId(row.id);
+    setTimeout(() => setCopiedId((current) => (current === row.id ? null : current)), 2000);
+  }
+
+  async function handleRevoke(row: InvitationRow) {
+    if (!organization) return;
+    setError(null);
+    setPendingId(row.id);
+    try {
+      const supabase = createKontroliaSchemaClient();
+      const { error: deleteError } = await supabase.from("invitations").delete().eq("id", row.id);
+      if (deleteError) throw deleteError;
+      await loadData(organization.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo revocar la invitación.");
+    } finally {
+      setPendingId(null);
+    }
+  }
+
+  async function handleResend(row: InvitationRow) {
+    if (!organization) return;
+    setError(null);
+    setPendingId(row.id);
+    try {
+      const supabase = createKontroliaSchemaClient();
+      const newExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      const { error: updateError } = await supabase
+        .from("invitations")
+        .update({ expires_at: newExpiry })
+        .eq("id", row.id);
+      if (updateError) throw updateError;
+      setLastInviteLink(invitationLink(row.token));
+      await loadData(organization.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo reenviar la invitación.");
+    } finally {
+      setPendingId(null);
     }
   }
 
@@ -135,6 +192,22 @@ export default function InvitationsPage() {
         {error && <p className="k-mt-2 k-text-sm k-text-destructive">{error}</p>}
       </Card>
 
+      {lastInviteLink && (
+        <Card className="k-flex k-items-center k-justify-between k-gap-3 k-border-primary/40 k-bg-primary/5 k-p-4">
+          <div className="k-min-w-0">
+            <p className="k-text-sm k-font-medium">Comparte este enlace con la persona invitada</p>
+            <p className="k-truncate k-text-sm k-text-muted-foreground">{lastInviteLink}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void navigator.clipboard.writeText(lastInviteLink)}
+            className="k-shrink-0 k-rounded-md k-border k-border-border k-px-3 k-py-1.5 k-text-sm hover:k-bg-muted"
+          >
+            Copiar
+          </button>
+        </Card>
+      )}
+
       <Card className="k-p-0">
         <table className="k-w-full k-text-sm">
           <thead>
@@ -143,11 +216,14 @@ export default function InvitationsPage() {
               <th className="k-px-5 k-py-3 k-font-semibold">Rol</th>
               <th className="k-px-5 k-py-3 k-font-semibold">Estado</th>
               <th className="k-px-5 k-py-3 k-font-semibold">Enviada</th>
+              <th className="k-px-5 k-py-3 k-font-semibold" />
             </tr>
           </thead>
           <tbody>
             {invitations.map((row) => {
               const status = invitationStatus(row);
+              const isPending = status.label === "Pendiente";
+              const isExpired = status.label === "Expirada";
               return (
                 <tr key={row.id} className="k-border-b k-border-border last:k-border-0">
                   <td className="k-px-5 k-py-3">{row.email}</td>
@@ -156,6 +232,37 @@ export default function InvitationsPage() {
                     <Badge variant={status.variant}>{status.label}</Badge>
                   </td>
                   <td className="k-px-5 k-py-3 k-text-muted-foreground">{new Date(row.created_at).toLocaleDateString()}</td>
+                  <td className="k-px-5 k-py-3 k-text-right k-whitespace-nowrap">
+                    {(isPending || isExpired) && (
+                      <button
+                        type="button"
+                        onClick={() => void handleCopyLink(row)}
+                        className="k-mr-3 k-text-sm k-text-muted-foreground hover:k-underline"
+                      >
+                        {copiedId === row.id ? "¡Copiado!" : "Copiar enlace"}
+                      </button>
+                    )}
+                    {isExpired && (
+                      <button
+                        type="button"
+                        disabled={pendingId === row.id}
+                        onClick={() => void handleResend(row)}
+                        className="k-mr-3 k-text-sm k-text-muted-foreground hover:k-underline disabled:k-opacity-60"
+                      >
+                        Reenviar
+                      </button>
+                    )}
+                    {(isPending || isExpired) && (
+                      <button
+                        type="button"
+                        disabled={pendingId === row.id}
+                        onClick={() => void handleRevoke(row)}
+                        className="k-text-sm k-text-destructive hover:k-underline disabled:k-opacity-60"
+                      >
+                        Revocar
+                      </button>
+                    )}
+                  </td>
                 </tr>
               );
             })}

@@ -5,8 +5,13 @@ import { NextResponse } from "next/server";
  * Creates an invitation, gated by kontrolia's RLS policy "org admins manage
  * invitations" (the insert fails outright for a non-admin caller — this
  * route trusts the database, not application code, for that check).
- * Sending the actual email is a v1.5 item (see the roadmap); this returns
- * the invitation token so it can be wired to a provider later.
+ *
+ * KontrolIA Auth has no configured email provider of its own, so this
+ * intentionally does not send anything — it returns the invitation token so
+ * the caller can build `${authServerUrl}/invitations/accept?token=...}` and
+ * share it however they already send mail (their own SMTP/provider, Slack,
+ * etc.). admin-panel's Invitations page surfaces this same link with a
+ * copy button for the same reason.
  */
 export async function POST(request: Request) {
   const supabase = await createRouteHandlerSupabaseClient();

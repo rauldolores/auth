@@ -1,0 +1,51 @@
+Detection-checklist sweep (references/detection-checklist.md patterns), repo-wide,
+excluding node_modules/dist/.next/.turbo/.git. Run by delegated verification
+sub-agent plus supplementary manual greps by the auditor.
+
+Patterns run:
+  rg -n -i "TODO|FIXME|XXX|HACK" --glob '!**/node_modules/**' ...
+  rg -n -i "placeholder|coming soon|not implemented|not yet implemented|stub" ...
+  rg -n "catch\s*\(.*\)\s*\{\s*\}" ...   (empty catch blocks)
+  rg -n "\.skip\(|xit\(|xdescribe\(" ...  (disabled tests)
+
+Results:
+
+1. TODO/FIXME/XXX/HACK -- one real, load-bearing hit:
+   apps/auth-server/app/api/invitations/route.ts:28
+     // TODO(v1.5): send the invitation email via the configured provider.
+   The route creates a real invitation row and returns the token, but never
+   sends it. Explicitly framed in the code's own doc comment as a deferred
+   v1.5 item. Feeds REQ-006 (PARTIAL).
+   All other "TODO"-pattern hits across README.md/CHANGELOG.md/documentation
+   pages are the Spanish word "todo" ("all/everything"), false positives.
+
+2. placeholder/coming soon/not implemented/stub -- no real hits.
+   All matches are legitimate HTML placeholder="" input attributes (login
+   forms, CLI prompts) or a comment in docker/.env.example warning not to
+   ship the example's placeholder secret values (good practice, not a defect).
+
+3. Empty catch blocks -- zero hits repo-wide. No silent error-swallowing found.
+
+4. Disabled tests (.skip/xit/xdescribe) -- zero hits (moot given only one
+   test file exists in the whole repo, packages/permissions).
+
+5. Supplementary manual check (auditor): grep for "microsoft|azure" confirmed
+   Microsoft social login is wired with the same pattern as Google
+   (apps/auth-server/.env.example:33-36, NEXT_PUBLIC_MICROSOFT_LOGIN_ENABLED,
+   login/page.tsx:51 showMicrosoft prop) -- not just a UI button, a real
+   config-driven path. Feeds REQ-004 (PASS).
+
+6. Supplementary manual check (auditor): confirmed apps/auth-server/app/page.tsx
+   implements organization rename (PATCH) and delete (DELETE, with
+   type-the-exact-name confirmation at line 214) against the real
+   /api/organizations/[id] route (apps/auth-server/app/api/organizations/[id]/route.ts),
+   which relies entirely on RLS for authorization. admin-panel's own
+   Organizations page (apps/admin-panel/app/organizations/page.tsx) is
+   read-only and never calls this endpoint -- the capability lives in
+   auth-server's home screen instead, a legitimate architectural placement,
+   not a gap. Feeds REQ-014 (PASS).
+
+No empty handlers, no hardcoded secrets/credentials, no authorization
+bypasses (UI-only gates with no server-side backing) were found anywhere in
+the areas audited across 7 parallel research passes covering the full
+monorepo.

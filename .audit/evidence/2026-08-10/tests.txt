@@ -1,0 +1,27 @@
+Command: pnpm run test   (root script: `turbo run test`)
+Executed by: delegated verification sub-agent (general-purpose), from repo root C:\Codigo\KONTROLIA\auth
+Result: PASS (but with a significant coverage gap -- see note)
+
+Summary reported by the verification agent:
+  Tasks: 8 successful, 8 total (7 were cached builds of dependencies, not test runs)
+  Wall time: 6.3s
+  Only ONE package in the entire monorepo defines a `test` script:
+    packages/permissions/package.json -> "test": "vitest run"
+  Confirmed via a package.json sweep across every packages/*, apps/*, examples/* --
+  all others have no "test" key at all (turbo silently no-ops packages missing the
+  script rather than failing).
+
+  The one test file, packages/permissions/src/__tests__/match.test.ts, contains
+  5 real (non-trivial) assertions on matchesPermission(): exact match, wrong
+  action rejected, single-segment wildcard match/reject, deep wildcard
+  match/reject, and a shorter-required-key edge case. This is genuine logic
+  verification, not `expect(true).toBe(true)`.
+
+  GAP: zero automated tests exist for @kontrolia/auth (JWT/JWKS verification,
+  PKCE, OAuth client logic), @kontrolia/react, @kontrolia/next (middleware/route
+  protection), @kontrolia/db (migrations/RLS), apps/auth-server (login/register/
+  MFA/OAuth/invitations), apps/admin-panel, or packages/cli (the installer).
+  This is a real, material finding (see report's Recommended Fixes), but is not
+  graded as its own REQ-* since no plan/doc source promises a specific level of
+  test coverage -- per audit methodology, this is reported as an observation
+  rather than an invented requirement.

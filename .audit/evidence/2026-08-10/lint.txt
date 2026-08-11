@@ -1,0 +1,11 @@
+Command: pnpm run lint   (root script: `turbo run lint`)
+Executed by: delegated verification sub-agent (general-purpose), from repo root C:\Codigo\KONTROLIA\auth
+Result: PASS
+
+Summary reported by the verification agent:
+  Tasks: 23 successful, 23 total (8 cached)
+  Time: 28s
+  0 errors, 2 warnings -- both in apps/admin-panel:
+    - app/applications/page.tsx:67  react-hooks/exhaustive-deps (missing `organization` dep)
+    - app/audit-logs/page.tsx:44    react-hooks/exhaustive-deps (missing `organization` dep)
+  Both cosmetic, not load-bearing for any audited requirement.

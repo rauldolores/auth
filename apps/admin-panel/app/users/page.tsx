@@ -2,6 +2,7 @@
 
 import { useAuth } from "@kontrolia/react";
 import { Badge, Card } from "@kontrolia/ui";
+import Link from "next/link";
 import { Fragment, useEffect, useState } from "react";
 import { createKontroliaSchemaClient } from "@/lib/supabase-browser";
 
@@ -96,6 +97,30 @@ export default function UsersPage() {
       await loadMembers(organization.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo quitar al usuario.");
+    } finally {
+      setPendingId(null);
+    }
+  }
+
+  async function handleToggleStatus(member: MemberRow) {
+    if (!organization) return;
+    const nextStatus = member.status === "suspended" ? "active" : "suspended";
+    setError(null);
+    setPendingId(member.membershipId);
+    try {
+      const token = await getToken();
+      const response = await fetch(`${AUTH_SERVER_URL}/api/organization-members?membershipId=${member.membershipId}`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      if (!response.ok) {
+        const data = (await response.json()) as { error?: string };
+        throw new Error(data.error ?? "No se pudo actualizar el estado del usuario.");
+      }
+      await loadMembers(organization.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo actualizar el estado del usuario.");
     } finally {
       setPendingId(null);
     }
@@ -196,6 +221,12 @@ export default function UsersPage() {
                       {new Date(member.createdAt).toLocaleDateString()}
                     </td>
                     <td className="k-px-5 k-py-3 k-text-right k-whitespace-nowrap">
+                      <Link
+                        href={`/users/${member.membershipId}`}
+                        className="k-mr-3 k-text-sm k-text-muted-foreground hover:k-underline"
+                      >
+                        Ver detalle
+                      </Link>
                       {appGroups.length > 0 && (
                         <button
                           type="button"
@@ -203,6 +234,16 @@ export default function UsersPage() {
                           className="k-mr-3 k-text-sm k-text-muted-foreground hover:k-underline"
                         >
                           {isExpanded ? "Ocultar accesos" : "Gestionar accesos"}
+                        </button>
+                      )}
+                      {canManage && (
+                        <button
+                          type="button"
+                          disabled={pendingId === member.membershipId}
+                          onClick={() => void handleToggleStatus(member)}
+                          className="k-mr-3 k-text-sm k-text-muted-foreground hover:k-underline disabled:k-opacity-60"
+                        >
+                          {member.status === "suspended" ? "Reactivar" : "Suspender"}
                         </button>
                       )}
                       {canManage && (

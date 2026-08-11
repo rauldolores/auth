@@ -4,7 +4,7 @@ import { registerOAuthClient } from "../utils/oauth-client.js";
 import { createVercelProject, detectCurrentBranch, detectGitHubRepo, triggerVercelDeployment } from "../utils/vercel-api.js";
 import type { DatabaseAnswer } from "./database.js";
 
-type DeployTarget = "docker" | "vercel" | "railway" | "render" | "coolify" | "manual";
+export type DeployTarget = "docker" | "vercel" | "railway" | "render" | "coolify" | "manual";
 
 /**
  * Catches a `http://` URL for a real domain before it gets baked into env
@@ -184,7 +184,13 @@ async function tryAutoCreateVercelProjects(
  * run? Fully independent from the database question above — this only
  * ever generates env files, it never touches the database connection.
  */
-export async function askDeploymentStep(repoRoot: string, db: DatabaseAnswer): Promise<void> {
+export interface DeploymentAnswer {
+  authServerUrl: string;
+  adminPanelUrl: string;
+  target: DeployTarget;
+}
+
+export async function askDeploymentStep(repoRoot: string, db: DatabaseAnswer): Promise<DeploymentAnswer> {
   // A previous install/deploy already wrote these into .env.local — reuse
   // them as editable defaults instead of making the user retype the same
   // URLs every time they run `deploy` again.
@@ -334,4 +340,6 @@ export async function askDeploymentStep(repoRoot: string, db: DatabaseAnswer): P
   if (!autoCreated) {
     p.note(NEXT_STEPS[target], `Despliegue: ${target}`);
   }
+
+  return { authServerUrl, adminPanelUrl, target };
 }

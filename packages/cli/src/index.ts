@@ -6,6 +6,7 @@ import { askDatabaseStep, type DatabaseAnswer } from "./steps/database.js";
 import { askDeploymentStep } from "./steps/deployment.js";
 import { bringUpAndMigrate } from "./utils/docker.js";
 import { readEnvFile } from "./utils/files.js";
+import { openBrowser } from "./utils/open-browser.js";
 import { runPreflight } from "./utils/preflight.js";
 import { textOrExit } from "./utils/prompts.js";
 import { ensureRepo, isInsideRepo } from "./utils/scaffold.js";
@@ -212,8 +213,13 @@ async function runDeployCommand() {
 
   const db: DatabaseAnswer = { mode: "existing", databaseUrl: "", supabaseUrl, anonKey, serviceRoleKey };
 
-  await askDeploymentStep(process.cwd(), db);
-  p.outro("Listo.");
+  const deployment = await askDeploymentStep(process.cwd(), db);
+  openBrowser(deployment.authServerUrl);
+  openBrowser(deployment.adminPanelUrl);
+  p.outro(
+    `Listo. Deberían haberse abierto dos pestañas: ${deployment.authServerUrl} y ${deployment.adminPanelUrl}. ` +
+      "Si no cargan porque el servidor no está corriendo todavía en esa URL, recárgalas una vez que lo esté.",
+  );
 }
 
 /** Default flow: preflight → (scaffold if outside repo) → DB → migrate → app → deploy. */
@@ -271,11 +277,15 @@ async function runInstall(targetDirArg?: string) {
     );
   }
 
-  await askDeploymentStep(repoRoot, db);
+  const deployment = await askDeploymentStep(repoRoot, db);
+  openBrowser(deployment.authServerUrl);
+  openBrowser(deployment.adminPanelUrl);
 
   const cdHint = scaffolded && dirName ? `cd ${dirName} && ` : "";
   p.outro(
-    `Listo. Arranca en local con \`${cdHint}pnpm dev\`, crea tu primer usuario/organización en /register, y usa @kontrolia/react en tus apps.`,
+    `Listo. Deberían haberse abierto dos pestañas — la de inicio de sesión (${deployment.authServerUrl}) y el panel de ` +
+      `administración (${deployment.adminPanelUrl}). Si no cargan porque los servidores aún no están arriba, corre ` +
+      `\`${cdHint}pnpm dev\` y recárgalas. Crea tu primer usuario/organización en /register, y usa @kontrolia/react en tus apps.`,
   );
 }
 
