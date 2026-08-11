@@ -47,7 +47,12 @@ export default function UsersPage() {
     const response = await fetch(`${AUTH_SERVER_URL}/api/organization-members?organizationId=${orgId}&offset=${offset}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (!response.ok) return;
+    if (!response.ok) {
+      const data = (await response.json().catch(() => null)) as { error?: string } | null;
+      setError(data?.error ?? "No se pudieron cargar los usuarios.");
+      return;
+    }
+    setError(null);
     const data = (await response.json()) as { members: MemberRow[]; hasMore: boolean };
     setMembers((current) => (append ? [...(current ?? []), ...data.members] : data.members));
     setHasMore(data.hasMore);

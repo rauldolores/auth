@@ -24,6 +24,13 @@ export interface AuthProviderProps {
 }
 
 export function AuthProvider({ config, children }: AuthProviderProps) {
+  // Deliberately narrower than the whole `config` object: consumers
+  // commonly pass an inline object literal (`<AuthProvider config={{...}}>`),
+  // which is a new reference every render — depending on `config` itself
+  // would recreate the Supabase client (and tear down its auth listener)
+  // on every render. supabaseUrl/supabaseAnonKey are the only fields that
+  // actually determine client identity.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const client = useMemo(() => createKontroliaClient(config), [config.supabaseUrl, config.supabaseAnonKey]);
 
   const [state, setState] = useState<Omit<KontroliaAuthState, "client" | "checker">>({

@@ -39,21 +39,33 @@ async function authorizePlatformAdmin(request: Request): Promise<{ userId: strin
   }
 }
 
+const GOTRUE_ADMIN_TIMEOUT_MS = 10_000;
+
 async function findUserByEmail(email: string): Promise<{ id: string; email: string } | null> {
-  const response = await fetch(
-    `${process.env.SUPABASE_URL}/auth/v1/admin/users?filter=${encodeURIComponent(email)}`,
-    {
-      // Kong (Supabase Cloud's gateway) requires `apikey` on every request
-      // independent of Authorization — same gap fixed in oauth-clients.
-      headers: {
-        Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-        apikey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  try {
+    const response = await fetch(
+      `${process.env.SUPABASE_URL}/auth/v1/admin/users?filter=${encodeURIComponent(email)}`,
+      {
+        signal: AbortSignal.timeout(GOTRUE_ADMIN_TIMEOUT_MS),
+        // Kong (Supabase Cloud's gateway) requires `apikey` on every request
+        // independent of Authorization — same gap fixed in oauth-clients.
+        headers: {
+          Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+          apikey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        },
       },
-    },
-  );
-  if (!response.ok) return null;
-  const data = (await response.json()) as { users: { id: string; email: string }[] };
-  return data.users.find((user) => user.email?.toLowerCase() === email.toLowerCase()) ?? null;
+    );
+    if (!response.ok) return null;
+    const data = (await response.json()) as { users: { id: string; email: string }[] };
+    return data.users.find((user) => user.email?.toLowerCase() === email.toLowerCase()) ?? null;
+  } catch (error) {
+    // A hung/unreachable GoTrue would otherwise hang this route indefinitely
+    // (no timeout) or crash it with an unlogged uncaught rejection (no
+    // try/catch) — bound it and let the caller treat this the same as
+    // "no user found" (POST already returns 404 for that case).
+    logError("platform-admins:findUserByEmail", error);
+    return null;
+  }
 }
 
 /**

@@ -12,6 +12,19 @@ import { textOrExit } from "./utils/prompts.js";
 import { ensureRepo, isInsideRepo } from "./utils/scaffold.js";
 import { pullLatest } from "./utils/update.js";
 
+/** Best-effort host extraction from a Postgres connection string, for the confirmation prompt below. Never throws — an unparseable string just skips the localhost check and confirms anyway. */
+function connectionHost(connectionString: string): string | null {
+  try {
+    return new URL(connectionString.replace(/^postgres(ql)?:/, "postgresql:")).hostname || null;
+  } catch {
+    return null;
+  }
+}
+
+function isLocalHost(host: string | null): boolean {
+  return host === null || host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "db";
+}
+
 /** Applies the schema against an already-reachable database, with a spinner. */
 async function migrateWithSpinner(connectionString: string): Promise<boolean> {
   const s = p.spinner();
@@ -39,6 +52,19 @@ async function runMigrateCommand() {
     p.cancel("Cancelado.");
     process.exit(0);
   }
+
+  const host = connectionHost(url);
+  if (!isLocalHost(host)) {
+    const proceed = await p.confirm({
+      message: `Esta connection string apunta a "${host}", que no parece ser una base de datos local. ¿Aplicar las migraciones de kontrolia_auth ahí?`,
+      initialValue: false,
+    });
+    if (p.isCancel(proceed) || !proceed) {
+      p.cancel("Cancelado.");
+      process.exit(0);
+    }
+  }
+
   const ok = await migrateWithSpinner(url);
   if (!ok) process.exitCode = 1;
   p.outro(ok ? "Base de datos al día." : "Revisa la connection string y vuelve a intentar.");
@@ -141,6 +167,18 @@ async function runUpdateCommand() {
   if (p.isCancel(url) || !url) {
     p.outro("Código actualizado. Corre `npx create-kontrolia-auth migrate` cuando quieras aplicar la base de datos.");
     return;
+  }
+
+  const updateHost = connectionHost(url);
+  if (!isLocalHost(updateHost)) {
+    const proceed = await p.confirm({
+      message: `Esta connection string apunta a "${updateHost}", que no parece ser una base de datos local. ¿Aplicar las migraciones nuevas ahí?`,
+      initialValue: false,
+    });
+    if (p.isCancel(proceed) || !proceed) {
+      p.outro("Código actualizado. Corre `npx create-kontrolia-auth migrate` cuando quieras aplicar la base de datos.");
+      return;
+    }
   }
 
   const migrated = await migrateWithSpinner(url);

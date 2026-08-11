@@ -47,6 +47,16 @@ services:
       GOTRUE_JWT_SECRET: ${JWT_SECRET}
       GOTRUE_JWT_EXP: 3600
       GOTRUE_DISABLE_SIGNUP: "false"
+      # GoTrue has built-in, per-IP rate limiting on sign-in/sign-up/email-
+      # sending/token-refresh/OTP endpoints, but it can only see real client
+      # IPs — not Kong's own container IP for every request — if told which
+      # header carries them. Kong (this stack's gateway, in front of GoTrue)
+      # sets X-Forwarded-For by default for every proxied request, so this is
+      # the header to trust. Tune individual limits (GOTRUE_RATE_LIMIT_*) per
+      # https://supabase.com/docs/guides/auth/rate-limits if the defaults
+      # don't fit — self-hosted only; Supabase Cloud applies its own limits
+      # regardless of this file.
+      GOTRUE_RATE_LIMIT_HEADER: X-Forwarded-For
       # Dev convenience only — wire up real SMTP before going to production.
       GOTRUE_MAILER_AUTOCONFIRM: ${GOTRUE_MAILER_AUTOCONFIRM:-true}
       # Activates kontrolia_auth.custom_access_token_hook (packages/db/migrations/0007).

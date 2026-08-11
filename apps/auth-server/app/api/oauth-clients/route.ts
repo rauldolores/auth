@@ -57,11 +57,14 @@ function normalizeGotrueError(data: unknown): Record<string, unknown> {
   return message ? { ...body, error: message } : body;
 }
 
-/** Wraps the call to GoTrue's admin OAuth API — a network-level failure (bad SUPABASE_URL, DNS, etc.) here would otherwise throw uncaught and crash the route with an opaque 500. */
+const GOTRUE_ADMIN_TIMEOUT_MS = 10_000;
+
+/** Wraps the call to GoTrue's admin OAuth API — a network-level failure (bad SUPABASE_URL, DNS, etc.) here would otherwise throw uncaught and crash the route with an opaque 500. A hung GoTrue instance would otherwise hang this route handler indefinitely — AbortSignal.timeout() bounds it instead. */
 async function callGotrueAdmin(path: string, init?: RequestInit): Promise<{ status: number; body: Record<string, unknown> }> {
   try {
     const response = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/oauth/clients${path}`, {
       ...init,
+      signal: AbortSignal.timeout(GOTRUE_ADMIN_TIMEOUT_MS),
       // Supabase Cloud's gateway (Kong) rejects requests missing `apikey`
       // even when Authorization already carries a valid service-role JWT —
       // the two checks are independent. Without this, every call here
@@ -77,7 +80,8 @@ async function callGotrueAdmin(path: string, init?: RequestInit): Promise<{ stat
     return { status: response.status, body: response.ok ? data : normalizeGotrueError(data) };
   } catch (error) {
     logError("oauth-clients:callGotrueAdmin", error, { path });
-    return { status: 502, body: { error: `No se pudo contactar a Supabase: ${(error as Error).message}` } };
+    const message = error instanceof Error && error.name === "TimeoutError" ? "Supabase tardó demasiado en responder" : (error as Error).message;
+    return { status: 502, body: { error: `No se pudo contactar a Supabase: ${message}` } };
   }
 }
 
