@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { resetRateLimitsForTests } from "@/lib/rate-limit";
 
 // Light coverage: this route is a thin, platform-admin-gated proxy in front
 // of GoTrue's admin OAuth-client API. The one piece of real logic worth
@@ -24,6 +25,7 @@ beforeEach(() => {
   verifyRequestMock.mockReset();
   fetchMock.mockReset();
   global.fetch = fetchMock as unknown as typeof fetch;
+  resetRateLimitsForTests();
 });
 
 describe("platform-admin gate", () => {
@@ -37,6 +39,20 @@ describe("platform-admin gate", () => {
     verifyRequestMock.mockResolvedValue({ claims: { is_platform_admin: false } });
     const response = await GET(requestWithAuth(BASE_URL));
     expect(response.status).toBe(403);
+  });
+
+  it("rate limits after too many requests from the same IP within the window", async () => {
+    verifyRequestMock.mockResolvedValue({ claims: { is_platform_admin: false } });
+    const makeRequest = () => requestWithAuth(BASE_URL, { headers: { "X-Forwarded-For": "198.51.100.9" } });
+
+    for (let i = 0; i < 30; i++) {
+      const response = await GET(makeRequest());
+      expect(response.status).not.toBe(429);
+    }
+
+    const limited = await GET(makeRequest());
+    expect(limited.status).toBe(429);
+    expect(limited.headers.get("Retry-After")).toBeTruthy();
   });
 });
 

@@ -1,0 +1,30 @@
+[
+  {
+    "date": "2026-08-11T23:59:00",
+    "mode": "AUDIT",
+    "scope": "Full integration surface — entire monorepo",
+    "result": "INTEGRATION_INCOMPLETE",
+    "gapsFound": 17,
+    "criticalGaps": 0,
+    "highGaps": 1,
+    "gapsInScope": [
+      "INT-KEY-001",
+      "INT-KEY-002",
+      "INT-SEC-001",
+      "INT-WEBHOOK-001",
+      "INT-API-001",
+      "INT-API-002",
+      "INT-API-003",
+      "INT-API-004",
+      "INT-API-005",
+      "INT-API-006",
+      "INT-DOC-001",
+      "INT-DOC-002",
+      "INT-DOC-003",
+      "INT-DOC-004",
+      "INT-DX-001",
+      "INT-DX-002",
+      "INT-OPENAPI-001"
+    ]
+  }
+]

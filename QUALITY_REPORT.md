@@ -443,6 +443,23 @@ both are the closest of the 7 remaining items to a genuine security/production-s
 | MEDIUM | REL-BE-001 | No explicit timeout on any external GoTrue admin API call (findUserByEmail, callGotrueAdmin, resolveEmails' listUsers loop) — a hung GoTrue instance could hang a route handler indefinitely | Release Readiness | OPEN — re-audited 2026-08-11T23:45:00, partial fix only (commit 7080d4e fixed findUserByEmail/callGotrueAdmin's raw fetch() calls but not resolveEmails()'s SDK-mediated listUsers() calls), not VERIFIED |
 | MEDIUM | REL-FE-001 | `apps/admin-panel/app/users/page.tsx`'s initial member-list load silently shows an empty state on fetch failure instead of an error (same class as PQ-UX-010, one additional occurrence) | Release Readiness | VERIFIED (2026-08-11T23:45:00, commit 7080d4e) — error state now set and genuinely rendered in the JSX |
 | LOW | REL-BUILD-001 | ESLint warning: `packages/react-sdk/src/context.tsx:27` useMemo missing dependency `config` — 0 errors repo-wide, this is the only warning | Release Readiness | VERIFIED (2026-08-11T23:45:00, commit 7080d4e) — silenced with a genuine explanatory comment; fresh lint run confirms 0 warnings anywhere |
+| HIGH | INT-KEY-001 | Application API key (`kapp_...`, used by `/api/applications/sync`) has no rotation, no revocation, no expiration, no "last used" tracking, and zero admin-panel UI — the only recovery from a leaked key is deleting and re-registering the whole application | Integration Surface | OPEN |
+| MEDIUM | INT-SEC-001 | Zero rate limiting (any layer) on `/api/oauth-clients` and `/api/applications/sync` — Kong never proxies these routes and Next.js middleware explicitly excludes `/api/*` | Integration Surface | OPEN |
+| MEDIUM | INT-KEY-002 | `/api/applications/sync` logs nothing on invalid/missing-key attempts or successful syncs — no audit trail for detecting a misused or leaked key | Integration Surface | OPEN |
+| MEDIUM | INT-WEBHOOK-001 | No webhook system exists anywhere (subscriptions/events/delivery/retries/signing/logs) — a plausible, real gap for a centralized auth/IAM provider whose downstream consumers would want to react to events like user.created/invitation.accepted without polling | Integration Surface | OPEN |
+| MEDIUM | INT-API-001 | OAuth client management has no DELETE/revoke (API or UI) — a client can be created and edited but never decommissioned; overlaps `PQ-UX-009` | Integration Surface | OPEN |
+| MEDIUM | INT-API-003 | No validation of `redirect_uris` format/scheme/host, no dedup, on OAuth client create/edit | Integration Surface | OPEN |
+| MEDIUM | INT-API-004 | The product's actual core flow — cross-domain PKCE OAuth (`buildOAuthServerAuthorizeUrl`/`exchangeOAuthServerCode`) — is not demonstrated in any of the 4 example integrations | Integration Surface | OPEN |
+| MEDIUM | INT-API-006 | Unguarded `fetch()` in 3 OAuth-server client SDK methods (`exchangeOAuthServerCode`, `getOAuthAuthorizationDetails`, `decideOAuthAuthorization`) — same defect already tracked as `PQ-TECH-007` | Integration Surface | OPEN |
+| MEDIUM | INT-DOC-001 | OAuth token endpoint, exact authorize-endpoint query params, and the `scope` parameter never documented at the HTTP level | Integration Surface | OPEN |
+| MEDIUM | INT-DOC-003 | No systematic error-response reference beyond applications/sync's own table | Integration Surface | OPEN |
+| LOW | INT-API-002 | `PUT /api/oauth-clients` uses query-string `clientId` instead of a path segment; only `client_name`/`redirect_uris` are editable | Integration Surface | OPEN |
+| LOW | INT-API-005 | `getUserFromClaims`/`listMemberships` implemented in `auth-sdk/src/server.ts` but not exported from the public `@kontrolia/auth/server` surface | Integration Surface | OPEN |
+| LOW | INT-DOC-002 | No consolidated SDK API-reference page — surface only discoverable via scattered example snippets | Integration Surface | OPEN |
+| LOW | INT-DOC-004 | SDK npm-install instructions appear only once, buried in `migration/page.tsx` | Integration Surface | OPEN |
+| LOW | INT-DX-001 | `apps/playground` is an empty single-page stub despite the root README describing it as a working "Sandbox para probar el SDK en vivo" | Integration Surface | OPEN |
+| LOW | INT-DX-002 | All 4 examples pin `@kontrolia/*` via `workspace:*` — none demonstrate real registry semver ranges an external consumer would use | Integration Surface | OPEN |
+| LOW | INT-OPENAPI-001 | No OpenAPI/Swagger spec for either integration-relevant endpoint family | Integration Surface | OPEN |
 
 Priority: BLOCKER, CRITICAL, HIGH, MEDIUM, LOW.
 Status: OPEN, IN_PROGRESS, FIXED, VERIFIED, WONT_FIX, BLOCKED.
@@ -471,6 +488,8 @@ moves it to VERIFIED.
 | 2026-08-11T21:00:00 (re-audit after commit 07d8ec5, eighth same-day run, narrow closing-verification scope) | kontrolia-professional-review | PROFESSIONAL BUT NEEDS POLISH | — | 0 (PQ-TECH-001 independently VERIFIED RESOLVED this round, not taken on the prior session's own claim of "145/145 pass": read organization-members.test.ts, platform-admins.test.ts, invitations-accept.test.ts, and test-helpers.ts in full and cross-checked every assertion against the real route.ts implementations — mocks sit at the correct real boundary, wouldRemoveLastOwner()'s three branches are each distinctly fixtured with exact status-code/response-body assertions matching route.ts's Spanish error strings verbatim, and the invitations-accept regression test for commit 717bf03 asserts an exact from()-call count rather than a vague "didn't throw" check — genuinely real, meaningfully-branched tests, not padding. Independently re-ran `pnpm turbo run test` fresh: 145/145 pass, auth-server's 95 tests genuinely executed this run (cache miss, not replayed). Re-confirmed apps/admin-panel has zero route.ts/route.tsx anywhere and no app/api directory — PQ-TECH-001's scope was fully addressable by testing auth-server alone. Sanity-checked commit 07d8ec5's full diff: 16 files touched, all test files/vitest.config.ts/package.json's test script and vitest devDependency/pnpm-lock.yaml — zero implementation files modified, confirming the change was genuinely test-only. This is the first round of the entire 8-round Phase 2 sequence with zero open CRITICAL or HIGH findings anywhere. Technical Score revised 66->78, Overall Score 76 (up from 75). Verdict remains PROFESSIONAL BUT NEEDS POLISH under this skill's own rubric only because Overall (76) sits below the 85 threshold required for PRODUCTION QUALITY — driven entirely by 24 still-open, non-blocking MEDIUM findings across UX/accessibility/performance/maintainability, none new this round, none CRITICAL/HIGH. Per the quality gate's own simpler pass rule (zero open HIGH/CRITICAL), Phase 2 now cleanly PASSES for the first time across all 8 rounds run today) |
 | 2026-08-11T22:30:00 | kontrolia-release-readiness | READY WITH WARNINGS | Release Score: 91/100 | 0 blockers, 0 critical (first release-readiness run on this project — full fresh re-verification, not trusting Phase 1/2's same-day results: `pnpm turbo run build/typecheck/lint/test --force` all re-run with 0 cache hits — 16/16 build, 19/19 typecheck, 23/23 lint (1 warning), 145/145 tests all pass. Independent deep-dive on this run's unique Phase 3 scope — migrations 0024-0030 and the CLI's fresh-install/incremental-upgrade paths — found zero destructive operations, correct filename-tracked ordering, full per-file transactional safety, and all 7 changesets accurate and complete. Independent security/authn/authz spot-check found zero exposed secrets, zero client-exposed server secrets, RLS enabled on all 14 kontrolia_auth tables, and real server-side authorization on every route checked. Independent backend/frontend/env/deploy/docs pass found no BLOCKER or FAIL. 11 WARNING-level findings recorded (REL-SEC-001, REL-DB-001/002/003, REL-DEPLOY-001/002, REL-ENV-001/002, REL-BE-001, REL-FE-001, REL-BUILD-001) — none match a release-blocker category. Zero BLOCKERs, zero FAILs in any core category -> READY WITH WARNINGS) |
 | 2026-08-11T23:45:00 (re-audit after commit 7080d4e, second same-day release-readiness run) | kontrolia-release-readiness | READY WITH WARNINGS | Release Score: 90/100 | 0 blockers, 0 critical (closing verification of commit 7080d4e, which claimed to close 8 of the first run's 11 WARNING findings. Fresh full-monorepo re-verification again, 0 cache hits: 16/16 build, 19/19 typecheck, 23/23 lint with 0 warnings (down from 1), 146/146 tests (up from 145, the new health.test.ts). Independently read every diff in the commit rather than trusting its message. 6 of 8 claimed fixes VERIFIED as genuine and complete: REL-DEPLOY-001's originally-described migrate/update confirmation gap (live-tested against 6 connection-string shapes), REL-DEPLOY-002 health endpoints (confirmed not interceptable by either app's middleware, specifically checked per this run's brief), REL-ENV-001/002 doc expansions, REL-FE-001's error-state fix (confirmed genuinely rendered, not just set), and REL-BUILD-001's lint fix. 2 of 8 (REL-SEC-001, REL-BE-001) found to be real but incomplete fixes, not full closures: REL-SEC-001's GOTRUE_RATE_LIMIT_HEADER addition is a genuine improvement for honest traffic, but independent research via WebSearch on Kong's and GoTrue's actual external behavior (neither is vendored in this repo) found this stack's kong.yml has no ip-restriction plugin and no trusted_ips/real_ip_header configured, so a deliberate attacker can still spoof X-Forwarded-For to defeat per-IP rate limiting on the Docker self-host deploy target; REL-BE-001's AbortSignal.timeout() fix covers only 2 of 4 GoTrue admin API call sites (the 2 raw fetch() calls), missing resolveEmails()'s SDK-mediated listUsers() calls on what are likely the highest-traffic admin-panel routes. Both stay OPEN with corrected, narrower descriptions. This same investigation surfaced 2 new WARNING findings: REL-DEPLOY-003 (grant-admin — more privileged than migrate/update — wasn't given the same confirmation gate) and REL-DEPLOY-004 (the new host-parser fails open, treating unparseable connection strings as local, for the libpq keyword/value format). REL-DB-001/002/003 re-confirmed unchanged and correctly still deferred (commit touched zero files under packages/db/). Net: 11 open WARNINGs -> 7 open WARNINGs. Zero BLOCKERs, zero FAILs in any core category throughout -> READY WITH WARNINGS, recommend ship) |
+
+| 2026-08-11T23:59:00 | kontrolia-integration-surface | INTEGRATION_INCOMPLETE | — | 0 CRITICAL, 1 HIGH (INT-KEY-001 — application API key has no rotation/revocation/expiration/"last used" tracking/UI; the only recovery from a leak is deleting and re-registering the whole application). First run of this skill on this project. Real discovery across the whole integration surface: read `apps/auth-server/app/api/oauth-clients/route.ts` and `applications/sync/route.ts` in full, `packages/auth-sdk/src/{client,server,jwt,pkce}.ts`, `packages/react-sdk/src/*`, `packages/next-sdk/src/middleware.ts`, `packages/db/src/{api-key,register-application}.ts`, all 31 migrations, all 4 `examples/*` cross-checked line-by-line against real current SDK exports (zero API-contract drift found), all 14 `apps/documentation/app/docs/*` content pages (zero documentation drift found on spot-check), `docker/kong.yml` and `docker/docker-compose.yml` (confirmed Kong never proxies auth-server's own API routes, so its rate-limiting posture is irrelevant to them), and exhaustive repo-wide greps confirming no webhook or MCP system exists anywhere (both evaluated honestly — webhooks judged a real plausible gap, MCP judged genuinely not currently warranted, `NOT_APPLICABLE`). No CRITICAL findings — tenant isolation on the application API key traced and confirmed correct, OAuth-clients endpoint confirmed genuinely platform-admin-gated via real JWT/JWKS verification, not a client-trusted flag. 17 total gaps recorded (1 HIGH, 9 MEDIUM, 7 LOW). Per this skill's own AUDIT-mode boundary, stopped at the Gap Analysis — no code modified, no fixes applied. See `.integration/audits/2026-08-11-integration-audit.md`. |
 
 Append-only. Never delete or edit a previous row — a new audit adds a new
 row, it doesn't replace the old one.
@@ -515,3 +534,59 @@ row, it doesn't replace the old one.
 - Verification command output (second run): `.audit/evidence/2026-08-10/{build,typecheck,lint,tests,detection-checklist-sweep}-2.txt`.
 - Verification command output (third run): `.audit/evidence/2026-08-10/{build,typecheck,lint,tests,detection-checklist-sweep}-3.txt`.
 - Full requirement definitions, evidence, and history: `.audit/plan/requirements.json`.
+- Integration Surface audit evidence and catalogs: `.integration/audits/2026-08-11-integration-audit.md`,
+  `.integration/integration-manifest.md`, `.integration/api/api-catalog.md`.
+
+---
+
+# Integration Surface
+
+<!-- OWNED BY kontrolia-integration-surface. No other skill may write into this
+     section. This skill in turn only touches its own rows in "4. Outstanding
+     Work" (Source = Integration Surface) and appends its own rows to
+     "5. Audit History" — it never edits any other section. -->
+
+## Last Audit
+2026-08-11T23:59:00
+
+## Overall Status
+INTEGRATION_INCOMPLETE
+
+## API Readiness
+2 narrow endpoint families exist and work (OAuth client admin proxy — GET/POST/PUT, no DELETE;
+application permission-catalog sync). Both are real, tested, and correctly gated, but neither has
+rate limiting, and OAuth clients cannot be revoked once created.
+
+## Webhooks Readiness
+Not built. Confirmed absent via exhaustive grep of all first-party code and all 31 migrations.
+Evaluated as a real, plausible gap for a centralized auth/IAM provider (not overengineering) —
+see INT-WEBHOOK-001.
+
+## MCP Readiness
+Not applicable — evaluated honestly and concluded not currently warranted (no concrete named
+consumer, and the domain's highest-value write operations are high-risk/hard-to-reverse with no
+confirmation story ready). See `.integration/integration-manifest.md`.
+
+## Critical Findings
+None.
+
+## Missing Capabilities
+INT-KEY-001 (HIGH) — application API key has no rotation/revocation/expiration/"last used"/UI.
+INT-WEBHOOK-001 (MEDIUM) — no webhook system anywhere.
+INT-API-001 (MEDIUM) — OAuth clients cannot be deleted/revoked.
+INT-OPENAPI-001 (LOW) — no OpenAPI spec.
+
+## Documentation Drift
+None found. Every spot-checked claim in `apps/documentation` (14 content pages) matched real
+code exactly; all internal links resolve. Real gaps found are missing documentation, not drift:
+INT-DOC-001 (OAuth token endpoint/scope param never documented at HTTP level), INT-DOC-003 (no
+systematic error-response reference), INT-DOC-002 (no consolidated SDK reference page),
+INT-DOC-004 (install instructions buried in one incidental page).
+
+## Outstanding Work
+17 rows added to `# Outstanding Work` above, `Source = Integration Surface`: 1 HIGH
+(INT-KEY-001), 9 MEDIUM (INT-SEC-001, INT-KEY-002, INT-WEBHOOK-001, INT-API-001, INT-API-003,
+INT-API-004, INT-API-006, INT-DOC-001, INT-DOC-003), 7 LOW (INT-API-002, INT-API-005,
+INT-DOC-002, INT-DOC-004, INT-DX-001, INT-DX-002, INT-OPENAPI-001). Highest-priority: INT-KEY-001
+— fix this first (see `.integration/audits/2026-08-11-integration-audit.md`'s Recommendations
+for full ordering).

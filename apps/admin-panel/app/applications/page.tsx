@@ -12,10 +12,29 @@ interface ApplicationRow {
   environment: string;
   owner_organization_id: string | null;
   homepage_url: string | null;
+  api_key_last_used_at: string | null;
   permissionCount: number;
 }
 
 const APPLICATIONS_PAGE_SIZE = 50;
+
+/** Mirrors packages/db/src/api-key.ts exactly (same prefix, same 24
+ * random bytes base64url-encoded, same sha256 hex digest) — generated and
+ * hashed entirely client-side so the plaintext key is shown once here and
+ * never round-tripped through the database; only its hash is ever sent. */
+async function generateAndHashApiKey(): Promise<{ plaintext: string; hashHex: string }> {
+  const bytes = new Uint8Array(24);
+  crypto.getRandomValues(bytes);
+  let binary = "";
+  for (const b of bytes) binary += String.fromCharCode(b);
+  const base64Url = btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  const plaintext = `kapp_${base64Url}`;
+
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(plaintext));
+  const hashHex = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+
+  return { plaintext, hashHex };
+}
 
 export default function ApplicationsPage() {
   const { organization, hasRole } = useAuth();
@@ -27,6 +46,8 @@ export default function ApplicationsPage() {
   const [urlDraft, setUrlDraft] = useState("");
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [newApiKey, setNewApiKey] = useState<{ appId: string; plaintext: string } | null>(null);
+  const [copied, setCopied] = useState(false);
   const canManage = hasRole(["owner", "admin"]);
 
   async function loadApplications(orgId: string, offset = 0, append = false) {
@@ -35,7 +56,7 @@ export default function ApplicationsPage() {
     const [{ data: appPage }, { data: enabledRows }] = await Promise.all([
       supabase
         .from("applications")
-        .select("id, name, slug, environment, owner_organization_id, homepage_url")
+        .select("id, name, slug, environment, owner_organization_id, homepage_url, api_key_last_used_at")
         .order("name")
         .range(offset, offset + APPLICATIONS_PAGE_SIZE - 1),
       supabase
@@ -151,6 +172,60 @@ export default function ApplicationsPage() {
     }
   }
 
+  async function handleRotateKey(app: ApplicationRow) {
+    if (
+      !window.confirm(
+        `¿Rotar la clave de sincronización de "${app.name}"? La clave anterior deja de funcionar de inmediato — actualiza el pipeline de despliegue de la app con la nueva.`,
+      )
+    ) {
+      return;
+    }
+    setError(null);
+    setPendingId(app.id);
+    setNewApiKey(null);
+    try {
+      const { plaintext, hashHex } = await generateAndHashApiKey();
+      const supabase = createKontroliaSchemaClient();
+      const { error: updateError } = await supabase
+        .from("applications")
+        .update({ api_key_hash: hashHex, api_key_last_used_at: null })
+        .eq("id", app.id);
+      if (updateError) throw updateError;
+      setNewApiKey({ appId: app.id, plaintext });
+      if (organization) await loadApplications(organization.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo rotar la clave.");
+    } finally {
+      setPendingId(null);
+    }
+  }
+
+  async function handleRevokeKey(app: ApplicationRow) {
+    if (
+      !window.confirm(
+        `¿Revocar la clave de sincronización de "${app.name}"? El pipeline de despliegue de la app dejará de poder sincronizar su catálogo de permisos hasta que generes una nueva.`,
+      )
+    ) {
+      return;
+    }
+    setError(null);
+    setPendingId(app.id);
+    try {
+      const supabase = createKontroliaSchemaClient();
+      const { error: updateError } = await supabase
+        .from("applications")
+        .update({ api_key_hash: null, api_key_last_used_at: null })
+        .eq("id", app.id);
+      if (updateError) throw updateError;
+      if (newApiKey?.appId === app.id) setNewApiKey(null);
+      if (organization) await loadApplications(organization.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo revocar la clave.");
+    } finally {
+      setPendingId(null);
+    }
+  }
+
   if (!organization) {
     return <p className="k-text-sm k-text-muted-foreground">Selecciona una organización primero.</p>;
   }
@@ -171,6 +246,28 @@ export default function ApplicationsPage() {
 
       {error && <p className="k-text-sm k-text-destructive">{error}</p>}
 
+      {newApiKey && (
+        <Card className="k-flex k-items-center k-justify-between k-gap-3 k-border-primary/40 k-bg-primary/5 k-p-4">
+          <div className="k-min-w-0">
+            <p className="k-text-sm k-font-medium">
+              Nueva clave de sincronización — cópiala ahora, no se puede volver a mostrar
+            </p>
+            <p className="k-truncate k-font-mono k-text-sm k-text-muted-foreground">{newApiKey.plaintext}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              void navigator.clipboard.writeText(newApiKey.plaintext);
+              setCopied(true);
+              setTimeout(() => setCopied(false), 2000);
+            }}
+            className="k-shrink-0 k-rounded-md k-border k-border-border k-px-3 k-py-1.5 k-text-sm hover:k-bg-muted"
+          >
+            {copied ? "¡Copiado!" : "Copiar"}
+          </button>
+        </Card>
+      )}
+
       <div>
         <h2 className="k-mb-2 k-text-sm k-font-semibold">Habilitadas</h2>
         <Card className="k-p-0">
@@ -183,6 +280,7 @@ export default function ApplicationsPage() {
                 <th className="k-px-5 k-py-3 k-font-semibold">Entorno</th>
                 <th className="k-px-5 k-py-3 k-font-semibold">Permisos</th>
                 <th className="k-px-5 k-py-3 k-font-semibold">URL</th>
+                <th className="k-px-5 k-py-3 k-font-semibold">Clave de sincronización</th>
                 {canManage && <th className="k-px-5 k-py-3 k-font-semibold" />}
               </tr>
             </thead>
@@ -247,6 +345,39 @@ export default function ApplicationsPage() {
                       >
                         Editar
                       </button>
+                    )}
+                  </td>
+                  <td className="k-px-5 k-py-3">
+                    {app.owner_organization_id !== organization.id ? (
+                      <span className="k-text-sm k-text-muted-foreground">—</span>
+                    ) : (
+                      <div className="k-flex k-flex-col k-gap-1">
+                        <span className="k-text-xs k-text-muted-foreground">
+                          {app.api_key_last_used_at
+                            ? `Última sincronización: ${new Date(app.api_key_last_used_at).toLocaleDateString()}`
+                            : "Nunca sincronizada"}
+                        </span>
+                        {canManage && (
+                          <div className="k-flex k-gap-3">
+                            <button
+                              type="button"
+                              disabled={pendingId === app.id}
+                              onClick={() => void handleRotateKey(app)}
+                              className="k-text-sm k-text-muted-foreground hover:k-underline disabled:k-opacity-60"
+                            >
+                              Rotar
+                            </button>
+                            <button
+                              type="button"
+                              disabled={pendingId === app.id}
+                              onClick={() => void handleRevokeKey(app)}
+                              className="k-text-sm k-text-destructive hover:k-underline disabled:k-opacity-60"
+                            >
+                              Revocar
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     )}
                   </td>
                   {canManage && (

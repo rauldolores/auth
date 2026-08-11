@@ -25,3 +25,21 @@ export function logError(context: string, error: unknown, meta?: Record<string, 
     }),
   );
 }
+
+/**
+ * A rejected authentication/authorization attempt against a non-interactive
+ * API surface (an API key, a service credential) — not an application bug,
+ * so it's deliberately a separate level from logError: something to notice
+ * a pattern in (repeated failures against one slug, a burst from one IP),
+ * not something that pages someone the way a 500 might.
+ */
+export function logSecurityEvent(context: string, meta?: Record<string, unknown>): void {
+  console.warn(
+    JSON.stringify({
+      level: "warn",
+      timestamp: new Date().toISOString(),
+      context,
+      ...(meta ? { meta } : {}),
+    }),
+  );
+}

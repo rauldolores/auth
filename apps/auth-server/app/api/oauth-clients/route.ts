@@ -1,6 +1,13 @@
 import { verifyRequest } from "@kontrolia/auth/server";
-import { logError } from "@/lib/logger";
+import { logError, logSecurityEvent } from "@/lib/logger";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { NextResponse } from "next/server";
+
+const RATE_LIMIT = { max: 30, windowMs: 5 * 60 * 1000 };
+
+function clientIp(request: Request): string | null {
+  return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+}
 
 /**
  * Registers/lists OAuth 2.1 clients (redirect_uris/client_id — the login
@@ -29,6 +36,16 @@ export async function OPTIONS() {
 
 /** Returns an error NextResponse if the caller isn't a verified platform admin, otherwise null. */
 async function authorizePlatformAdmin(request: Request): Promise<NextResponse | null> {
+  const ip = clientIp(request);
+  const rateLimit = checkRateLimit(`oauth-clients:${ip ?? "unknown"}`, RATE_LIMIT);
+  if (!rateLimit.allowed) {
+    logSecurityEvent("oauth-clients: rate limited", { ip });
+    return NextResponse.json(
+      { error: "Demasiadas solicitudes. Intenta de nuevo más tarde." },
+      { status: 429, headers: { ...corsHeaders(), "Retry-After": String(rateLimit.retryAfterSeconds) } },
+    );
+  }
+
   try {
     const { claims } = await verifyRequest(request, { supabaseUrl: process.env.SUPABASE_URL! });
     if (!claims.is_platform_admin) {

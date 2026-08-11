@@ -1,5 +1,6 @@
 import { hashApplicationApiKey } from "@kontrolia/db";
 import { beforeEach, expect, it, vi } from "vitest";
+import { resetRateLimitsForTests } from "@/lib/rate-limit";
 import { makeSchemaClient } from "./test-helpers";
 
 // Light coverage: this is a machine-to-machine endpoint (an application's
@@ -13,8 +14,10 @@ vi.mock("@/lib/supabase-admin", () => ({
 }));
 
 const logErrorMock = vi.fn();
+const logSecurityEventMock = vi.fn();
 vi.mock("@/lib/logger", () => ({
   logError: (...args: unknown[]) => logErrorMock(...args),
+  logSecurityEvent: (...args: unknown[]) => logSecurityEventMock(...args),
 }));
 
 const { POST } = await import("../applications/sync/route");
@@ -34,6 +37,8 @@ function requestWithKey(key: string, body: unknown): Request {
 beforeEach(() => {
   createSupabaseAdminClientMock.mockReset();
   logErrorMock.mockReset();
+  logSecurityEventMock.mockReset();
+  resetRateLimitsForTests();
 });
 
 it("returns 401 when no Authorization header is present", async () => {
@@ -52,21 +57,26 @@ it("returns 404 when no application matches the slug", async () => {
   expect(response.status).toBe(404);
 });
 
-it("returns 401 when the API key doesn't match the stored hash", async () => {
+it("returns 401 when the API key doesn't match the stored hash, and logs the attempt", async () => {
   createSupabaseAdminClientMock.mockReturnValue(
     makeSchemaClient({ applications: [{ data: { id: "app-1", api_key_hash: KEY_HASH }, error: null }] }),
   );
   const response = await POST(requestWithKey("kapp_wrong-key", { slug: "faqturia", permissions: [] }));
   expect(response.status).toBe(401);
   expect(await response.json()).toEqual({ error: "Clave inválida" });
+  expect(logSecurityEventMock).toHaveBeenCalledWith("applications/sync: invalid key", { slug: "faqturia", ip: null });
 });
 
-it("returns 403 when the application has never been given a sync key", async () => {
+it("returns 403 when the application has never been given a sync key, and logs the attempt", async () => {
   createSupabaseAdminClientMock.mockReturnValue(
     makeSchemaClient({ applications: [{ data: { id: "app-1", api_key_hash: null }, error: null }] }),
   );
   const response = await POST(requestWithKey(PLAINTEXT_KEY, { slug: "faqturia", permissions: [] }));
   expect(response.status).toBe(403);
+  expect(logSecurityEventMock).toHaveBeenCalledWith("applications/sync: no key configured", {
+    slug: "faqturia",
+    ip: null,
+  });
 });
 
 it("syncs the permission catalog and returns the generated permission keys", async () => {
@@ -90,6 +100,44 @@ it("syncs the permission catalog and returns the generated permission keys", asy
     applicationId: "app-1",
     permissionKeys: ["faqturia.facturas.crear", "faqturia.facturas.leer"],
   });
+});
+
+it("includes the client IP (from X-Forwarded-For) in the security log", async () => {
+  createSupabaseAdminClientMock.mockReturnValue(
+    makeSchemaClient({ applications: [{ data: { id: "app-1", api_key_hash: KEY_HASH }, error: null }] }),
+  );
+  const request = new Request(BASE_URL, {
+    method: "POST",
+    headers: { Authorization: "Bearer kapp_wrong-key", "X-Forwarded-For": "203.0.113.7, 10.0.0.1" },
+    body: JSON.stringify({ slug: "faqturia", permissions: [] }),
+  });
+  await POST(request);
+  expect(logSecurityEventMock).toHaveBeenCalledWith("applications/sync: invalid key", {
+    slug: "faqturia",
+    ip: "203.0.113.7",
+  });
+});
+
+it("rate limits after too many requests from the same IP within the window", async () => {
+  createSupabaseAdminClientMock.mockReturnValue(
+    makeSchemaClient({ applications: [{ data: null, error: null }] }),
+  );
+  const makeRequest = () =>
+    new Request(BASE_URL, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${PLAINTEXT_KEY}`, "X-Forwarded-For": "198.51.100.9" },
+      body: JSON.stringify({ slug: "faqturia", permissions: [] }),
+    });
+
+  for (let i = 0; i < 30; i++) {
+    const response = await POST(makeRequest());
+    expect(response.status).not.toBe(429);
+  }
+
+  const limited = await POST(makeRequest());
+  expect(limited.status).toBe(429);
+  expect(limited.headers.get("Retry-After")).toBeTruthy();
+  expect(logSecurityEventMock).toHaveBeenCalledWith("applications/sync: rate limited", { ip: "198.51.100.9" });
 });
 
 it("returns 500 and logs when a permission upsert fails partway through", async () => {

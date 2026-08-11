@@ -1,8 +1,11 @@
 import { timingSafeEqual } from "node:crypto";
 import { hashApplicationApiKey } from "@kontrolia/db";
-import { logError } from "@/lib/logger";
+import { logError, logSecurityEvent } from "@/lib/logger";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { NextResponse } from "next/server";
+
+const RATE_LIMIT = { max: 30, windowMs: 5 * 60 * 1000 };
 
 interface PermissionInput {
   resource: string;
@@ -30,6 +33,13 @@ function safeEqualHex(a: string, b: string): boolean {
   return timingSafeEqual(bufferA, bufferB);
 }
 
+/** Best-effort client IP for logging only — never used for anything
+ * security-decision-relevant, so a spoofed header here can't be abused for
+ * more than a misleading log line. */
+function clientIp(request: Request): string | null {
+  return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+}
+
 /**
  * Lets an already-registered application push updates to its own permission
  * catalog — resources/actions are added or their description updated, never
@@ -42,6 +52,16 @@ function safeEqualHex(a: string, b: string): boolean {
  * implement.
  */
 export async function POST(request: Request) {
+  const ip = clientIp(request);
+  const rateLimit = checkRateLimit(`applications-sync:${ip ?? "unknown"}`, RATE_LIMIT);
+  if (!rateLimit.allowed) {
+    logSecurityEvent("applications/sync: rate limited", { ip });
+    return NextResponse.json(
+      { error: "Demasiadas solicitudes. Intenta de nuevo más tarde." },
+      { status: 429, headers: { "Retry-After": String(rateLimit.retryAfterSeconds) } },
+    );
+  }
+
   const apiKey = extractApiKey(request);
   if (!apiKey) {
     return NextResponse.json({ error: "Falta el header Authorization: Bearer <api key>" }, { status: 401 });
@@ -67,6 +87,7 @@ export async function POST(request: Request) {
   }
   if (!application) return NextResponse.json({ error: "Aplicación no encontrada" }, { status: 404 });
   if (!application.api_key_hash) {
+    logSecurityEvent("applications/sync: no key configured", { slug: body.slug, ip });
     return NextResponse.json(
       {
         error:
@@ -76,8 +97,21 @@ export async function POST(request: Request) {
     );
   }
   if (!safeEqualHex(hashApplicationApiKey(apiKey), application.api_key_hash)) {
+    logSecurityEvent("applications/sync: invalid key", { slug: body.slug, ip });
     return NextResponse.json({ error: "Clave inválida" }, { status: 401 });
   }
+
+  // Fire-and-forget: a "last used" signal for the rotate/revoke UI is a
+  // nice-to-have, not worth failing (or even delaying) a legitimate,
+  // already-authenticated sync call over.
+  void admin
+    .schema("kontrolia_auth")
+    .from("applications")
+    .update({ api_key_last_used_at: new Date().toISOString() })
+    .eq("id", application.id)
+    .then(({ error: touchError }) => {
+      if (touchError) logError("applications/sync: touch api_key_last_used_at", touchError, { slug: body.slug });
+    });
 
   if (body.name || body.environment) {
     await admin
