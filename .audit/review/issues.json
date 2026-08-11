@@ -288,11 +288,13 @@
       "category": "SECURITY",
       "description": "Migration 0026's prevent_last_owner_deactivation trigger only inspects status transitions (\"if old.status is distinct from 'active' or new.status = 'active' then return new\") and never inspects whether organization_id itself is being changed on the same UPDATE. A caller who can pass RLS's \"org admins update memberships\" policy for BOTH the sole Owner's current organization and some other organization they also administer can UPDATE the sole Owner's membership row to move it to that other organization while leaving status='active' unchanged — the trigger's short-circuit never reaches the owner-count check, and the original organization is left with zero active Owners, with no exception raised.",
       "severity": "HIGH",
-      "lastAuditStatus": "HIGH",
-      "status": "OPEN",
-      "lastAudited": "2026-08-11T00:20:00",
+      "lastAuditStatus": "RESOLVED",
+      "status": "VERIFIED",
+      "lastAudited": "2026-08-11T10:00:00",
       "evidence": [
-        "packages/db/migrations/0026_prevent_last_owner_membership_removal.sql:77-80 — prevent_last_owner_deactivation()'s only short-circuit condition is on old.status/new.status; organization_id is never read or compared",
+        "packages/db/migrations/0027_prevent_last_owner_org_reassignment.sql — prevent_last_owner_deactivation() now computes v_leaving_org := (new.organization_id IS DISTINCT FROM old.organization_id) OR (new.status IS DISTINCT FROM 'active'), closing the gap this issue described",
+        "pg_get_functiondef() against the live local DB confirms the deployed function body matches migration 0027's source exactly",
+        "packages/db/migrations/0026_prevent_last_owner_membership_removal.sql:77-80 (superseded by 0027, kept for history) — prevent_last_owner_deactivation()'s only short-circuit condition is on old.status/new.status; organization_id is never read or compared",
         "packages/db/migrations/0010_rls_policies.sql:69-70 — \"org admins update memberships\" is FOR UPDATE USING (is_org_admin(organization_id)) with no explicit WITH CHECK — Postgres therefore reuses the USING expression as the WITH CHECK for UPDATE, meaning the caller must be is_org_admin() of BOTH the OLD row's organization_id (to select the target row) and the NEW row's organization_id (to pass the post-update check) — this is what confines exploitability to a caller who administers two organizations, not any single-org Admin",
         "apps/auth-server/app/api/organization-members/route.ts PATCH handler — grepped and confirmed it only ever sets {status}, never organization_id, so no shipped application flow performs this operation; only reachable via direct PostgREST/authenticated API access with a known membership UUID"
       ],
@@ -307,6 +309,68 @@
           "auditStatus": "HIGH",
           "remediationStatus": "OPEN",
           "note": "New finding this session, discovered while probing the specific edge case named in this run's scope ('what if the organization_id changes?') rather than trusting migration 0026's status-only guard as complete. Classified HIGH rather than CRITICAL (unlike the sibling PQ-SEC-003/PQ-SEC-004 findings this migration closes) because exploitation requires the caller to be an org-admin/Owner of a second organization in addition to the victim's organization — a materially narrower, less commonly available precondition than 'any single Admin of the victim's own organization.' No shipped UI or API flow performs an organization_id reassignment on an existing membership, so this is reachable only via direct PostgREST access with a known membership UUID and dual-org privilege. Should be closed by extending prevent_last_owner_deactivation to also check organization_id <> old.organization_id (treating a cross-org move exactly like a deactivation for owner-count purposes), the same way prevent_last_owner_membership_removal already treats a DELETE."
+        },
+        {
+          "date": "2026-08-11T10:00:00",
+          "auditStatus": "RESOLVED",
+          "remediationStatus": "VERIFIED",
+          "note": "commit f44d3eb added migration 0027, extending prevent_last_owner_deactivation's short-circuit to also treat an organization_id change as 'leaving' the org. Independently live-tested this session (fourth same-day round, not taken on the commit's own claim): (1) superuser-level UPDATE reassigning the sole active Owner's org, status untouched -> blocked with the expected error; (2) legitimate 2-active-owner case, reassign one elsewhere -> succeeds correctly, no false positive; (3) combined organization_id+status change in one UPDATE -> also blocked; (4) org-delete cascade still works cleanly; (5) RLS-level test as the actual authenticated dual-org-admin precondition (SET ROLE authenticated, real JWT sub claim, granted the attacking user an Admin membership in both orgs) -> blocked with the same error, confirming the prior round's live-exploited attack path no longer succeeds. All 5 tests: .audit/evidence/2026-08-11/professional-review/migration-0027-live-verification-and-new-bypass-hunt.txt (Part A). PQ-SEC-005 as originally scoped is genuinely, fully closed. HOWEVER: while deliberately hunting harder per this round's explicit instruction (checking role-assignment INSERT and user_id UPDATE, not just the delete/status/org-reassignment operations the prior three rounds had already covered), this same session found TWO NEW CRITICAL findings — PQ-SEC-006 and PQ-SEC-007 — that together fully defeat the day's entire last-owner-protection effort through vectors none of migrations 0025/0026/0027 address. See those entries."
+        }
+      ]
+    },
+    {
+      "id": "PQ-SEC-006",
+      "category": "SECURITY",
+      "description": "The 'org admins manage membership roles' RLS policy on kontrolia_auth.membership_roles (migration 0010, untouched by any fix today) is `for all using (is_org_admin(organization_id))` with NO restriction on which role_id may be inserted. Since is_org_admin() passes for slug 'admin' OR 'owner', any plain org Admin (not an Owner) can INSERT a row granting themselves — or any other membership in that org — the global 'owner' system role, with zero requirement that the caller already hold Owner-level authority. Chained with the (correctly) legitimate 'suspend one of two active Owners' path that migrations 0025/0026/0027 are all designed to permit, this gives a plain Admin a complete, self-serve path to lock out the organization's real Owner: (1) self-grant 'owner' via membership_roles INSERT, making the org have 2 active Owners; (2) suspend the original Owner via the now-legitimate-looking 2-owner case. None of today's four migrations (or the original API-layer fix in commit 4579870) restrict role self-assignment, so this fully bypasses the entire day's last-owner-protection effort without ever needing to touch the victim's membership row directly.",
+      "severity": "CRITICAL",
+      "lastAuditStatus": "CRITICAL",
+      "status": "OPEN",
+      "lastAudited": "2026-08-11T10:00:00",
+      "evidence": [
+        "packages/db/migrations/0010_rls_policies.sql:78-81 — \"org admins manage membership roles\" is `for all using (is_org_admin(organization_id))`, no column/value restriction, no explicit WITH CHECK (Postgres reuses USING), never modified by migrations 0025/0026/0027",
+        "packages/db/migrations/0009_helper_functions.sql — is_org_admin() returns true for role slug 'owner' OR 'admin'",
+        "apps/admin-panel/app/users/page.tsx:63-70,147-177 and users/[membershipId]/page.tsx — loadAppRoles/handleAppRoleChange only ever query/insert roles with `.not(\"application_id\", \"is\", null)`, i.e. app-scoped custom roles; the shipped UI never exposes assigning the global 'owner'/'admin'/'member' system roles to anyone — confirmed this is reachable only via direct PostgREST/authenticated API access, same precondition class as PQ-SEC-003/004/007",
+        "kontrolia_auth.log_role_assignment_change() (0013) DOES fire an audit_logs 'role.assigned' row for this INSERT — the escalation is at least forensically visible after the fact, unlike PQ-SEC-007"
+      ],
+      "verification": [
+        "LIVE-tested against the running local Supabase Postgres (supabase_db_VACIO, port 54322), transaction-wrapped and rolled back. Test 8: authenticated as ab44dde8 (a real Admin-only, non-Owner membership in org 'CRM Demo'; SET ROLE authenticated + request.jwt.claims sub=ab44dde8), INSERT INTO kontrolia_auth.membership_roles granting that same user's own membership the 'owner' role — succeeded with NO exception, NO RLS rejection; a follow-up SELECT confirmed ab44dde8 now holds both 'admin' and 'owner' roles in CRM Demo.",
+        "Test 9 (full chain, same transaction pattern): as ab44dde8, (1) self-granted 'owner' as in Test 8, then (2) UPDATE kontrolia_auth.memberships SET status='suspended' for the ORIGINAL Owner (302d8127) in the same org — succeeded with NO exception (correctly treated as the legitimate 2-active-owner case by prevent_last_owner_deactivation). Final state queried before rollback: original Owner 302d8127 = 'suspended', attacking Admin ab44dde8 = 'active' and now sole active Owner. Complete, live-demonstrated end-to-end lockout of the legitimate Owner, achieved without ever directly touching their membership row's status/org/user_id — entirely via unrestricted role self-assignment.",
+        "Full transcript: .audit/evidence/2026-08-11/professional-review/migration-0027-live-verification-and-new-bypass-hunt.txt (Part B, Tests 8-9)"
+      ],
+      "history": [
+        {
+          "date": "2026-08-11T10:00:00",
+          "auditStatus": "CRITICAL",
+          "remediationStatus": "OPEN",
+          "note": "New finding this session, discovered while deliberately hunting harder than the prior three rounds per this round's explicit brief ('hunt for any remaining bypass of the last-owner protection... check hard'). Root cause pre-dates all of today's fixes (migration 0010, day one) and was never touched by migrations 0025/0026/0027, all of which guard specific operations against an EXISTING Owner's row rather than restricting who can grant the Owner role in the first place. Precondition is strictly weaker than PQ-SEC-005's (any single-org Admin, not a dual-org admin) and matches PQ-SEC-003/004's precondition exactly, so this should be treated as at least as severe as those — CRITICAL, not HIGH. Recommend restricting the membership_roles RLS policy (or adding a BEFORE INSERT trigger) so that granting the 'owner' role requires the caller to already be an active Owner of that org (is_org_owner()), not merely an Admin — mirroring how 'org owners can delete their organization' already requires is_org_owner() rather than is_org_admin()."
+        }
+      ]
+    },
+    {
+      "id": "PQ-SEC-007",
+      "category": "SECURITY",
+      "description": "The 'org admins update memberships' RLS policy on kontrolia_auth.memberships (migration 0010, untouched by any fix today) is FOR UPDATE USING (is_org_admin(organization_id)) with no column restriction — it permits changing ANY column on a membership row, including user_id, as long as organization_id itself is unchanged. None of prevent_last_owner_deactivation's checks (0026/0027) inspect user_id at all — they only compare status and organization_id. A plain org Admin can therefore UPDATE the sole active Owner's membership row, changing its user_id to an arbitrary existing platform user (who need not have had any prior relationship to the org), while leaving organization_id and status untouched. Since membership_roles is keyed by membership_id (not user_id), the Owner role instantly transfers to whoever the attacker chose. The original Owner ends up with zero membership rows in that org — a complete, silent lockout — while an arbitrary third party (attacker-controlled or otherwise) becomes the sole active Owner with no consent from anyone. The audit trigger log_membership_change() only inserts an audit_logs row when old.status IS DISTINCT FROM new.status, so a user_id-only change produces ZERO audit trail — this vector is not just unblocked but completely untraceable after the fact.",
+      "severity": "CRITICAL",
+      "lastAuditStatus": "CRITICAL",
+      "status": "OPEN",
+      "lastAudited": "2026-08-11T10:00:00",
+      "evidence": [
+        "packages/db/migrations/0010_rls_policies.sql — \"org admins update memberships\" FOR UPDATE USING (is_org_admin(organization_id)), no column-level restriction, never modified since",
+        "packages/db/migrations/0027_prevent_last_owner_org_reassignment.sql — prevent_last_owner_deactivation() only reads old/new.status and old/new.organization_id; user_id is never referenced",
+        "kontrolia_auth.log_membership_change() (0024) — UPDATE branch: `if old.status is distinct from new.status then insert into audit_logs...` — no equivalent check/log for organization_id or user_id changes, confirmed by reading pg_get_functiondef() live",
+        "apps/auth-server/app/api/organization-members/route.ts:203-206 — PATCH body typed `{status?: string}`, only ever sets status; grepped the whole repo for any write to memberships.user_id outside the initial invitation-accept INSERT (apps/auth-server/app/api/invitations/accept/route.ts:93) and found none — confirmed not reachable via any shipped UI/API flow, same precondition class as PQ-SEC-003/004/006"
+      ],
+      "verification": [
+        "LIVE-tested against the running local Supabase Postgres, transaction-wrapped and rolled back. Test 7: org 'CRM Demo', sole active Owner = user 302d8127 (membership 96b5df42-...), separate real Admin (not Owner) = user ab44dde8. Authenticated as ab44dde8 (SET ROLE authenticated + request.jwt.claims sub=ab44dde8-...): UPDATE kontrolia_auth.memberships SET user_id = '7524ffc4-...' (an unrelated platform user with no prior membership in CRM Demo at all) WHERE organization_id='<CRM Demo>' AND user_id='302d8127-...' — succeeded with NO exception, NO RLS rejection. Follow-up SELECT confirmed the membership row (and its Owner role) now belongs to 7524ffc4; a query for 302d8127's memberships in CRM Demo returned zero rows.",
+        "Confirmed via direct code read that log_membership_change() would not have logged this specific change (status column identical before/after) — cross-checked by re-reading pg_get_functiondef('kontrolia_auth.log_membership_change') live against the running DB.",
+        "Full transcript: .audit/evidence/2026-08-11/professional-review/migration-0027-live-verification-and-new-bypass-hunt.txt (Part B, Test 7)"
+      ],
+      "history": [
+        {
+          "date": "2026-08-11T10:00:00",
+          "auditStatus": "CRITICAL",
+          "remediationStatus": "OPEN",
+          "note": "New finding this session, sibling to PQ-SEC-006, discovered during the same deliberate hard-hunt. Same precondition class as PQ-SEC-003/004 (any single Admin of the victim's own org — no dual-org requirement, unlike PQ-SEC-005). Arguably the most severe of the four SEC findings still open: unlike PQ-SEC-006 (which at least leaves an audit trail via role.assigned), this is completely silent, and unlike a lockout where nobody has access, this actively hands full Owner control to a party of the attacker's choosing with zero consent from anyone. Recommend either (a) extending prevent_last_owner_deactivation (or a new trigger) to also treat a user_id change on an Owner's membership as requiring the same active-owner-count check, or more fundamentally (b) removing UPDATE-of-user_id from what 'org admins update memberships' permits at all — no legitimate application flow ever needs to change who a membership row belongs to; the only real supported way to change an org's membership roster is invite (new row) + remove (delete row), so allowing arbitrary user_id mutation via UPDATE looks like an oversight rather than an intentional capability."
         }
       ]
     },
@@ -315,10 +379,12 @@
       "category": "UX",
       "description": "Several list fetches never check the Supabase query's error before rendering, so a genuine backend failure (network error, RLS denial, downed DB) renders identically to \"this list is genuinely empty\" — the user has no way to tell the difference.",
       "severity": "HIGH",
-      "lastAuditStatus": "HIGH",
-      "status": "IN_PROGRESS",
-      "lastAudited": "2026-08-10T23:59:00",
+      "lastAuditStatus": "RESOLVED",
+      "status": "VERIFIED",
+      "lastAudited": "2026-08-11T10:00:00",
       "evidence": [
+        "apps/auth-server/lib/use-organizations.ts:25-35 — now checks response.ok, sets a real error state on failure (surfacing the API's own error message or a fallback), and no longer silently falls through leaving stale state",
+        "apps/auth-server/app/page.tsx:11,59-63,65 — organizationsError is rendered as a distinct k-text-destructive message, AND the \"create organization\" empty-state prompt at line 65 is now correctly gated with `!organizationsError` so a real outage no longer invites the user to create a duplicate org",
         "apps/admin-panel/app/organizations/page.tsx:26,39 — now checks error and renders \"No se pudieron cargar las organizaciones: {error}\"",
         "apps/admin-panel/lib/use-organizations.ts:29 — now surfaces fetchError.message as an `error` field consumed by dashboard-shell.tsx:397's ForbiddenScreen",
         "apps/admin-panel/app/audit-logs/page.tsx:53,84 — now checks error and renders a distinct message",
@@ -340,6 +406,12 @@
           "auditStatus": "HIGH",
           "remediationStatus": "IN_PROGRESS",
           "note": "commit d1bf2cb fixed all three admin-panel call sites originally cited as evidence, with a real distinct error state — genuine progress. But the finding's underlying risk (a real outage rendering as \"empty\" with no indication) still fully reproduces on apps/auth-server's own main dashboard via its untouched, near-duplicate use-organizations.ts hook (see PQ-MAINT-004), which is arguably a more primary/core flow than admin-panel's organizations screen. Not closing this out until that sibling hook is fixed too."
+        },
+        {
+          "date": "2026-08-11T10:00:00",
+          "auditStatus": "RESOLVED",
+          "remediationStatus": "VERIFIED",
+          "note": "commit acb0c8a fixed the last remaining instance: apps/auth-server/lib/use-organizations.ts now checks response.ok and sets a real error state instead of silently falling through. Re-checked via fresh code read this session (not taken on the commit message's claim): confirmed error is genuinely surfaced in apps/auth-server/app/page.tsx, and — importantly — the create-organization prompt is correctly suppressed while organizationsError is set, so a real outage no longer looks like \"you have no orgs, create one.\" All four originally-cited call sites (3 admin-panel + this one) now handle fetch errors. Still uses the raw driver/PostgREST error message rather than a translated one (tracked separately as PQ-UX-008, now present in one more place) but that's a distinct, already-tracked MEDIUM concern, not a reason to keep this HIGH finding open."
         }
       ]
     },
@@ -412,10 +484,15 @@
       "category": "PERFORMANCE",
       "description": "Every list endpoint except audit-logs is completely unbounded — no pagination, cursor, or limit of any kind. organization-members, invitations, applications/permissions, roles, and organizations all fetch the entire table on every load. audit-logs is the only capped list (.limit(200)) but has no pagination UI, cursor, or filter, so history beyond 200 rows becomes permanently invisible with no indication more exists.",
       "severity": "HIGH",
-      "lastAuditStatus": "HIGH",
-      "status": "IN_PROGRESS",
-      "lastAudited": "2026-08-10T23:59:00",
+      "lastAuditStatus": "RESOLVED",
+      "status": "VERIFIED",
+      "lastAudited": "2026-08-11T10:00:00",
       "evidence": [
+        "apps/admin-panel/app/applications/page.tsx:18,32-76,83-88,318-329 — now paginated (APPLICATIONS_PAGE_SIZE=50), correct offset math (enabled.length+available.length, a true partition of every fetched row so no off-by-one), working \"Cargar más\"",
+        "apps/admin-panel/app/roles/page.tsx:40,75-114,265-276 — now paginated (ROLES_PAGE_SIZE=50), correct .range()/hasMore, working \"Cargar más\"",
+        "apps/admin-panel/app/roles/[roleId]/page.tsx:35,62-80,124-128,238-248 — now paginated (PERMISSIONS_PAGE_SIZE=50), correct .range()/hasMore, working \"Cargar más\"",
+        "apps/admin-panel/app/permissions/page.tsx:22,42-63,108-118 — now paginated (PERMISSIONS_PAGE_SIZE=50), correct .range()/hasMore, working \"Cargar más\"",
+        "apps/auth-server/app/api/platform-admins/route.ts:90,96,104,117 — GET now reads an offset query param, applies .range(offset, offset+PLATFORM_ADMINS_PAGE_SIZE-1), returns hasMore; apps/admin-panel/app/platform-admins/page.tsx:26-41,176-187 consumes it with the same \"Cargar más\" pattern",
         "apps/auth-server/app/api/organization-members/route.ts:43,86,118-120,143 — now paginated, MEMBERS_PAGE_SIZE=100, correct .range()/hasMore math, no off-by-one",
         "apps/admin-panel/app/invitations/page.tsx:25,67-79,305-316 — now paginated with a working \"Cargar más\" button (correct append logic, disappears at end, has a loading label)",
         "apps/admin-panel/app/audit-logs/page.tsx:32,41-60,115-126 — now paginated, resets on org change, preserves hasMore/retry on a failed load-more page",
@@ -441,6 +518,12 @@
           "auditStatus": "HIGH",
           "remediationStatus": "IN_PROGRESS",
           "note": "commit d1bf2cb paginated organization-members, invitations, and audit-logs correctly (verified range math, verified no duplicate/skipped rows on load-more). Real, meaningful progress, but 5 other unbounded list surfaces (applications, roles, roles/[roleId], permissions, platform-admins GET) were not in scope and remain exactly as unbounded as before — the finding's original claim ('every list endpoint except audit-logs') is now only about half true, not fully resolved."
+        },
+        {
+          "date": "2026-08-11T10:00:00",
+          "auditStatus": "RESOLVED",
+          "remediationStatus": "VERIFIED",
+          "note": "commit acb0c8a paginated the remaining 5 endpoints. Re-verified via fresh code read this session (not taken on the commit message's claim): all 5 use the same real .range(offset, offset+SIZE-1) + hasMore + \"Cargar más\" pattern already established elsewhere, with correct offset math in every case, including applications/page.tsx's slightly less obvious enabled.length+available.length accumulator (verified it's a true partition of every fetched row, so no off-by-one/duplicate/skip). All 8 originally-named list surfaces are now genuinely bounded. NEW minor observation (not reopening this finding, tracked separately as PQ-PERF-007): on every paginated admin-panel list, a create/update/delete mutation reloads via the unpaginated call signature (offset=0, append=false), silently collapsing any \"Cargar más\" progress back to page 1 with no indication to the user — confirmed this is a pre-existing, systemic pattern already present in the previously-VERIFIED invitations page, not a new regression introduced by this commit."
         }
       ]
     },
@@ -514,8 +597,11 @@
       "severity": "HIGH",
       "lastAuditStatus": "HIGH",
       "status": "IN_PROGRESS",
-      "lastAudited": "2026-08-10T23:59:00",
+      "lastAudited": "2026-08-11T10:00:00",
       "evidence": [
+        "packages/auth-sdk/src/__tests__/client.test.ts — 13 real tests for the OAuth 2.1 + PKCE code-exchange flow (exchangeOAuthServerCode and siblings), run against a real local HTTP server that performs genuine S256(verifier)==challenge comparison (not a hand-coded expectation) plus wrong-client/redirect, expired/invalid code, and upstream-5xx cases",
+        "packages/react-sdk/src/__tests__/context.test.tsx — 7 real tests for AuthProvider's state machine (initial loading->resolved transition exactly once per mount, full context shape, sign-in/out via the mocked onAuthStateChange listener, unmount cleanup calling the unsubscribe function) using @testing-library/react against the real AuthProvider component, not a reimplementation",
+        "packages/react-sdk/package.json, tsconfig.json, vitest.config.ts — jsdom + @testing-library/react added as real devDependencies, react-sdk's first test tooling",
         "Repo-wide search for *.test.*/*.spec.* returns exactly one file: packages/permissions/src/__tests__/match.test.ts (pre-fix)",
         "packages/auth-sdk/src/__tests__/{jwt,pkce,server}.test.ts — 17 real tests (confirmed passing), including a genuine local JWKS HTTP server + jose-signed RS256 tokens for server.test.ts",
         "packages/next-sdk/src/__tests__/middleware.test.ts — 8 real tests (confirmed passing) covering redirect/pass-through/MFA-pending/no-redirect-loop branches",
@@ -539,6 +625,12 @@
           "auditStatus": "HIGH",
           "remediationStatus": "IN_PROGRESS",
           "note": "commit d1bf2cb added 25 real, well-constructed tests for JWT verification, PKCE, and the Next.js middleware auth-gate — genuine, verified progress on exactly the highest-value part of the original finding. But the original finding's scope was broader: OAuth code exchange (client.ts), the React SDK's auth state machine, and every API route handler in both apps remain completely untested. Severity held at HIGH given the OAuth code-exchange gap in particular is comparably security-sensitive to what was just covered."
+        },
+        {
+          "date": "2026-08-11T10:00:00",
+          "auditStatus": "RESOLVED",
+          "remediationStatus": "VERIFIED",
+          "note": "commit acb0c8a added the two gaps flagged as most consequential last round: OAuth code-exchange (13 tests) and the React SDK auth state machine (7 tests). Read both new test files in full this session — real assertions on real behavior (genuine S256 PKCE verification against a real HTTP server, real React state-transition assertions via @testing-library/react against the actual AuthProvider, not a mock standing in for it), not filler. Total test count now 50 across the monorepo (17+8+5 pre-existing + 13+7 new). Remaining gap not covered: every API route handler in apps/auth-server and apps/admin-panel is still untested (no *.test.ts under apps/ anywhere, no \"test\" script in either app's package.json) — a real, still-open gap, but the finding's two named highest-priority items are both now closed, and this was accepted as the deliberately narrower scope when the user chose to close out the deferred HIGH findings this round rather than pursue full route-handler coverage. Downgrading from HIGH to VERIFIED reflects that the finding as most recently scoped (client-side/SDK coverage) is resolved; the API-route-handler gap is real but was never re-opened as its own tracked issue — noted here for the record rather than silently dropped."
         }
       ]
     },
@@ -547,19 +639,22 @@
       "category": "TECHNICAL",
       "description": "No server-side logging or error-tracking exists anywhere in the backend. Every route catches its own errors and turns them into a JSON response for the caller, but nothing is ever written to a server log or an error-tracking service (grep for Sentry/Datadog/Bugsnag/Rollbar/OpenTelemetry across the whole repo returns nothing; no instrumentation.ts/global-error.tsx/error.tsx in either app).",
       "severity": "HIGH",
-      "lastAuditStatus": "HIGH",
-      "status": "IN_PROGRESS",
-      "lastAudited": "2026-08-10T23:59:00",
+      "lastAuditStatus": "RESOLVED",
+      "status": "VERIFIED",
+      "lastAudited": "2026-08-11T10:00:00",
       "evidence": [
+        "apps/admin-panel/lib/logger.ts — same structured JSON logger pattern as auth-server's, with a doc comment explicitly stating and justifying the 'no API routes of its own' premise",
+        "apps/admin-panel/instrumentation.ts — Next.js 15 onRequestError hook, wired identically to auth-server's",
+        "Repo-wide verification this session: `find apps/admin-panel -name route.ts` returns zero results (compare apps/auth-server, which has 12); grepped admin-panel for 'use server', server-only imports, and middleware.ts — zero hits; grep -L for \"use client\" across apps/admin-panel/app/*.tsx confirms app/layout.tsx is the ONLY Server Component in the entire app. The 'zero API routes of its own, entirely client-rendered except one layout' premise the fix's doc comment relies on is independently confirmed TRUE, not just asserted — onRequestError is genuinely admin-panel's entire server-side observability surface, not a partial fix dressed up as complete.",
         "grep -rln \"console.(error|log|warn)\" across apps/auth-server and apps/admin-panel API/route code returns zero matches (pre-fix)",
-        "apps/auth-server/lib/logger.ts:12-27 — new structured JSON logger (level/timestamp/context/error/meta) to console.error",
+        "apps/auth-server/lib/logger.ts:12-27 — structured JSON logger (level/timestamp/context/error/meta) to console.error",
         "apps/auth-server/instrumentation.ts:10-20 — Next.js 15 onRequestError catch-all, correctly registered (Next 15.1.3, instrumentation hook stable by default, no experimental flag needed)",
-        "logError() confirmed called from 9 of 12 apps/auth-server/app/api route.ts files; the 3 not calling it (devices/revoke, invitations POST, organizations/[id] PATCH/DELETE) have no try/catch at all — any unexpected exception still reaches instrumentation.ts's catch-all",
-        "apps/admin-panel — zero observability, no lib/logger.ts, no logError usage, no instrumentation.ts anywhere; entirely untouched by this commit"
+        "logError() confirmed called from 9 of 12 apps/auth-server/app/api route.ts files; the 3 not calling it (devices/revoke, invitations POST, organizations/[id] PATCH/DELETE) have no try/catch at all — any unexpected exception still reaches instrumentation.ts's catch-all"
       ],
       "verification": [
         "Repo-wide grep for logging calls and error-tracking package names/imports",
-        "Re-check 2026-08-10T23:59:00 (via subagent): read logger.ts and instrumentation.ts in full, confirmed correct Next.js 15 wiring; cross-checked every apps/auth-server route file with a `status: 500` return against logError() call sites — 1:1 match, 9 of 9; confirmed apps/admin-panel has no equivalent infrastructure at all"
+        "Re-check 2026-08-10T23:59:00 (via subagent): read logger.ts and instrumentation.ts in full, confirmed correct Next.js 15 wiring; cross-checked every apps/auth-server route file with a `status: 500` return against logError() call sites — 1:1 match, 9 of 9; confirmed apps/admin-panel has no equivalent infrastructure at all",
+        "Final round 2026-08-11T10:00:00: read apps/admin-panel/lib/logger.ts and instrumentation.ts in full, confirmed correct wiring matching auth-server's pattern; independently verified (not taken on the commit message's claim) that admin-panel genuinely has zero route.ts files and exactly one Server Component, so the onRequestError hook really is exhaustive coverage of this app's server-side surface, not a narrow fix mischaracterized as complete"
       ],
       "history": [
         {
@@ -573,6 +668,12 @@
           "auditStatus": "HIGH",
           "remediationStatus": "IN_PROGRESS",
           "note": "commit d1bf2cb added a real, correctly-wired logger + framework-level catch-all, fully covering apps/auth-server's 12 API routes (9 explicit + 3 via the instrumentation.ts fallback). Genuine, verified progress. But apps/admin-panel — which does just as much sensitive server-adjacent work (invitations, org management, several RLS-direct writes) — has zero observability, exactly as before. Severity held at HIGH given half the product surface is still completely unobserved."
+        },
+        {
+          "date": "2026-08-11T10:00:00",
+          "auditStatus": "RESOLVED",
+          "remediationStatus": "VERIFIED",
+          "note": "commit acb0c8a added logger.ts + instrumentation.ts to apps/admin-panel, mirroring auth-server's pattern. Independently verified this session (not taken on the commit message's 'admin-panel has no API routes of its own' claim): confirmed zero route.ts files anywhere under apps/admin-panel, zero 'use server'/server-only usage, no middleware.ts, and exactly one Server Component (app/layout.tsx) in the entire app. Since every admin-panel mutation genuinely goes through auth-server's already-instrumented API or direct RLS-scoped Supabase calls from the browser, onRequestError really is this app's entire server-side observability surface — the fix's own justification for its scope holds up under independent verification, it isn't a narrow fix dressed up as complete. Both apps now have real, working server-side error observability."
         }
       ]
     },
@@ -1117,6 +1218,81 @@
           "auditStatus": "MEDIUM",
           "remediationStatus": "OPEN",
           "note": "A failed rename/environment-change during app sync would appear to succeed to the caller while the DB silently keeps the stale values."
+        }
+      ]
+    },
+    {
+      "id": "PQ-UX-010",
+      "category": "UX",
+      "description": "The 4 newly-paginated admin-panel pages added by commit acb0c8a (applications, roles, roles/[roleId], permissions) fetch data via direct Supabase calls but never check the returned `error` field, only `data` — the exact anti-pattern PQ-UX-007 was largely fixed for, reintroduced in new code by the same commit that fixed the originally-cited instances. A real backend failure on initial load or on \"Cargar más\" renders identically to \"no more results,\" with no error indication anywhere. permissions/page.tsx doesn't even have an `error` state variable.",
+      "severity": "MEDIUM",
+      "lastAuditStatus": "MEDIUM",
+      "status": "OPEN",
+      "lastAudited": "2026-08-11T10:00:00",
+      "evidence": [
+        "apps/admin-panel/app/applications/page.tsx loadApplications() — destructures only `data` from both Promise.all queries, `error` never read",
+        "apps/admin-panel/app/roles/page.tsx loadRoles() — same pattern",
+        "apps/admin-panel/app/permissions/page.tsx loadPage() — same pattern; no `error` state variable exists in this file at all",
+        "apps/admin-panel/app/roles/[roleId]/page.tsx loadPermissions() — same pattern",
+        "contrast with apps/admin-panel/app/audit-logs/page.tsx:52-54 (fixed in the prior commit d1bf2cb), which does check fetchError and sets a distinct error state"
+      ],
+      "verification": [
+        "Found by a background subagent doing a fresh top-to-bottom sweep of commit acb0c8a's diff, independently instructed not to assume the pagination fix was clean just because it added correct range math"
+      ],
+      "history": [
+        {
+          "date": "2026-08-11T10:00:00",
+          "auditStatus": "MEDIUM",
+          "remediationStatus": "OPEN",
+          "note": "New finding this session. Directly extends the pattern PQ-UX-007/PQ-UX-008 already describe (a fix applied to some call sites, not propagated to siblings, in this case not even propagated to code written in the very same commit) — worth fixing alongside those rather than treated as isolated."
+        }
+      ]
+    },
+    {
+      "id": "PQ-UX-011",
+      "category": "UX",
+      "description": "apps/admin-panel/app/platform-admins/page.tsx's loadAdmins()/handleLoadMore() use raw fetch() with no try/catch. A genuine network-level failure (fetch() throws, distinct from a non-OK response which is already silently ignored) during \"Cargar más\" leaves setLoadingMore(false) never called, permanently stuck showing a disabled \"Cargando...\" button until a full page reload; the same failure on the initial useEffect load leaves the page silently showing zero admins forever with no error indication.",
+      "severity": "MEDIUM",
+      "lastAuditStatus": "MEDIUM",
+      "status": "OPEN",
+      "lastAudited": "2026-08-11T10:00:00",
+      "evidence": [
+        "apps/admin-panel/app/platform-admins/page.tsx:26-41 — loadAdmins/handleLoadMore, no try/catch around fetch(), no error state set on !response.ok either"
+      ],
+      "verification": [
+        "Found by a background subagent; traced the identical pattern in apps/admin-panel/app/users/page.tsx (pre-existing, not touched by acb0c8a) confirming this is a systemic gap on fetch()-based (as opposed to Supabase-direct) paginated screens, not a new regression introduced this commit — still a real, reportable gap since it wasn't caught by the last three rounds either"
+      ],
+      "history": [
+        {
+          "date": "2026-08-11T10:00:00",
+          "auditStatus": "MEDIUM",
+          "remediationStatus": "OPEN",
+          "note": "New finding this session, systemic rather than commit-specific — worth fixing as a shared fetch-wrapper concern (packages/shared or a small admin-panel API-client helper) rather than patching each page individually, given the same gap exists on at least users/page.tsx and platform-admins/page.tsx."
+        }
+      ]
+    },
+    {
+      "id": "PQ-PERF-007",
+      "category": "PERFORMANCE",
+      "description": "Across every newly- and previously-paginated admin-panel list (applications, roles, permissions, invitations, and others), a create/update/delete mutation reloads the list via the unpaginated call signature (offset=0, append=false), silently collapsing any \"Cargar más\" progress the user had built up back down to just the first page, with no indication this happened.",
+      "severity": "MEDIUM",
+      "lastAuditStatus": "MEDIUM",
+      "status": "OPEN",
+      "lastAudited": "2026-08-11T10:00:00",
+      "evidence": [
+        "apps/admin-panel/app/applications/page.tsx:100,127,146 — handleEnable/handleDisable/handleSaveUrl all call loadApplications(organization.id) with no offset, discarding pages beyond the first",
+        "apps/admin-panel/app/roles/page.tsx:128 — handleSubmit calls loadRoles(organization.id) with no offset, same effect",
+        "apps/admin-panel/app/invitations/page.tsx:113,136,158 — loadData(organization.id) after create/revoke/resend, same effect — confirms this is a pre-existing, systemic pattern already present before today's session, not a new regression introduced by commit acb0c8a's pagination additions"
+      ],
+      "verification": [
+        "Read each mutation handler's post-success reload call across applications/roles/invitations and confirmed none pass the accumulated offset back in"
+      ],
+      "history": [
+        {
+          "date": "2026-08-11T10:00:00",
+          "auditStatus": "MEDIUM",
+          "remediationStatus": "OPEN",
+          "note": "New finding this session, found while verifying PQ-PERF-001's pagination fixes were complete. Low real-world impact for most admins (lists rarely exceed one page in practice) but a genuine, consistent UX papercut once they do — worth a shared fix (reload at the currently-loaded item count instead of resetting to page 1) rather than an admin-panel-wide behavior nobody decided on purpose."
         }
       ]
     }

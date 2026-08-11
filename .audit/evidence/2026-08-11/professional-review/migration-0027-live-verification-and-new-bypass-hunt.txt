@@ -1,0 +1,123 @@
+Live database verification — FOURTH same-day Phase 2 (professional-quality) re-audit, closing round
+Target: local Supabase Postgres, docker container supabase_db_VACIO, port 54322
+Command: docker exec -i supabase_db_VACIO psql -U postgres -d postgres <<'SQL' ... SQL
+All statements were run inside BEGIN;...ROLLBACK; transactions — no data was permanently modified.
+
+Trigger/policy inventory confirmed present on kontrolia_auth.memberships (\d kontrolia_auth.memberships):
+  audit_membership_change              AFTER  INSERT OR DELETE OR UPDATE  (0024, audit-only, status-changes only)
+  prevent_last_owner_deactivation      BEFORE UPDATE                      (0026, extended by 0027 to also cover organization_id)
+  prevent_last_owner_membership_delete BEFORE DELETE                      (0026)
+Confirmed pg_get_functiondef(prevent_last_owner_deactivation) live in the DB matches migration 0027's source exactly
+(v_leaving_org := organization_id changed OR status left 'active').
+
+=====================================================================
+PART A — PQ-SEC-005 re-verification (migration 0027, commit f44d3eb)
+=====================================================================
+
+TEST 1 — superuser, sole Owner (Mi empresa, membership d851c8dd-...) reassigned to a different org (CRM Demo),
+status left untouched:
+  BEGIN; UPDATE kontrolia_auth.memberships SET organization_id = '<CRM Demo>' WHERE id = 'd851c8dd-...'; ROLLBACK;
+  Result: ERROR: No puedes quitar al único Owner activo de la organización. -- BLOCKED, as designed.
+
+TEST 2 — legitimate case: 2 active owners in an org, reassign one elsewhere -> must succeed:
+  Gave a second user an active Owner membership in Facturación Demo (2 active owners), then reassigned the
+  original Owner's membership to a fresh, unrelated org.
+  Result: UPDATE 1, no exception -- correctly SUCCEEDS, no false-positive blocking.
+
+TEST 3 — combined status+org change on the sole Owner (org AND status changed in the same UPDATE):
+  BEGIN; UPDATE kontrolia_auth.memberships SET organization_id='<CRM Demo>', status='invited' WHERE id='d851c8dd-...'; ROLLBACK;
+  Result: ERROR: No puedes quitar al único Owner activo de la organización. -- BLOCKED (v_leaving_org's OR-condition
+  catches this even though it wasn't separately called out in the original PQ-SEC-005 write-up).
+
+TEST 4 — cascade-safety guard still intact: deleting the organization itself still works cleanly, no exception,
+  memberships cascade-deleted (0 remaining afterward). Confirmed still working after 0027's change.
+
+TEST 5 — RLS-level, dual-org admin (the actual PQ-SEC-005 precondition): granted user ab44dde8 (pre-existing
+  Admin of CRM Demo) an additional Admin membership in Mi empresa (the victim org), authenticated as that user
+  (SET ROLE authenticated; request.jwt.claims sub=ab44dde8), attempted the same reassignment PQ-SEC-005 described:
+  Result: ERROR: No puedes quitar al único Owner activo de la organización. -- BLOCKED via the trigger (fires
+  before RLS's implicit WITH CHECK is even evaluated, so the block happens regardless of RLS ordering).
+
+CONCLUSION: PQ-SEC-005 is genuinely, fully closed by migration 0027. All 5 tests behaved exactly as intended:
+attack blocked, legitimate case unaffected, combined-column attack also blocked, cascade delete unaffected,
+and the exact live RLS-authenticated dual-org-admin exploit from the prior round no longer succeeds.
+
+=====================================================================
+PART B — NEW bypass hunt (task explicitly asked to "check hard" for anything runs 2/3 hadn't ruled out)
+=====================================================================
+
+Rationale: migrations 0025/0026/0027 all guard specific *operations against the CURRENT active Owner's own row*
+(role-removal, membership delete, status change, org reassignment). None of them restrict *who is allowed to
+INSERT a new 'owner' role assignment*, and none of them restrict changing a membership row's user_id. Both gaps
+were tested live.
+
+--- TEST 6 (control) — single-org Admin (not dual-org) reassigning a DIFFERENT org's sole-Owner membership into
+    their own org: also blocked by the trigger (their target org's sole-Owner precondition triggers first,
+    independent of RLS's cross-org WITH CHECK). No new finding here — included for completeness.
+
+--- TEST 7 — NEW CRITICAL (tracked as PQ-SEC-007): user_id reassignment hijack.
+    "org admins update memberships" RLS policy (migration 0010, untouched by any of today's fixes) is
+    FOR UPDATE USING (is_org_admin(organization_id)) with no column restriction — it permits changing ANY
+    column, including user_id, as long as organization_id itself doesn't change and the caller is admin/owner
+    of that one org. None of the prevent_last_owner_* triggers inspect user_id at all.
+
+    Setup: org "CRM Demo" (a742f84b-...), sole active Owner = user 302d8127 (membership 96b5df42-...), and a
+    separate Admin = user ab44dde8 (NOT an Owner, only Admin).
+    As ab44dde8 (SET ROLE authenticated; jwt sub=ab44dde8-...):
+      UPDATE kontrolia_auth.memberships SET user_id = '7524ffc4-...' (an unrelated third-party platform user,
+      not previously a member of CRM Demo at all) WHERE organization_id='a742f84b-...' AND user_id='302d8127-...';
+    Result: UPDATE 1, NO exception, NO RLS rejection. The membership row (and its Owner role, since
+    membership_roles is keyed by membership_id not user_id) now belongs to 7524ffc4 instead of 302d8127.
+    302d8127 has ZERO membership rows left in CRM Demo — completely and silently locked out, replaced by
+    whichever user_id the attacking Admin chose, with no consent from either the original Owner or the new one.
+    log_membership_change() (the audit trigger) only fires an audit_logs row when old.status IS DISTINCT FROM
+    new.status — a user_id-only change produces ZERO audit trail. This is a completely silent, untraceable
+    organization takeover, reachable by ANY single Admin of the target org (a strictly weaker/easier precondition
+    than PQ-SEC-005's dual-org-admin requirement, and the same precondition class as the now-fixed
+    PQ-SEC-003/004).
+    Confirmed not reachable via any shipped UI/API flow: apps/auth-server/app/api/organization-members/route.ts's
+    PATCH handler types its body as {status?: string} and only ever sets status; grepped the whole repo for any
+    write to memberships.user_id outside the initial invitation-accept insert and found none.
+
+--- TEST 8 — NEW CRITICAL (tracked as PQ-SEC-006): unrestricted self-promotion to Owner.
+    "org admins manage membership roles" RLS policy (migration 0010, untouched by any of today's fixes) is
+    `for all using (is_org_admin(organization_id))` on kontrolia_auth.membership_roles — it does not restrict
+    WHICH role_id can be inserted. A mere Admin (is_org_admin() also passes for slug 'admin', not just 'owner')
+    can therefore INSERT a row granting themselves (or anyone else with an active membership in that org) the
+    global 'owner' system role, with zero requirement that the caller already be an Owner.
+
+    As ab44dde8 (Admin only, NOT Owner, of CRM Demo):
+      INSERT INTO kontrolia_auth.membership_roles (membership_id, role_id)
+      SELECT <ab44dde8's own membership in CRM Demo>, <the 'owner' role's id>;
+    Result: INSERT 0 1, no exception. ab44dde8 now holds BOTH 'admin' and 'owner' roles in CRM Demo — a
+    self-granted escalation to the org's highest privilege tier (is_org_owner() now true for them, e.g.
+    unlocking "org owners can delete their organization"). This operation IS captured by
+    log_role_assignment_change() as a 'role.assigned' audit_logs row (unlike PQ-SEC-007), so it is at least
+    forensically visible after the fact, but nothing prevents or blocks it in the moment.
+
+--- TEST 9 — NEW CRITICAL, full attack chain combining Test 8 with the (correctly) legitimate 2-active-owners
+    case that migrations 0025/0026/0027 are all designed to permit:
+    As ab44dde8, in one transaction:
+      1. INSERT membership_roles granting themselves 'owner' in CRM Demo (Test 8's move) — CRM Demo now has
+         2 active Owners (302d8127 original, ab44dde8 self-promoted).
+      2. UPDATE kontrolia_auth.memberships SET status='suspended' WHERE organization_id='CRM Demo' AND
+         user_id='302d8127-...' (the ORIGINAL, legitimate Owner) — succeeds with NO exception, because
+         prevent_last_owner_deactivation correctly permits suspending one of two active Owners (by design,
+         this is meant to be a legitimate operation).
+    Final state (queried within the same transaction before rollback):
+      302d8127 (original Owner)  -> status = 'suspended'
+      ab44dde8 (attacking Admin) -> status = 'active', now sole active Owner
+    CONCLUSION: this is a complete, live-demonstrated, end-to-end bypass of the ENTIRE last-owner-lockout
+    protection effort from today (migrations 0025, 0026, 0027, plus the original API-layer fix in commit
+    4579870) using only the simplest possible precondition — being a plain Admin (not even Owner, not even a
+    second organization) of the SAME org as the victim. None of today's four migrations restrict role
+    self-assignment, so an attacker never needs to touch the Owner's row directly at all: they simply grant
+    themselves co-Owner status first, at which point every subsequent "remove/suspend/reassign the Owner"
+    operation the day's fixes correctly treat as the *legitimate* multi-owner case goes through cleanly.
+
+Neither PQ-SEC-006 nor PQ-SEC-007's underlying RLS policies (both on kontrolia_auth.membership_roles /
+kontrolia_auth.memberships, both dated migration 0010) were modified by any commit today — this is a
+pre-existing, day-one architectural gap that four rounds of same-day review (including three focused
+specifically on "last owner protection") did not surface until this explicit "check hard" instruction
+prompted testing role-assignment INSERT and user_id UPDATE specifically, rather than only the
+delete/status/org-reassignment operations the prior rounds' findings had already named.
