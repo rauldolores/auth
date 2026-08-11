@@ -303,6 +303,30 @@ export default function TroubleshootingPage() {
           </p>
         }
       />
+
+      <Issue
+        symptom="Activar el servidor OAuth 2.1 no da ningún error, pero ningún intento de autorización real funciona después (nadie ve la pantalla de consentimiento)"
+        cause={
+          <p>
+            <code>oauth_server_authorization_path</code> no es la API interna de GoTrue (
+            <code>/auth/v1/oauth/authorize</code>, fija, no configurable) — es la ruta en{" "}
+            <strong>tu propia app</strong> (auth-server) a la que GoTrue redirige al navegador, con un{" "}
+            <code>authorization_id</code>, para que se muestre la pantalla de consentimiento. La
+            automatización del instalador la mandaba mal (<code>/oauth/authorize</code> en vez de{" "}
+            <code>/oauth/consent</code>, que es donde realmente vive esa pantalla —{" "}
+            <code>apps/auth-server/app/oauth/consent/page.tsx</code>). El self-hosted (
+            <code>docker/docker-compose.yml</code>) siempre tuvo el valor correcto; el error estaba solo en la
+            llamada a la Management API para proyectos Supabase Cloud.
+          </p>
+        }
+        fix={
+          <p>
+            Corre de nuevo <code>npx create-kontrolia-auth deploy</code> (o el instalador) contra el mismo
+            proyecto Supabase Cloud — ya manda <code>oauth_server_authorization_path: "/oauth/consent"</code>{" "}
+            correctamente y lo vuelve a activar con el valor bueno.
+          </p>
+        }
+      />
     </article>
   );
 }

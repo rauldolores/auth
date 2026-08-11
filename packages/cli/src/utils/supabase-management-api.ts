@@ -1,6 +1,16 @@
 const CUSTOM_ACCESS_TOKEN_HOOK_URI = "pg-functions://postgres/kontrolia_auth/custom_access_token_hook";
-/** GoTrue's internal route for the OAuth 2.1 authorization endpoint — the API rejects oauth_server_enabled without it. */
-const OAUTH_SERVER_AUTHORIZATION_PATH = "/oauth/authorize";
+/**
+ * NOT GoTrue's own /auth/v1/oauth/authorize endpoint (that one is fixed,
+ * not configurable) — this is the path on OUR OWN app (auth-server) that
+ * GoTrue redirects the browser to, with an `authorization_id` query param,
+ * so the app can render its consent screen. Must match the route
+ * auth-server actually serves (apps/auth-server/app/oauth/consent/page.tsx)
+ * and the value docker-compose.yml already sets for self-hosted
+ * (GOTRUE_OAUTH_SERVER_AUTHORIZATION_PATH). Getting this wrong doesn't
+ * surface as an error on enable — it silently breaks every OAuth
+ * authorization attempt afterward, redirecting to a path nothing serves.
+ */
+const OAUTH_SERVER_AUTHORIZATION_PATH = "/oauth/consent";
 
 export interface ManagementApiResult {
   ok: boolean;
