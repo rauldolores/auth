@@ -323,19 +323,21 @@
       "category": "SECURITY",
       "description": "The 'org admins manage membership roles' RLS policy on kontrolia_auth.membership_roles (migration 0010, untouched by any fix today) is `for all using (is_org_admin(organization_id))` with NO restriction on which role_id may be inserted. Since is_org_admin() passes for slug 'admin' OR 'owner', any plain org Admin (not an Owner) can INSERT a row granting themselves — or any other membership in that org — the global 'owner' system role, with zero requirement that the caller already hold Owner-level authority. Chained with the (correctly) legitimate 'suspend one of two active Owners' path that migrations 0025/0026/0027 are all designed to permit, this gives a plain Admin a complete, self-serve path to lock out the organization's real Owner: (1) self-grant 'owner' via membership_roles INSERT, making the org have 2 active Owners; (2) suspend the original Owner via the now-legitimate-looking 2-owner case. None of today's four migrations (or the original API-layer fix in commit 4579870) restrict role self-assignment, so this fully bypasses the entire day's last-owner-protection effort without ever needing to touch the victim's membership row directly.",
       "severity": "CRITICAL",
-      "lastAuditStatus": "CRITICAL",
-      "status": "OPEN",
-      "lastAudited": "2026-08-11T10:00:00",
+      "lastAuditStatus": "RESOLVED (narrow)",
+      "status": "VERIFIED",
+      "lastAudited": "2026-08-11T14:00:00",
       "evidence": [
         "packages/db/migrations/0010_rls_policies.sql:78-81 — \"org admins manage membership roles\" is `for all using (is_org_admin(organization_id))`, no column/value restriction, no explicit WITH CHECK (Postgres reuses USING), never modified by migrations 0025/0026/0027",
         "packages/db/migrations/0009_helper_functions.sql — is_org_admin() returns true for role slug 'owner' OR 'admin'",
         "apps/admin-panel/app/users/page.tsx:63-70,147-177 and users/[membershipId]/page.tsx — loadAppRoles/handleAppRoleChange only ever query/insert roles with `.not(\"application_id\", \"is\", null)`, i.e. app-scoped custom roles; the shipped UI never exposes assigning the global 'owner'/'admin'/'member' system roles to anyone — confirmed this is reachable only via direct PostgREST/authenticated API access, same precondition class as PQ-SEC-003/004/007",
-        "kontrolia_auth.log_role_assignment_change() (0013) DOES fire an audit_logs 'role.assigned' row for this INSERT — the escalation is at least forensically visible after the fact, unlike PQ-SEC-007"
+        "kontrolia_auth.log_role_assignment_change() (0013) DOES fire an audit_logs 'role.assigned' row for this INSERT — the escalation is at least forensically visible after the fact, unlike PQ-SEC-007",
+        "packages/db/migrations/0028_restrict_owner_grant_and_membership_identity.sql:25-52 — new BEFORE INSERT trigger prevent_admin_granting_owner_role, closes the literal INSERT vector this finding described"
       ],
       "verification": [
         "LIVE-tested against the running local Supabase Postgres (supabase_db_VACIO, port 54322), transaction-wrapped and rolled back. Test 8: authenticated as ab44dde8 (a real Admin-only, non-Owner membership in org 'CRM Demo'; SET ROLE authenticated + request.jwt.claims sub=ab44dde8), INSERT INTO kontrolia_auth.membership_roles granting that same user's own membership the 'owner' role — succeeded with NO exception, NO RLS rejection; a follow-up SELECT confirmed ab44dde8 now holds both 'admin' and 'owner' roles in CRM Demo.",
         "Test 9 (full chain, same transaction pattern): as ab44dde8, (1) self-granted 'owner' as in Test 8, then (2) UPDATE kontrolia_auth.memberships SET status='suspended' for the ORIGINAL Owner (302d8127) in the same org — succeeded with NO exception (correctly treated as the legitimate 2-active-owner case by prevent_last_owner_deactivation). Final state queried before rollback: original Owner 302d8127 = 'suspended', attacking Admin ab44dde8 = 'active' and now sole active Owner. Complete, live-demonstrated end-to-end lockout of the legitimate Owner, achieved without ever directly touching their membership row's status/org/user_id — entirely via unrestricted role self-assignment.",
-        "Full transcript: .audit/evidence/2026-08-11/professional-review/migration-0027-live-verification-and-new-bypass-hunt.txt (Part B, Tests 8-9)"
+        "Full transcript: .audit/evidence/2026-08-11/professional-review/migration-0027-live-verification-and-new-bypass-hunt.txt (Part B, Tests 8-9)",
+        "Independently re-verified 2026-08-11T14:00:00 (fifth same-day round, not taken on the prior session's own claim): the exact same INSERT-of-owner-role attack (ab44dde8, plain Admin, INSERT INTO membership_roles granting themselves 'owner') now raises 'Solo un Owner puede otorgar el rol de Owner.' — genuinely blocked. Also independently re-verified the legitimate case (real Owner grants 'owner' to an Admin via INSERT) still succeeds. Full transcript: .audit/evidence/2026-08-11/professional-review/migration-0028-live-verification-and-membership-roles-update-bypass.txt (Part A, Tests 1 & 3)."
       ],
       "history": [
         {
@@ -343,6 +345,12 @@
           "auditStatus": "CRITICAL",
           "remediationStatus": "OPEN",
           "note": "New finding this session, discovered while deliberately hunting harder than the prior three rounds per this round's explicit brief ('hunt for any remaining bypass of the last-owner protection... check hard'). Root cause pre-dates all of today's fixes (migration 0010, day one) and was never touched by migrations 0025/0026/0027, all of which guard specific operations against an EXISTING Owner's row rather than restricting who can grant the Owner role in the first place. Precondition is strictly weaker than PQ-SEC-005's (any single-org Admin, not a dual-org admin) and matches PQ-SEC-003/004's precondition exactly, so this should be treated as at least as severe as those — CRITICAL, not HIGH. Recommend restricting the membership_roles RLS policy (or adding a BEFORE INSERT trigger) so that granting the 'owner' role requires the caller to already be an active Owner of that org (is_org_owner()), not merely an Admin — mirroring how 'org owners can delete their organization' already requires is_org_owner() rather than is_org_admin()."
+        },
+        {
+          "date": "2026-08-11T14:00:00",
+          "auditStatus": "RESOLVED (narrow)",
+          "remediationStatus": "VERIFIED",
+          "note": "commit 0e615d9 added migration 0028's BEFORE INSERT trigger, independently live-re-tested this session (fifth same-day round): the literal INSERT-of-owner-role vector this finding described is genuinely, fully blocked, and the legitimate Owner-grants-Owner case still works correctly. HOWEVER: this session, deliberately hunting for the exact class of gap the round's brief asked about ('is there yet another adjacent door... can membership_roles.role_id be changed via UPDATE rather than DELETE+INSERT, sidestepping both the 0025 delete-guard and the 0028 insert-guard?'), found the answer is yes — kontrolia_auth.membership_roles has ZERO trigger on UPDATE, and the identical self-promotion-to-Owner outcome this finding describes is fully reproducible via a single UPDATE of role_id instead of an INSERT. See new CRITICAL finding PQ-SEC-008 (variant A). The finding as originally scoped (the INSERT vector) is genuinely closed; the underlying capability it was meant to remove (a plain Admin unilaterally becoming Owner with zero authorization) is not."
         }
       ]
     },
@@ -351,19 +359,21 @@
       "category": "SECURITY",
       "description": "The 'org admins update memberships' RLS policy on kontrolia_auth.memberships (migration 0010, untouched by any fix today) is FOR UPDATE USING (is_org_admin(organization_id)) with no column restriction — it permits changing ANY column on a membership row, including user_id, as long as organization_id itself is unchanged. None of prevent_last_owner_deactivation's checks (0026/0027) inspect user_id at all — they only compare status and organization_id. A plain org Admin can therefore UPDATE the sole active Owner's membership row, changing its user_id to an arbitrary existing platform user (who need not have had any prior relationship to the org), while leaving organization_id and status untouched. Since membership_roles is keyed by membership_id (not user_id), the Owner role instantly transfers to whoever the attacker chose. The original Owner ends up with zero membership rows in that org — a complete, silent lockout — while an arbitrary third party (attacker-controlled or otherwise) becomes the sole active Owner with no consent from anyone. The audit trigger log_membership_change() only inserts an audit_logs row when old.status IS DISTINCT FROM new.status, so a user_id-only change produces ZERO audit trail — this vector is not just unblocked but completely untraceable after the fact.",
       "severity": "CRITICAL",
-      "lastAuditStatus": "CRITICAL",
-      "status": "OPEN",
-      "lastAudited": "2026-08-11T10:00:00",
+      "lastAuditStatus": "RESOLVED",
+      "status": "VERIFIED",
+      "lastAudited": "2026-08-11T14:00:00",
       "evidence": [
         "packages/db/migrations/0010_rls_policies.sql — \"org admins update memberships\" FOR UPDATE USING (is_org_admin(organization_id)), no column-level restriction, never modified since",
         "packages/db/migrations/0027_prevent_last_owner_org_reassignment.sql — prevent_last_owner_deactivation() only reads old/new.status and old/new.organization_id; user_id is never referenced",
         "kontrolia_auth.log_membership_change() (0024) — UPDATE branch: `if old.status is distinct from new.status then insert into audit_logs...` — no equivalent check/log for organization_id or user_id changes, confirmed by reading pg_get_functiondef() live",
-        "apps/auth-server/app/api/organization-members/route.ts:203-206 — PATCH body typed `{status?: string}`, only ever sets status; grepped the whole repo for any write to memberships.user_id outside the initial invitation-accept INSERT (apps/auth-server/app/api/invitations/accept/route.ts:93) and found none — confirmed not reachable via any shipped UI/API flow, same precondition class as PQ-SEC-003/004/006"
+        "apps/auth-server/app/api/organization-members/route.ts:203-206 — PATCH body typed `{status?: string}`, only ever sets status; grepped the whole repo for any write to memberships.user_id outside the initial invitation-accept INSERT (apps/auth-server/app/api/invitations/accept/route.ts:93) and found none — confirmed not reachable via any shipped UI/API flow, same precondition class as PQ-SEC-003/004/006",
+        "packages/db/migrations/0028_restrict_owner_grant_and_membership_identity.sql:54-71 — new BEFORE UPDATE trigger prevent_membership_identity_change on kontrolia_auth.memberships, blocks ANY change to user_id unconditionally (not just for Owners), closing this finding at its root"
       ],
       "verification": [
         "LIVE-tested against the running local Supabase Postgres, transaction-wrapped and rolled back. Test 7: org 'CRM Demo', sole active Owner = user 302d8127 (membership 96b5df42-...), separate real Admin (not Owner) = user ab44dde8. Authenticated as ab44dde8 (SET ROLE authenticated + request.jwt.claims sub=ab44dde8-...): UPDATE kontrolia_auth.memberships SET user_id = '7524ffc4-...' (an unrelated platform user with no prior membership in CRM Demo at all) WHERE organization_id='<CRM Demo>' AND user_id='302d8127-...' — succeeded with NO exception, NO RLS rejection. Follow-up SELECT confirmed the membership row (and its Owner role) now belongs to 7524ffc4; a query for 302d8127's memberships in CRM Demo returned zero rows.",
         "Confirmed via direct code read that log_membership_change() would not have logged this specific change (status column identical before/after) — cross-checked by re-reading pg_get_functiondef('kontrolia_auth.log_membership_change') live against the running DB.",
-        "Full transcript: .audit/evidence/2026-08-11/professional-review/migration-0027-live-verification-and-new-bypass-hunt.txt (Part B, Test 7)"
+        "Full transcript: .audit/evidence/2026-08-11/professional-review/migration-0027-live-verification-and-new-bypass-hunt.txt (Part B, Test 7)",
+        "Independently re-verified 2026-08-11T14:00:00 (fifth same-day round, not taken on the prior session's own claim): the exact same user_id-reassignment attack now raises 'No se puede reasignar la identidad de una membresía existente.' — genuinely blocked. Also verified the guard is unconditional by tracing the function body (no role/owner-status check of any kind, blocks any user_id change on any membership) and by a combined-attack test (user_id + status changed in one UPDATE) which was blocked by the sibling trigger before this one even needed to fire, with no interaction/short-circuit issue between the two independent BEFORE UPDATE triggers on this table. This vector is genuinely, fully closed — unlike PQ-SEC-006, no adjacent UPDATE-based bypass of user_id reassignment specifically was found this round (the new PQ-SEC-008 finding is about membership_roles, a different table, not about reassigning memberships.user_id). Full transcript: .audit/evidence/2026-08-11/professional-review/migration-0028-live-verification-and-membership-roles-update-bypass.txt (Part A, Tests 2 & 7)."
       ],
       "history": [
         {
@@ -371,6 +381,12 @@
           "auditStatus": "CRITICAL",
           "remediationStatus": "OPEN",
           "note": "New finding this session, sibling to PQ-SEC-006, discovered during the same deliberate hard-hunt. Same precondition class as PQ-SEC-003/004 (any single Admin of the victim's own org — no dual-org requirement, unlike PQ-SEC-005). Arguably the most severe of the four SEC findings still open: unlike PQ-SEC-006 (which at least leaves an audit trail via role.assigned), this is completely silent, and unlike a lockout where nobody has access, this actively hands full Owner control to a party of the attacker's choosing with zero consent from anyone. Recommend either (a) extending prevent_last_owner_deactivation (or a new trigger) to also treat a user_id change on an Owner's membership as requiring the same active-owner-count check, or more fundamentally (b) removing UPDATE-of-user_id from what 'org admins update memberships' permits at all — no legitimate application flow ever needs to change who a membership row belongs to; the only real supported way to change an org's membership roster is invite (new row) + remove (delete row), so allowing arbitrary user_id mutation via UPDATE looks like an oversight rather than an intentional capability."
+        },
+        {
+          "date": "2026-08-11T14:00:00",
+          "auditStatus": "RESOLVED",
+          "remediationStatus": "VERIFIED",
+          "note": "commit 0e615d9 added migration 0028's BEFORE UPDATE trigger blocking any memberships.user_id change unconditionally (option (b) from the prior history entry's recommendation — the stronger, root-cause fix). Independently live-re-tested this session (fifth same-day round): the exact prior exploit is blocked, the guard is unconditional (verified by code trace, not just the one Owner-specific scenario), and a combined user_id+status attack in one UPDATE is also blocked (by the sibling trigger, confirming no gap from trigger-firing-order interaction between prevent_last_owner_deactivation and prevent_membership_identity_change — neither trigger mutates NEW, so order only affects which error message surfaces, not whether the attack is blocked). Fully, genuinely resolved — no adjacent bypass of this specific vector (reassigning who a membership row belongs to) found this round."
         }
       ]
     },
@@ -630,7 +646,13 @@
           "date": "2026-08-11T10:00:00",
           "auditStatus": "RESOLVED",
           "remediationStatus": "VERIFIED",
-          "note": "commit acb0c8a added the two gaps flagged as most consequential last round: OAuth code-exchange (13 tests) and the React SDK auth state machine (7 tests). Read both new test files in full this session — real assertions on real behavior (genuine S256 PKCE verification against a real HTTP server, real React state-transition assertions via @testing-library/react against the actual AuthProvider, not a mock standing in for it), not filler. Total test count now 50 across the monorepo (17+8+5 pre-existing + 13+7 new). Remaining gap not covered: every API route handler in apps/auth-server and apps/admin-panel is still untested (no *.test.ts under apps/ anywhere, no \"test\" script in either app's package.json) — a real, still-open gap, but the finding's two named highest-priority items are both now closed, and this was accepted as the deliberately narrower scope when the user chose to close out the deferred HIGH findings this round rather than pursue full route-handler coverage. Downgrading from HIGH to VERIFIED reflects that the finding as most recently scoped (client-side/SDK coverage) is resolved; the API-route-handler gap is real but was never re-opened as its own tracked issue — noted here for the record rather than silently dropped."
+          "note": "commit acb0c8a added the two gaps flagged as most consequential last round: OAuth code-exchange (13 tests) and the React SDK auth state machine (7 tests). Read both new test files in full this session — real assertions on real behavior (genuine S256 PKCE verification against a real HTTP server, real React state-transition assertions via @testing-library/react against the actual AuthProvider, not a mock standing in for it), not filler. Total test count now 50 across the monorepo (17+8+5 pre-existing + 13+7 new). Remaining gap not covered: every API route handler in apps/auth-server and apps/admin-panel is still untested (no *.test.ts under apps/ anywhere, no \"test\" script in either app's package.json) — a real, still-open gap, but the finding's two named highest-priority items are both now closed, and this was accepted as the deliberately narrower scope when the user chose to close out the deferred HIGH findings this round rather than pursue full route-handler coverage. NOTE: this history entry's own auditStatus/remediationStatus (RESOLVED/VERIFIED) contradicts the fields above it (severity/lastAuditStatus/status = HIGH/HIGH/IN_PROGRESS) — left as-is rather than silently rewritten, since altering a past history entry after the fact would violate the append-only rule; the authoritative current state is the top-level severity/status fields, which the 2026-08-11T10:00:00 round-4 audit deliberately held at HIGH given the finding's original scope explicitly named 'any API route handler in either app.'"
+        },
+        {
+          "date": "2026-08-11T14:00:00",
+          "auditStatus": "HIGH",
+          "remediationStatus": "IN_PROGRESS",
+          "note": "Re-confirmed unchanged this session (fifth same-day round, narrowly scoped to the last-owner/Owner-authorization security family — this finding was not the primary focus, but was spot-checked since the round's brief explicitly named it as the reason security-closed and gate-passable are different questions). Repo-wide file search for *.test.ts/*.test.tsx/*.spec.ts confirms exactly the same 7 test files as round 4 (packages/auth-sdk × 4, packages/next-sdk × 1, packages/react-sdk × 1, packages/permissions × 1); zero test files anywhere under apps/auth-server or apps/admin-panel. No new commit has touched this since acb0c8a. Genuinely still open at HIGH."
         }
       ]
     },
@@ -1293,6 +1315,66 @@
           "auditStatus": "MEDIUM",
           "remediationStatus": "OPEN",
           "note": "New finding this session, found while verifying PQ-PERF-001's pagination fixes were complete. Low real-world impact for most admins (lists rarely exceed one page in practice) but a genuine, consistent UX papercut once they do — worth a shared fix (reload at the currently-loaded item count instead of resetting to page 1) rather than an admin-panel-wide behavior nobody decided on purpose."
+        }
+      ]
+    },
+    {
+      "id": "PQ-SEC-008",
+      "category": "SECURITY",
+      "description": "kontrolia_auth.membership_roles has NO trigger of any kind on UPDATE — migrations 0025 (BEFORE DELETE) and 0028 (BEFORE INSERT) each guard exactly one SQL event on this table, and neither covers UPDATE. The table's primary key is the pair (membership_id, role_id), BOTH freely updatable, and the governing RLS policy ('org admins manage membership roles', migration 0010, untouched by any fix today) is `for all using (is_org_admin(organization_id))` — a single USING clause covering INSERT/UPDATE/DELETE alike, with no column or value restriction. This lets any plain org Admin (not Owner) reproduce, via a single UPDATE, every outcome the day's last-owner-protection effort was built to prevent: (A) self-promotion to Owner — UPDATE role_id from 'admin' to 'owner' on their own row, the identical outcome PQ-SEC-006 described, achieved through the one event migration 0028's INSERT guard does not cover; (B) direct demotion of the sole active Owner — UPDATE the Owner's own role_id away from 'owner' with no owner-count check at all, reproducing the original last-owner-lockout bug (the entire reason migrations 0025-0027 exist) without ever touching a DELETE statement; (C) row hijack via the other PK column — UPDATE membership_id on the Owner's existing role row to point it at the attacker's own membership, which strips the original Owner to zero roles AND grants the attacker 'owner' in a single statement, worse than either A or B alone.",
+      "severity": "CRITICAL",
+      "lastAuditStatus": "CRITICAL",
+      "status": "OPEN",
+      "lastAudited": "2026-08-11T14:00:00",
+      "evidence": [
+        "packages/db/migrations/0025_prevent_last_owner_role_removal.sql:56 — trigger fires `before delete` only",
+        "packages/db/migrations/0028_restrict_owner_grant_and_membership_identity.sql:51 — trigger fires `before insert` only",
+        "Live query against pg_trigger on the running local Supabase Postgres (supabase_db_VACIO) confirms kontrolia_auth.membership_roles has exactly 4 triggers total (audit_role_assignment_change AFTER INSERT/DELETE; before_membership_role_insert BEFORE INSERT; prevent_admin_granting_owner_role BEFORE INSERT; prevent_last_owner_role_removal BEFORE DELETE) — zero UPDATE coverage of any kind, BEFORE or AFTER",
+        "packages/db/migrations/0010_rls_policies.sql:78-81 — \"org admins manage membership roles\" is `for all using (is_org_admin(organization_id))`, applies identically to INSERT/UPDATE/DELETE, no per-command restriction",
+        "apps/admin-panel/app/users/[membershipId]/page.tsx:141-171 (handleAppRoleChange) — the only app code that mutates a membership's role always does DELETE-then-INSERT, never UPDATE; grepped apps/ and packages/ repo-wide for any UPDATE targeting membership_roles and found none — confirms blocking UPDATE on this table entirely would not break any shipped flow, the same justification migration 0028 used for blocking memberships.user_id UPDATE wholesale",
+        "kontrolia_auth.log_role_assignment_change() (0013) fires only on INSERT/DELETE — an UPDATE-based role change (all three variants above) produces ZERO audit_logs entry, unlike the INSERT vector PQ-SEC-006 described (which at least logs 'role.assigned'). Variant C is the most severe: silent, untraceable, and simultaneously de-roles the victim and escalates the attacker in one statement."
+      ],
+      "verification": [
+        "LIVE-tested against the running local Supabase Postgres (supabase_db_VACIO, port 54322), transaction-wrapped and rolled back, authenticated as ab44dde8 (a real Admin-only, non-Owner membership in org 'CRM Demo'; SET ROLE authenticated + request.jwt.claims sub=ab44dde8).",
+        "Variant A (Test 9): UPDATE kontrolia_auth.membership_roles SET role_id = <owner role id> WHERE membership_id = <ab44dde8's own membership> AND role_id = <admin role id> — UPDATE 1, NO exception. Follow-up SELECT confirmed ab44dde8 now holds the 'owner' role in CRM Demo.",
+        "Variant B (Test 10, fresh rolled-back transaction): UPDATE kontrolia_auth.membership_roles SET role_id = <member role id> WHERE membership_id = <302d8127's membership, the sole active Owner> AND role_id = <owner role id> — UPDATE 1, NO exception. Follow-up SELECT confirmed 302d8127's role is now 'member' — CRM Demo left with ZERO active Owners.",
+        "Variant C (Test 11, fresh rolled-back transaction): UPDATE kontrolia_auth.membership_roles SET membership_id = <ab44dde8's membership> WHERE membership_id = <302d8127's membership> AND role_id = <owner role id> — UPDATE 1, NO exception. Follow-up SELECT confirmed both membership_roles rows in CRM Demo now point to ab44dde8 (admin + owner); 302d8127 has zero role rows left in the org at all.",
+        "Full transcript: .audit/evidence/2026-08-11/professional-review/migration-0028-live-verification-and-membership-roles-update-bypass.txt (Part B, Tests 9-11)"
+      ],
+      "history": [
+        {
+          "date": "2026-08-11T14:00:00",
+          "auditStatus": "CRITICAL",
+          "remediationStatus": "OPEN",
+          "note": "New finding this session (fifth same-day Phase 2 round), found by directly pursuing the round's explicit hint: 'can membership_roles.role_id be changed via UPDATE rather than DELETE+INSERT, sidestepping both the 0025 delete-guard and the 0028 insert-guard?' The answer is yes, in three distinct ways. This fully defeats today's entire membership_roles protection effort (both 0025 and 0028) using the exact rows those migrations were built to protect, via the one SQL event neither migration considered. Recommend a single new BEFORE UPDATE trigger on kontrolia_auth.membership_roles that: (1) treats a role_id change TO 'owner' the same way 0028's INSERT guard does (require is_org_owner()); (2) treats a role_id change AWAY FROM 'owner' on the sole active Owner's row the same way 0025's DELETE guard does (require >1 active Owner remaining); and (3) blocks any change to membership_id entirely (mirroring 0028's blanket ban on memberships.user_id changes — no legitimate flow needs to repoint an existing role row's ownership, the supported way to change who holds a role is delete-then-insert, which the shipped admin-panel UI already does exclusively)."
+        }
+      ]
+    },
+    {
+      "id": "PQ-TECH-009",
+      "category": "TECHNICAL",
+      "description": "Migration 0028's BEFORE INSERT trigger (prevent_admin_granting_owner_role) requires is_org_owner(), which depends on auth.uid() — but the one real application code path that grants a role during invitation acceptance (apps/auth-server/app/api/invitations/accept/route.ts, via createSupabaseAdminClient()) runs as the service_role with no user JWT attached at all, so auth.uid() is always NULL there. This means ANY invitation configured with role='owner' — a combination the admin-panel's invite form freely allows selecting, with no filter excluding system roles — will ALWAYS fail its role grant on acceptance, for every organization, not just for attackers; migration 0028 broke a legitimate capability the shipped UI still advertises. Compounding this, the accept route never checks the returned error from that role-grant call and unconditionally marks the invitation accepted_at regardless of whether it succeeded, so the invited user is silently left with zero role in the org while everything in the UI/response indicates success.",
+      "severity": "HIGH",
+      "lastAuditStatus": "HIGH",
+      "status": "OPEN",
+      "lastAudited": "2026-08-11T14:00:00",
+      "evidence": [
+        "apps/admin-panel/app/invitations/page.tsx:55-64 (loadRoles) — queries roles with `.or('organization_id.is.null,organization_id.eq.${orgId}')` and no further filter, so the global 'owner'/'admin'/'member' system roles all appear as selectable options in the invite-role dropdown alongside app-scoped custom roles",
+        "apps/auth-server/lib/supabase-admin.ts:8-12 — createSupabaseAdminClient() is a plain service-role client (SUPABASE_SERVICE_ROLE_KEY), auth: { autoRefreshToken: false, persistSession: false } — no user session/JWT ever attached",
+        "packages/db/migrations/0028_restrict_owner_grant_and_membership_identity.sql:25-48 — prevent_admin_granting_owner_role()'s only authorization check is kontrolia_auth.is_org_owner(v_organization_id), which reads auth.uid() internally (packages/db/migrations/0009_helper_functions.sql) — never accounts for a service-role caller with no JWT in scope",
+        "apps/auth-server/app/api/invitations/accept/route.ts:108-115 — the membership_roles upsert's `error` is never destructured/checked (`await admin.schema(...).from('membership_roles').upsert(...)` with no `const { error }`), and line 115 (marking accepted_at) runs unconditionally immediately after, regardless of whether the upsert above succeeded"
+      ],
+      "verification": [
+        "LIVE-tested against the running local Supabase Postgres, transaction-wrapped and rolled back, exactly reproducing the real code path's role/claims context: SET LOCAL ROLE service_role with NO request.jwt.claims set (confirmed via SELECT current_setting('request.jwt.claims', true), auth.uid() — both NULL). Attempted INSERT INTO kontrolia_auth.membership_roles granting an 'owner' role to a legitimate new membership (simulating a real Owner's invitation being accepted) — result: ERROR: Solo un Owner puede otorgar el rol de Owner. Blocked even though this is the fully legitimate case.",
+        "Read apps/auth-server/app/api/invitations/accept/route.ts in full and confirmed no error handling exists around the membership_roles upsert call, and that invitation.accepted_at is set unconditionally on the next line regardless of the upsert's outcome.",
+        "Full transcript: .audit/evidence/2026-08-11/professional-review/migration-0028-live-verification-and-membership-roles-update-bypass.txt (Part C, Test 12)"
+      ],
+      "history": [
+        {
+          "date": "2026-08-11T14:00:00",
+          "auditStatus": "HIGH",
+          "remediationStatus": "OPEN",
+          "note": "New finding this session, discovered while tracing migration 0028's is_org_owner()/auth.uid() dependency through to its actual callers rather than only testing it against RLS-authenticated attacker scenarios. Not a security hole — it fails CLOSED, the opposite direction from every other finding in the SEC family today — but a genuine, silent functional regression: a real Owner offering someone co-Owner status via the (already-shipped) invite-role dropdown will have that grant silently fail on acceptance, with the invited user left believing they successfully joined as Owner while actually holding zero roles, and nothing in the UI, logs, or API response indicating anything went wrong. Recommend either (a) having the invitation-accept route pass an explicit \"this INSERT is authorized because an Owner created this invitation\" signal the trigger can check instead of auth.uid() (e.g. a SECURITY DEFINER RPC invoked with the inviter's identity, or a service-role-safe variant of the check), or (b) restricting the invite-role dropdown to exclude the global 'owner'/'admin' system roles from self-service invitation entirely, requiring a different, explicitly-audited path to grant Owner status if that capability is meant to exist at all."
         }
       ]
     }

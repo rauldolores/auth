@@ -106,10 +106,17 @@ export async function POST(request: Request) {
   }
 
   if (invitation.role_id) {
-    await admin
+    const { error: roleError } = await admin
       .schema("kontrolia_auth")
       .from("membership_roles")
       .upsert({ membership_id: membershipId, role_id: invitation.role_id }, { onConflict: "membership_id,role_id" });
+    if (roleError) {
+      logError("POST /api/invitations/accept (role grant)", roleError, {
+        organizationId: invitation.organization_id,
+        roleId: invitation.role_id,
+      });
+      return NextResponse.json({ error: roleError.message }, { status: 500 });
+    }
   }
 
   await admin.schema("kontrolia_auth").from("invitations").update({ accepted_at: new Date().toISOString() }).eq("id", invitation.id);
