@@ -1,0 +1,12 @@
+    tablename     |                       policyname                       |  cmd   |      roles      |                                                  qual                                                  |                                          with_check                                          
+------------------+--------------------------------------------------------+--------+-----------------+--------------------------------------------------------------------------------------------------------+----------------------------------------------------------------------------------------------
+ applications     | authenticated users can browse the application catalog | SELECT | {authenticated} | true                                                                                                   | 
+ applications     | owning org admins can update their application         | UPDATE | {public}        | ((owner_organization_id IS NOT NULL) AND kontrolia_auth.is_org_admin(owner_organization_id))           | ((owner_organization_id IS NOT NULL) AND kontrolia_auth.is_org_admin(owner_organization_id))
+ platform_admins  | platform admins can view the platform admin list       | SELECT | {public}        | (EXISTS ( SELECT 1                                                                                    +| 
+                  |                                                        |        |                 |    FROM kontrolia_auth.platform_admins pa                                                             +| 
+                  |                                                        |        |                 |   WHERE (pa.user_id = uid())))                                                                         | 
+ user_permissions | org admins manage user permission overrides            | ALL    | {public}        | (EXISTS ( SELECT 1                                                                                    +| 
+                  |                                                        |        |                 |    FROM kontrolia_auth.memberships m                                                                  +| 
+                  |                                                        |        |                 |   WHERE ((m.id = user_permissions.membership_id) AND kontrolia_auth.is_org_admin(m.organization_id)))) | 
+(4 rows)
+

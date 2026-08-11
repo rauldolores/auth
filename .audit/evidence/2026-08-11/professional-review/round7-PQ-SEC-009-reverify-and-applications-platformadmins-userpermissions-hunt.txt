@@ -1,0 +1,191 @@
+==========================================================
+TEST 1: direct INSERT of a custom role with slug=owner
+==========================================================
+BEGIN
+SET
+SET
+ is_admin | is_owner 
+----------+----------
+ t        | f
+(1 row)
+
+psql:/tmp/exploit_full.sql:13: ERROR:  No puedes usar "owner" como slug de un rol personalizado — está reservado.
+CONTEXT:  PL/pgSQL function kontrolia_auth.prevent_custom_role_reserved_slug() line 4 at RAISE
+ROLLBACK
+==========================================================
+TEST 2: full chain - create custom role, self-grant, hijack slug to owner
+==========================================================
+BEGIN
+SET
+SET
+--- 2a: create ordinary custom role (should succeed) ---
+                  id                  |     slug      | is_system_role 
+--------------------------------------+---------------+----------------
+ 240e4231-290f-4b18-aee1-87553a3a90f1 | contador-temp | f
+(1 row)
+
+INSERT 0 1
+--- 2b: grant it to self via membership_roles INSERT (should succeed, ordinary op) ---
+INSERT 0 1
+--- 2c: UPDATE its slug to owner (should be BLOCKED by prevent_custom_role_reserved_slug) ---
+psql:/tmp/exploit_full.sql:36: ERROR:  No puedes usar "owner" como slug de un rol personalizado — está reservado.
+CONTEXT:  PL/pgSQL function kontrolia_auth.prevent_custom_role_reserved_slug() line 4 at RAISE
+--- 2d (would only run if 2c succeeded): check is_org_owner ---
+psql:/tmp/exploit_full.sql:39: ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ROLLBACK
+==========================================================
+TEST 3: try slug=admin and slug=member reserved hijack too
+==========================================================
+BEGIN
+SET
+SET
+                  id                  
+--------------------------------------
+ 897e0773-b2df-4548-95b5-b9952308eb0c
+(1 row)
+
+INSERT 0 1
+psql:/tmp/exploit_full.sql:55: ERROR:  No puedes usar "admin" como slug de un rol personalizado — está reservado.
+CONTEXT:  PL/pgSQL function kontrolia_auth.prevent_custom_role_reserved_slug() line 4 at RAISE
+psql:/tmp/exploit_full.sql:58: ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ROLLBACK
+==========================================================
+TEST 4: confirm legitimate ordinary custom role slugs still work fine
+==========================================================
+BEGIN
+SET
+SET
+                  id                  |   name   |   slug   | is_system_role 
+--------------------------------------+----------+----------+----------------
+ 31bd6006-c5e5-4753-a759-3e171b448aee | Contador | contador | f
+(1 row)
+
+INSERT 0 1
+                  id                  |         name         |       slug        
+--------------------------------------+----------------------+-------------------
+ 31bd6006-c5e5-4753-a759-3e171b448aee | Contador de Facturas | contador-facturas
+(1 row)
+
+UPDATE 1
+ROLLBACK
+==========================================================
+TEST 5: confirm JWT hook still reports owner correctly for the real Owner
+==========================================================
+ owner_roles_claim 
+-------------------
+ ["owner"]
+(1 row)
+
+=== TEST 3b: slug=member hijack, isolated ===
+BEGIN
+SET
+SET
+                  id                  
+--------------------------------------
+ 50b38ad5-d72c-48bb-ab7b-65b8974127fb
+(1 row)
+
+INSERT 0 1
+psql:/tmp/exploit_test3b.sql:11: ERROR:  No puedes usar "member" como slug de un rol personalizado — está reservado.
+CONTEXT:  PL/pgSQL function kontrolia_auth.prevent_custom_role_reserved_slug() line 4 at RAISE
+ROLLBACK
+=== TEST 6: bootstrap/seed-style insert of a TRUE system role still works (superuser/service path, not RLS) ===
+BEGIN
+                  id                  |      slug      | is_system_role 
+--------------------------------------+----------------+----------------
+ 3fd24739-427e-44b3-93b1-83ff8edb0095 | testsystemrole | t
+(1 row)
+
+INSERT 0 1
+ROLLBACK
+=== TEST 7: handle_application_enabled SECURITY DEFINER trigger (auto-create admin-<app> system role) still works ===
+BEGIN
+SET
+SET
+ application_id 
+----------------
+(0 rows)
+
+ROLLBACK
+=== TEST 7b: enabling an app auto-creates a real is_system_role=true admin-<app> role via trigger, live ===
+BEGIN
+SET
+SET
+INSERT 0 1
+                  id                  |           organization_id            |            application_id            |           name            |       slug        | is_system_role 
+--------------------------------------+--------------------------------------+--------------------------------------+---------------------------+-------------------+----------------
+ d8d3005c-9e24-4285-abda-b7b988628800 | dc7e0951-2cbd-4d28-a686-38f08cbc57eb | 80c94485-d39e-4fc8-b12f-3c77f8492eea | Administrador de Faqturia | admin-facturacion | t
+(1 row)
+
+ROLLBACK
+=== TEST 8: raw INSERT into platform_admins as a non-admin authenticated user (self-grant attempt) ===
+BEGIN
+SET
+SET
+psql:/tmp/exploit_part3.sql:5: ERROR:  new row violates row-level security policy for table "platform_admins"
+ROLLBACK
+=== TEST 9: non-owning org admin tries to claim ownership of an app it does not own ===
+BEGIN
+SET
+SET
+                  id                  |        owner_organization_id         
+--------------------------------------+--------------------------------------
+ 80c94485-d39e-4fc8-b12f-3c77f8492eea | a742f84b-0b71-4064-a625-d90e493b25fb
+(1 row)
+
+UPDATE 1
+ROLLBACK
+=== TEST 10: what if owner_organization_id is currently NULL (unowned app) - can any admin claim it? ===
+BEGIN
+                  id                  
+--------------------------------------
+ fff24d03-11e3-4567-b080-e2d06046b79a
+(1 row)
+
+INSERT 0 1
+COMMIT
+BEGIN
+SET
+SET
+UPDATE 0
+ROLLBACK
+DELETE 1
+=== TEST 11: plain member (non-admin) tries to grant self an allow permission override via user_permissions ===
+BEGIN
+SET
+SET
+ is_admin 
+----------
+ f
+(1 row)
+
+psql:/tmp/exploit_part3.sql:45: ERROR:  new row violates row-level security policy for table "user_permissions"
+ROLLBACK
+=== TEST 9d (properly isolated): Owner of org 29e98aec (zero relation to a742f84b) tries to claim ownership of Faqturia (owned by a742f84b) ===
+BEGIN
+SET
+SET
+ is_admin_of_own_org | is_admin_of_faqturia_owner 
+---------------------+----------------------------
+ t                   | f
+(1 row)
+
+UPDATE 0
+                  id                  |        owner_organization_id         
+--------------------------------------+--------------------------------------
+ 80c94485-d39e-4fc8-b12f-3c77f8492eea | a742f84b-0b71-4064-a625-d90e493b25fb
+(1 row)
+
+ROLLBACK
+=== TEST 9e: same isolated non-owning admin tries redirect_urls tamper directly ===
+BEGIN
+SET
+SET
+UPDATE 0
+ROLLBACK
+=== TEST 9f: can this unrelated org INSERT a brand-new application row and self-assign ownership? ===
+BEGIN
+SET
+SET
+psql:/tmp/exploit_test9d.sql:28: ERROR:  new row violates row-level security policy for table "applications"
+ROLLBACK

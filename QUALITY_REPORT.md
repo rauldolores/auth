@@ -15,10 +15,10 @@ packages/db, cli, auth-sdk, react-sdk, next-sdk, permissions, shared, ui;
 examples/nextjs, react, express, nestjs)
 
 ## Last Audit
-2026-08-11T18:00:00
+2026-08-11T19:30:00
 
 ## Overall Status
-NOT READY
+PARTIAL
 
 ## Overall Compliance
 100%
@@ -145,7 +145,7 @@ flagged only for stylistic consistency.
      never write into this section beyond the initial NOT AUDITED seed. -->
 
 ## Overall Score
-40/100 — NOT PRODUCTION READY
+70/100 — PROFESSIONAL BUT NEEDS POLISH
 
 ## UX Score
 73/100 (uncapped — unchanged this run; not re-walked, this round was narrowly scoped to a
@@ -156,29 +156,33 @@ closing security-verification pass, not a full UX sweep)
 
 ## Technical Score
 66/100 (below the HIGH cap of 70 — capped by: PQ-TECH-001, still HIGH/open, re-confirmed
-unchanged this run via a fresh repo-wide test-file search. PQ-TECH-009, HIGH last run, is now
-RESOLVED/VERIFIED — both halves independently re-confirmed: migration 0029's
-`auth.role()='service_role'` short-circuit lets the legitimate invitation-accept owner-grant
-through, and the accept route now checks that upsert's error and returns 500 instead of silently
-discarding it.)
+unchanged this run via a fresh repo-wide test-file search. Now the only open finding of any
+severity — CRITICAL or HIGH — anywhere across the whole seven-round Phase 2 sequence.)
 
 ## Security Score
-40/100 (capped by: PQ-SEC-009 — CRITICAL, NEW this run. PQ-SEC-008 was independently
-re-verified this run — not taken on the prior round's own testing — genuinely, correctly
-RESOLVED: all three membership_roles UPDATE exploit variants re-exploited fresh, all three now
-blocked with clear errors by migration 0029; the legitimate Owner-promotes-someone UPDATE and the
-service-role invitation-accept grant both re-confirmed still working. But directly pursuing this
-round's brief — "is there any other role/permission table in the schema that could achieve
-equivalent privilege escalation outside memberships/membership_roles entirely?" — found the
-answer is yes: `kontrolia_auth.roles` has ZERO triggers of any kind (confirmed live), and its own
-ordinary custom-role RLS policies never restrict the `slug` value a role may hold, while every
-guard added today (0025/0028/0029) and both permission helpers (`is_org_owner`/`is_org_admin`)
-trust `roles.slug = 'owner'` as a bare string. A plain org Admin can create/hold an ordinary custom
-role, then relabel its slug to `'owner'` via a single UPDATE on `kontrolia_auth.roles` — a
-table none of today's five migrations touch — becoming recognized as Owner with zero
-involvement of membership_roles/memberships. Live-chained into a full, demonstrated organization
-takeover: the real Owner's actual role was then deleted via the now-legitimate-looking 2-owner
-count, leaving the attacker as the sole recognized Owner with zero audit trail.)
+84/100 (uncapped — no CRITICAL or HIGH open in this dimension any longer. PQ-SEC-009 was
+independently re-verified this run — not taken on the fix commit's own message — genuinely,
+correctly RESOLVED: the exact grant-then-rename chain from round 6 (create ordinary custom role,
+self-grant via membership_roles, UPDATE its slug to 'owner') was re-attempted live end-to-end
+against migration 0030 and blocked at the rename step by the new
+`prevent_custom_role_reserved_slug` trigger, with `is_org_owner()` never reaching TRUE. Direct
+slug='owner'/'admin'/'member' hijack attempts were also individually tested and blocked. Migration
+0030's SQL was read in full: `is_org_admin()`/`is_org_owner()` now additionally require
+`r.is_system_role`, the JWT hook's roles claim now only ever includes system-role slugs, and all
+five 0025-0029 owner-counting queries were updated the same way — closing the count-inflation half
+of the original exploit. The new trigger correctly exempts genuine system-role rows: live-confirmed
+by re-running the real app-enablement bootstrap and observing its auto-created
+`admin-facturacion` system role still get created without incident, and ordinary custom-role
+slugs still insert/update freely. A fresh hunt for the same general pattern elsewhere in the
+schema — `kontrolia_auth.applications.owner_organization_id`, `kontrolia_auth.platform_admins`,
+`kontrolia_auth.user_permissions` — found all three genuinely clean: an ownership-reassignment
+attempt on an app by a properly-isolated non-owning org admin was blocked (0 rows affected), a raw
+self-grant INSERT into `platform_admins` was blocked by RLS (the table has only ever had a SELECT
+policy), and a plain non-admin member's attempt to grant themselves a permission override via
+`user_permissions` was blocked by RLS. Held below the "exceptional" band only for the one open
+MEDIUM (PQ-SEC-002, a non-atomic TOCTOU race on the platform-admins last-admin check) and the
+architectural pattern this whole security family exposed — six consecutive rounds of finding one
+more adjacent, unguarded door before migration 0030 addressed the actual root cause.)
 
 ## Accessibility Score
 68/100 (uncapped — unchanged this run; not re-walked, out of this round's scope)
@@ -190,33 +194,25 @@ count, leaving the attacker as the sole recognized Owner with zero audit trail.)
 70/100 (uncapped — unchanged this run; not re-walked, out of this round's scope)
 
 ## Critical Issues
-- PQ-SEC-009 (NEW) — `kontrolia_auth.roles` has no trigger of any kind, and its RLS policies
-  never restrict the `slug` value a role may hold. A plain org Admin can create/hold an ordinary
-  custom role and relabel its slug to `'owner'` via a single UPDATE on `kontrolia_auth.roles`,
-  becoming recognized as Owner (`is_org_owner()=true`) with zero involvement of
-  membership_roles/memberships — a complete, orthogonal bypass of everything migrations
-  0025/0028/0029 protect. Live-chained into a full org takeover this round: the real Owner's role
-  was fully stripped once the attacker's fake "owner" inflated the active-owner count past 1.
-- PQ-SEC-008 — RESOLVED, VERIFIED this run. All three membership_roles UPDATE exploit
-  variants independently re-exploited fresh against migration 0029; all three now correctly
-  blocked. The broader "can a plain Admin become recognized as Owner" question is NOT closed —
-  see PQ-SEC-009.
-- PQ-SEC-006 / PQ-SEC-007 — remain RESOLVED (verified round 5), carried forward unchanged, not
-  re-tested this round (unaffected by anything that changed since).
-- PQ-SEC-005 / PQ-SEC-003 / PQ-SEC-004 — remain RESOLVED (verified prior rounds), carried
-  forward unchanged.
+None open.
+- PQ-SEC-009 — RESOLVED, VERIFIED this run. Independently re-exploited fresh against migration
+  0030 (commit 1549077): the full grant-then-rename chain, and direct slug='owner'/'admin'/'member'
+  hijack attempts, are all now blocked by the new `prevent_custom_role_reserved_slug` trigger plus
+  the `is_system_role`-anchored `is_org_owner()`/`is_org_admin()`. No adjacent bypass of this vector
+  found this round.
+- PQ-SEC-008 / PQ-SEC-006 / PQ-SEC-007 / PQ-SEC-005 / PQ-SEC-003 / PQ-SEC-004 — remain RESOLVED
+  (verified in prior rounds), carried forward unchanged, not re-tested this round (unaffected by
+  anything that changed since).
 - PQ-UX-001–006 — remain RESOLVED (destructive-action confirmations), carried forward
   unchanged.
 
 ## High Issues
 - PQ-TECH-001 — re-confirmed unchanged this run: zero test files anywhere under
-  `apps/auth-server` or `apps/admin-panel`, no test script in either app's `package.json`. The
-  only open HIGH item this run, and now not the only thing blocking Phase 2 — PQ-SEC-009 is.
-- PQ-TECH-009 — RESOLVED, VERIFIED this run. Both halves independently re-confirmed: the
-  service-role owner-grant now succeeds (auth.role() short-circuit), and the accept route now
-  checks and surfaces the role-grant upsert's error instead of silently discarding it.
-- PQ-UX-007, PQ-PERF-001, PQ-TECH-002, PQ-UI-001, PQ-A11Y-001, PQ-PERF-002, PQ-PERF-003 —
-  remain RESOLVED (verified prior rounds), carried forward, no longer open.
+  `apps/auth-server` or `apps/admin-panel`, no test script in either app's `package.json`. Now the
+  ONLY open finding of any severity (CRITICAL or HIGH) across the entire seven-round Phase 2
+  sequence.
+- PQ-TECH-009, PQ-UX-007, PQ-PERF-001, PQ-TECH-002, PQ-UI-001, PQ-A11Y-001, PQ-PERF-002,
+  PQ-PERF-003 — remain RESOLVED (verified prior rounds), carried forward, no longer open.
 
 ## Medium Issues
 24 open, unchanged this run (no new MEDIUM findings this round): PQ-SEC-002,
@@ -287,7 +283,7 @@ NOT AUDITED
 | CRITICAL | PQ-SEC-006 | Unrestricted INSERT on kontrolia_auth.membership_roles lets any plain org Admin self-promote to Owner with zero authorization check, live-chained end-to-end with the legitimate 2-owner suspend path to fully lock out the org's real Owner | Professional Review | VERIFIED (narrow, 2026-08-11T14:00:00, migration 0028 / commit 0e615d9) — the literal INSERT vector is genuinely blocked; the broader self-promotion capability is not closed, see PQ-SEC-008 |
 | CRITICAL | PQ-SEC-007 | Unrestricted UPDATE of memberships.user_id lets any plain org Admin silently reassign the sole Owner's membership to an arbitrary platform user with zero audit trail — a complete, untraceable organization takeover | Professional Review | VERIFIED (2026-08-11T14:00:00, migration 0028 / commit 0e615d9) — independently re-tested, fully and genuinely resolved, no adjacent bypass of this vector found |
 | CRITICAL | PQ-SEC-008 | kontrolia_auth.membership_roles has zero trigger on UPDATE — a plain org Admin can self-promote to Owner, demote the sole active Owner, or hijack an existing Owner role row entirely via a single UPDATE, bypassing both migration 0025's DELETE-guard and migration 0028's INSERT-guard at once | Professional Review | VERIFIED (2026-08-11T18:00:00, migration 0029 / commit 717bf03) — all three UPDATE exploit variants independently re-exploited fresh, all now correctly blocked with clear errors; legitimate Owner-promotes-someone and service-role invitation-accept flows both re-confirmed still working. Broader escalation capability re-emerged via a different table — see new row PQ-SEC-009 |
-| CRITICAL | PQ-SEC-009 | kontrolia_auth.roles has zero triggers of any kind, and its own custom-role RLS policies never restrict the `slug` value — a plain org Admin can create/hold an ordinary custom role and relabel its slug to 'owner' via a single UPDATE on kontrolia_auth.roles, becoming recognized as Owner (is_org_owner()=true) with zero involvement of membership_roles/memberships, a complete bypass of migrations 0025/0028/0029. Live-chained into a full org takeover: the real Owner's role was fully stripped once the fake 'owner' inflated the active-owner count past 1 | Professional Review | OPEN — new 2026-08-11T18:00:00, live-exploited end-to-end (self-grant, slug rename, is_org_owner()=true, then full takeover) against the running local DB; root cause is that every owner-check in the schema trusts roles.slug='owner' as a bare string with no restriction on who may set that string |
+| CRITICAL | PQ-SEC-009 | kontrolia_auth.roles has zero triggers of any kind, and its own custom-role RLS policies never restrict the `slug` value — a plain org Admin can create/hold an ordinary custom role and relabel its slug to 'owner' via a single UPDATE on kontrolia_auth.roles, becoming recognized as Owner (is_org_owner()=true) with zero involvement of membership_roles/memberships, a complete bypass of migrations 0025/0028/0029. Live-chained into a full org takeover: the real Owner's role was fully stripped once the fake 'owner' inflated the active-owner count past 1 | Professional Review | VERIFIED (2026-08-11T19:30:00, migration 0030 / commit 1549077) — independently re-exploited fresh (not taken on the commit's own message): full grant-then-rename chain and direct slug='owner'/'admin'/'member' hijack attempts all now blocked by the new prevent_custom_role_reserved_slug trigger plus is_system_role-anchored is_org_owner()/is_org_admin(); legitimate system-role bootstrap (app-enablement) and ordinary custom-role slugs both re-confirmed still working. Genuinely, fully resolved — no adjacent bypass found |
 | HIGH | PQ-SEC-005 | Migration 0026's UPDATE trigger only inspects `status` transitions, never `organization_id` changes — a dual-org admin can move the sole active Owner's membership to another org they also administer, bypassing the owner-count check | Professional Review | VERIFIED (2026-08-11T10:00:00, migration 0027 / commit f44d3eb) — 5 live transaction-wrapped tests confirmed the fix, including a real RLS-authenticated dual-org-admin exploit attempt that no longer succeeds |
 | HIGH | PQ-UX-007 | List fetches (organizations, use-organizations hook, audit-logs) never check the Supabase error — a real outage renders identically to "empty" | Professional Review | VERIFIED (2026-08-11T10:00:00, commit acb0c8a) — apps/auth-server/lib/use-organizations.ts now checks response.ok and surfaces the error, gating the create-org prompt correctly; all originally-cited call sites now fixed |
 | HIGH | PQ-UI-001 | Zero responsive design anywhere — no sm:/md:/lg: breakpoints in either app or packages/ui; tables have no overflow-x-auto | Professional Review | VERIFIED (2026-08-10T23:59:00) — hamburger toggle + all 11 tables confirmed wrapped |
@@ -346,6 +342,7 @@ moves it to VERIFIED.
 | 2026-08-11T10:00:00 (re-audit after commits f44d3eb, acb0c8a) | kontrolia-professional-review | NOT PRODUCTION READY | — | 2 (PQ-SEC-005 independently VERIFIED resolved via 5 live DB tests against migration 0027, including a real RLS-authenticated dual-org-admin exploit attempt; all 4 deferred HIGH findings from the third run — PQ-UX-007, PQ-PERF-001, PQ-TECH-002 fully VERIFIED, PQ-TECH-001 substantively improved but held at HIGH for its original untested-API-routes scope. But this round's explicit "check hard" instruction — testing role-assignment INSERT and membership user_id UPDATE, operations none of today's three migrations constrain — found and live-exploited 2 NEW CRITICAL findings, PQ-SEC-006 and PQ-SEC-007, that together fully defeat the entire day's last-owner-protection effort via a plain single-org-Admin precondition. Both root causes are day-one RLS policies (migration 0010) never touched by any fix today. Verdict returns to NOT PRODUCTION READY; Phase 2 does not close today) |
 | 2026-08-11T14:00:00 (re-audit after commit 0e615d9, fifth same-day run) | kontrolia-professional-review | NOT PRODUCTION READY | — | 1 (PQ-SEC-006 and PQ-SEC-007 both independently re-verified this round, not taken on the prior round's own testing — genuinely closed for their narrowly-scoped vectors, with all legitimate flows re-confirmed still working. But hunting the exact adjacent-door class this round's brief named — role_id/membership_id changed via UPDATE instead of DELETE+INSERT on kontrolia_auth.membership_roles — found and live-exploited a NEW CRITICAL, PQ-SEC-008: that table has zero UPDATE trigger of any kind, fully defeating both migration 0025's DELETE-guard and migration 0028's INSERT-guard at once, via a plain single-org-Admin precondition, live-demonstrated three distinct ways (self-promotion, direct Owner demotion, role-row hijack). A secondary, non-security functional regression was also found (PQ-TECH-009, HIGH): migration 0028's owner-grant guard silently breaks the legitimate "invite as Owner" flow because auth.uid() is always NULL under the service-role context invitation-accept actually runs in. PQ-TECH-001 spot-checked, reconfirmed unchanged. Verdict remains NOT PRODUCTION READY — security is explicitly NOT fully closed this round, distinct from (and in addition to) the separate gate-passable question, which also fails independently on PQ-TECH-001) |
 | 2026-08-11T18:00:00 (re-audit after commit 717bf03, sixth same-day run) | kontrolia-professional-review | NOT PRODUCTION READY | — | 1 (PQ-SEC-008 and PQ-TECH-009 both independently re-verified this round, not taken on the fifth round's own testing — genuinely, fully RESOLVED: all three membership_roles UPDATE exploit variants re-exploited fresh and blocked by migration 0029, legitimate flows re-confirmed working, and both halves of the service-role invitation-accept regression confirmed fixed. But directly pursuing the round's brief — hunt any other role/permission table that could achieve equivalent privilege escalation outside memberships/membership_roles entirely — found and live-exploited a NEW CRITICAL, PQ-SEC-009: kontrolia_auth.roles has zero triggers and its own custom-role RLS policies never restrict the slug value a role may hold, while every guard added today trusts roles.slug='owner' as a bare string. A plain Admin can create/hold an ordinary custom role, then relabel its slug to 'owner' via a plain UPDATE on kontrolia_auth.roles — a table none of today's five migrations touch — becoming recognized as Owner outside every guard built today. Live-chained into a full, demonstrated organization takeover (real Owner fully stripped, zero audit trail). PQ-TECH-001 re-confirmed unchanged (still HIGH, zero test files under apps/). Verdict remains NOT PRODUCTION READY: security is explicitly NOT closed this round — a sixth, more severe door was found through honest adversarial verification directly answering the round's own brief, not a repeat sweep. If PQ-SEC-009 is fixed and independently re-verified, PQ-TECH-001 would become the sole remaining item separating this app from a clean Phase 2 PASS — but that is not today's state) |
+| 2026-08-11T19:30:00 (re-audit after commit 1549077, seventh same-day run, security-verification-only scope) | kontrolia-professional-review | PROFESSIONAL BUT NEEDS POLISH | — | 0 (PQ-SEC-009 independently re-exploited fresh this round against migration 0030, not taken on the fix commit's own message — genuinely, fully RESOLVED: the full grant-then-rename chain and direct slug='owner'/'admin'/'member' hijack attempts are all blocked by the new prevent_custom_role_reserved_slug trigger plus the is_system_role-anchored is_org_owner()/is_org_admin(); legitimate system-role bootstrap and ordinary custom-role slugs both re-confirmed still working. Migration 0030's SQL read in full for correctness. One more live-exploit hunt for the same general pattern elsewhere in the schema — applications.owner_organization_id, platform_admins, user_permissions — found all three genuinely clean under live adversarial testing (properly org-isolated non-owning admin for the ownership test, after self-catching and correcting an initial test-data mistake). Zero CRITICAL and zero new HIGH/MEDIUM findings this round. PQ-TECH-001 re-confirmed unchanged and is now the sole open finding of any severity — CRITICAL or HIGH — across the entire seven-round Phase 2 sequence. Verdict rises from NOT PRODUCTION READY to PROFESSIONAL BUT NEEDS POLISH: security is genuinely closed as of this round, subject to the honest caveat that this round did not re-walk UX/UI/accessibility/performance/maintainability, which are carried forward unchanged from round 6 and still contain 24 open MEDIUM findings) |
 
 Append-only. Never delete or edit a previous row — a new audit adds a new
 row, it doesn't replace the old one.
