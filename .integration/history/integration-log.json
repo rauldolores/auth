@@ -53,5 +53,16 @@
     "incidentalFindingClosed": "POST /api/invitations/accept granted an invitation's role_id via a service_role client with no owner-role check — any org Admin could create an owner-role invitation and have it silently grant real Owner on acceptance, bypassing every owner-grant protection built in migrations 0025-0031. Closed via migration 0033: invitations can never reference the Owner role, for any caller.",
     "newGapsFound": ["INT-DOC-005"],
     "testsAdded": 21
+  },
+  {
+    "date": "2026-08-11T21:23:00",
+    "mode": "AUDIT",
+    "scope": "Application registration/ownership lifecycle — scoped re-audit, not full-app",
+    "result": "GAPS_FOUND",
+    "gapsFound": 2,
+    "criticalGaps": 0,
+    "highGaps": 2,
+    "gapsInScope": ["INT-API-007", "INT-API-008"],
+    "note": "Two sides of one root cause: no self-service application creation/ownership-claim flow exists anywhere (CLI-only, no org context at registration time), and owner_organization_id is never written by any code path — confirmed by exhaustive grep. INT-KEY-001's rotate/revoke UI and the new /api/applications/members API are both correctly built but practically unreachable in a fresh deployment as a result."
   }
 ]

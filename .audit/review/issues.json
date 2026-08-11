@@ -1448,6 +1448,34 @@
           "note": "Seventh same-day round, security-verification-only scope, commit 1549077 / migration 0030. Independently re-exploited fresh, not taken on the migration's own commit message: direct slug='owner' INSERT, and the full grant-then-rename chain (create custom role -> self-grant via membership_roles -> UPDATE slug to 'owner') both re-attempted live against the running sandbox as the same real Admin-only user used in round 6 — both now blocked by the new prevent_custom_role_reserved_slug BEFORE INSERT/UPDATE trigger, with is_org_owner() never reaching TRUE. Also tried slug='admin' and slug='member' — both blocked identically. Read migration 0030's full SQL for correctness: is_org_admin()/is_org_owner() now additionally require r.is_system_role; the JWT hook's roles claim now only includes system-role slugs (grepped repo-wide first: no caller checks hasRole() against a custom role's slug, so this changes no legitimate behavior); all five 0025-0029 owner-counting queries now also require r.is_system_role, closing the count-inflation half of the original exploit; the new reserved-slug trigger correctly exempts is_system_role=true rows, live-confirmed by re-running the real app-enablement bootstrap (handle_application_enabled) and observing its auto-created 'admin-facturacion' system role still get created without incident. Ordinary custom-role slugs ('contador' -> 'contador-facturas') still work freely. Real Owner's JWT roles claim re-confirmed still correctly [\"owner\"]. Genuinely, fully resolved."
         }
       ]
+    },
+    {
+      "id": "PQ-TECH-010",
+      "category": "TECHNICAL",
+      "description": "applications.owner_organization_id is never written by any code path in the entire repo — not registerApplication() (packages/db/src/register-application.ts, whose INSERT statement into kontrolia_auth.applications omits the column entirely), not any of the 33 migrations, not any RLS policy's WITH CHECK, not any route in apps/auth-server or apps/admin-panel. This column is the sole gate on three real, shipped capabilities: migration 0022's 'owning org admins can update their application' UPDATE policy, the rotate/revoke API-key UI on apps/admin-panel/app/applications/page.tsx (shipped and marked VERIFIED as INT-KEY-001 earlier today), and this session's new apps/auth-server/app/api/applications/members/* API. All three are correctly built and independently tested/verified, but none is reachable through the product itself in a genuinely fresh self-hosted deployment: an organization that registers an application via the CLI wizard and later tries to manage it in admin-panel will simply never see the key-management controls, because owner_organization_id stays NULL forever unless a DBA runs raw SQL. This is not a security hole (fails closed, nothing leaks) and not a broken happy path in the literal sense (the underlying permission-catalog-sync flow via /api/applications/sync works fine without owner_organization_id) — it's a shipped, tested feature area that a real user can never reach, which is exactly the class of 'looks done but isn't' this skill exists to catch. Root cause has two independent halves: (1) packages/cli/src/steps/application.ts's askApplicationStep() runs at install time, before any organization necessarily exists, and never asks which org should own the application it's registering; (2) there is also no separate 'claim ownership' flow an org could use afterward — no INSERT policy and no ownership-claim-specific UPDATE policy exists on kontrolia_auth.applications for a regular authenticated user.",
+      "severity": "HIGH",
+      "lastAuditStatus": "HIGH",
+      "status": "OPEN",
+      "lastAudited": "2026-08-11T21:23:00",
+      "evidence": [
+        "packages/db/src/register-application.ts:51-56 — the INSERT into kontrolia_auth.applications lists (name, slug, environment, api_key_hash) only; owner_organization_id is absent from both the column list and the values",
+        "packages/cli/src/steps/application.ts:23 — askApplicationStep(db: DatabaseAnswer) takes only database/Supabase connection info as its parameter, no organization context, and its own comment (line 18-21) states plainly: 'kontrolia_auth.applications/permissions have no write policy for regular users... and no admin API exists yet for it, so this writes directly against Postgres'",
+        "packages/db/migrations/0010_rls_policies.sql:25-30 and 0018_org_admins_manage_applications.sql:19-20 — the only two SELECT policies ever defined on this table; grepped all 33 migrations for 'insert' + 'applications' together and found zero INSERT policy of any kind",
+        "packages/db/migrations/0022_application_homepage_url.sql:14-17 — the one UPDATE policy that exists requires `owner_organization_id is not null and kontrolia_auth.is_org_admin(owner_organization_id)` in both USING and WITH CHECK, so it can only ever apply to a row that already has an owner — chicken-and-egg, structurally identical in shape to the PQ-SEC-006-class org-bootstrap bugs found earlier this session, except here nothing ever breaks the cycle",
+        "apps/admin-panel/app/applications/page.tsx:323,351,360 — every owner-gated UI element (homepage URL edit, the whole 'Clave de sincronización' column with Rotar/Revocar) is conditioned on `app.owner_organization_id === organization.id`, which can never be true for any application registered through the product's own intended flow",
+        "Exhaustive grep for 'owner_organization_id' across apps/ and packages/db/src confirmed only read sites (RLS policies, admin-panel UI, the new members API) — zero write sites anywhere"
+      ],
+      "verification": [
+        "Confirmed live against the running local Supabase sandbox: the one application with owner_organization_id set (facturacion -> CRM Demo) was set via a direct docker exec psql UPDATE statement earlier in this session while manually preparing test data for INT-KEY-001/the new members API — not through any product flow. No other application row in the sandbox has a non-NULL owner_organization_id."
+      ],
+      "history": [
+        {
+          "date": "2026-08-11T21:23:00",
+          "auditStatus": "HIGH",
+          "remediationStatus": "OPEN",
+          "note": "New finding, discovered while answering a user question about why admin-panel's applications page has no 'create application' UI. Scoped review of the application registration/ownership lifecycle only, not a full-app re-walk — UX/UI/Accessibility/Performance/Maintainability scores below are carried forward unchanged from the eighth round (2026-08-11T21:00:00) and were not re-audited this round. Recommend a platform-admin-gated 'claim ownership' action (matching migration 0010's own comment that the application catalog is platform-level) as the most architecturally consistent fix, rather than opening self-service creation to any org."
+        }
+      ]
     }
   ]
 }

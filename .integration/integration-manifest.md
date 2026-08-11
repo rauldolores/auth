@@ -140,6 +140,20 @@ GENERATE request.
 
 ## Known Limitations
 
+- **No self-service application registration/ownership path exists anywhere** (`INT-API-007`,
+  HIGH). The only way to create an application row is the CLI wizard's `registerApplication()`
+  (raw Postgres connection string), which runs before any organization necessarily exists and
+  never asks which org should own the app — `owner_organization_id` is simply omitted from its
+  INSERT.
+- **`applications.owner_organization_id` is never written by any code path** (`INT-API-008`,
+  HIGH — the other side of `INT-API-007`'s root cause). Not by `registerApplication()`, not by
+  any migration, not by any RLS policy's `WITH CHECK`, not by any route — confirmed by exhaustive
+  grep. `INT-KEY-001`'s rotate/revoke UI and the new `/api/applications/members` API are both
+  correctly built but gated entirely on this column, so **neither is reachable in a genuinely
+  fresh self-hosted deployment** without a DBA manually running SQL — which is how the sandbox
+  data used to build and verify both was actually set up. A real fix needs a "claim ownership"
+  flow (most plausibly platform-admin-gated, matching migration 0010's own comment that the
+  application catalog is "platform-level, managed via service_role"), not just a form.
 - No OpenAPI spec for any of the 3 endpoint families (`INT-OPENAPI-001`, LOW — low urgency given
   the narrow current surface).
 - The new `/api/applications/members` API has no page in `apps/documentation` yet (`INT-DOC-005`,
