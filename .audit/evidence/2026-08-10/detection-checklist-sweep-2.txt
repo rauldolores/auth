@@ -1,0 +1,25 @@
+=== TODO/FIXME/XXX/HACK in changed files ===
+apps/auth-server/app/api/invitations/route.ts:33:  // TODO(v1.5): send the invitation email via the configured provider.
+packages/cli/src/index.ts:102:  p.outro(ok ? "Todo listo para instalar." : "Instala lo marcado con ✗ y vuelve a correr.");
+packages/cli/src/index.ts:118:      "Este comando actualiza una copia clonada de KontrolIA Auth — corre esto dentro de la carpeta donde instalaste todo (la que tiene docker/docker-compose.yml).",
+=== placeholder/stub/not implemented ===
+packages/cli/src/steps/deployment.ts:222:    placeholder: "http://localhost:3000",
+packages/cli/src/steps/deployment.ts:235:    placeholder: "http://localhost:3001",
+packages/cli/src/steps/deployment.ts:249:    placeholder: "",
+packages/cli/src/index.ts:36:    placeholder: "postgres://postgres:...@host:5432/postgres",
+packages/cli/src/index.ts:72:    placeholder: "postgres://postgres:...@host:5432/postgres",
+packages/cli/src/index.ts:139:    placeholder: "postgres://postgres:...@host:5432/postgres",
+=== mock/fake/dummy ===
+=== empty catch ===
+=== audit trigger coverage check ===
+27:  after insert on kontrolia.organizations
+50:  after insert or delete on kontrolia.memberships
+67:  after insert on kontrolia.invitations
+86:  after update on kontrolia.invitations
+115:  after insert or delete on kontrolia.membership_roles
+132:  after delete on kontrolia.devices
+=== child.on error handling in open-browser ===
+16:        ? spawn("cmd", ["/c", "start", "", url], { detached: true, stdio: "ignore", windowsHide: true })
+18:          ? spawn("open", [url], { detached: true, stdio: "ignore" })
+19:          : spawn("xdg-open", [url], { detached: true, stdio: "ignore" });
+20:    child.unref();

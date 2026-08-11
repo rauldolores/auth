@@ -17,6 +17,11 @@ export function openBrowser(url: string): void {
         : process.platform === "darwin"
           ? spawn("open", [url], { detached: true, stdio: "ignore" })
           : spawn("xdg-open", [url], { detached: true, stdio: "ignore" });
+    // Without a listener, a spawn failure (e.g. no xdg-open on a headless
+    // box) is an unhandled 'error' event — Node treats that as fatal and
+    // crashes the CLI right after a successful install. Swallow it: the
+    // URL is always printed as text too, so this is purely a convenience.
+    child.on("error", () => {});
     child.unref();
   } catch {
     // Best-effort only.

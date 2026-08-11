@@ -129,12 +129,16 @@ async function wouldRemoveLastOwner(caller: ScopedClient, membershipId: string):
     .eq("slug", "owner")
     .single();
 
+  // Must count only *active* owners — suspending doesn't remove this row
+  // the way deleting does, so an unfiltered count would let an org get
+  // suspended down to zero active Owners one PATCH at a time.
   const { count: ownerCount } = await caller
     .schema("kontrolia_auth")
     .from("membership_roles")
-    .select("membership_id, memberships!inner(organization_id)", { count: "exact", head: true })
+    .select("membership_id, memberships!inner(organization_id, status)", { count: "exact", head: true })
     .eq("role_id", ownerRole?.id)
-    .eq("memberships.organization_id", membership.organization_id);
+    .eq("memberships.organization_id", membership.organization_id)
+    .eq("memberships.status", "active");
 
   return { blocked: (ownerCount ?? 0) <= 1 };
 }

@@ -1,0 +1,146 @@
+
+> kontrolia-auth@0.1.0 lint C:\Codigo\KONTROLIA\auth
+> turbo run lint
+
+• turbo 2.10.8
+
+   • Packages in scope: @kontrolia/admin-panel, @kontrolia/auth, @kontrolia/auth-server, @kontrolia/config, @kontrolia/db, @kontrolia/documentation, @kontrolia/example-express, @kontrolia/example-nestjs, @kontrolia/example-nextjs, @kontrolia/example-react, @kontrolia/next, @kontrolia/permissions, @kontrolia/playground, @kontrolia/react, @kontrolia/shared, @kontrolia/ui, create-kontrolia-auth
+   • Running lint in 17 packages
+   • Remote caching disabled
+
+@kontrolia/documentation:lint: cache hit, replaying logs fbd1d30a019a3fe4
+@kontrolia/shared:lint: cache hit, replaying logs a0a1a69432d47494
+@kontrolia/documentation:lint: 
+@kontrolia/documentation:lint: > @kontrolia/documentation@0.1.0 lint C:\Codigo\KONTROLIA\auth\apps\documentation
+@kontrolia/documentation:lint: > eslint .
+@kontrolia/documentation:lint: 
+@kontrolia/shared:lint: 
+@kontrolia/shared:lint: > @kontrolia/shared@1.1.0 lint C:\Codigo\KONTROLIA\auth\packages\shared
+@kontrolia/db:lint: cache hit, replaying logs c410ddb03d63da85
+@kontrolia/shared:build: cache hit, replaying logs 9496b73c06b8c8d0
+@kontrolia/shared:lint: > eslint .
+@kontrolia/shared:lint: 
+@kontrolia/db:build: cache hit, replaying logs 51f271f0a0ecbab5
+@kontrolia/shared:build: 
+@kontrolia/shared:build: > @kontrolia/shared@1.1.0 build C:\Codigo\KONTROLIA\auth\packages\shared
+@kontrolia/shared:build: > tsc -p tsconfig.json
+@kontrolia/shared:build: 
+@kontrolia/db:build: 
+@kontrolia/db:build: > @kontrolia/db@2.1.0 build C:\Codigo\KONTROLIA\auth\packages\db
+@kontrolia/db:lint: 
+@kontrolia/db:lint: > @kontrolia/db@2.1.0 lint C:\Codigo\KONTROLIA\auth\packages\db
+@kontrolia/db:build: > tsc -p tsconfig.json
+@kontrolia/db:build: 
+@kontrolia/db:lint: > eslint .
+@kontrolia/db:lint: 
+@kontrolia/permissions:lint: cache hit, replaying logs 836775abf88fa965
+create-kontrolia-auth:lint: cache hit, replaying logs 9c67c97047e8a5dc
+create-kontrolia-auth:lint: 
+@kontrolia/permissions:lint: 
+@kontrolia/permissions:lint: > @kontrolia/permissions@1.0.1 lint C:\Codigo\KONTROLIA\auth\packages\permissions
+@kontrolia/permissions:lint: > eslint .
+@kontrolia/permissions:lint: 
+create-kontrolia-auth:lint: > create-kontrolia-auth@2.4.2 lint C:\Codigo\KONTROLIA\auth\packages\cli
+create-kontrolia-auth:lint: > eslint .
+create-kontrolia-auth:lint: 
+@kontrolia/permissions:build: cache hit, replaying logs 8e28ca141347202d
+@kontrolia/permissions:build: 
+@kontrolia/permissions:build: > @kontrolia/permissions@1.0.1 build C:\Codigo\KONTROLIA\auth\packages\permissions
+@kontrolia/permissions:build: > tsc -p tsconfig.json
+@kontrolia/permissions:build: 
+@kontrolia/auth:lint: cache hit, replaying logs c7e94cffac25fd88
+@kontrolia/auth:lint: 
+@kontrolia/auth:lint: > @kontrolia/auth@2.0.0 lint C:\Codigo\KONTROLIA\auth\packages\auth-sdk
+@kontrolia/auth:lint: > eslint .
+@kontrolia/auth:lint: 
+@kontrolia/auth:build: cache hit, replaying logs 8f461cfe3128b5f9
+@kontrolia/auth:build: 
+@kontrolia/auth:build: > @kontrolia/auth@2.0.0 build C:\Codigo\KONTROLIA\auth\packages\auth-sdk
+@kontrolia/auth:build: > tsc -p tsconfig.json
+@kontrolia/auth:build: 
+@kontrolia/react:lint: cache hit, replaying logs 43e6dd64402110b9
+@kontrolia/example-nestjs:lint: cache hit, replaying logs ccd1d731c6085433
+@kontrolia/example-express:lint: cache hit, replaying logs 522c12a294b1999b
+@kontrolia/next:lint: cache hit, replaying logs b3bcee7d5c233d3b
+@kontrolia/example-nestjs:lint: 
+@kontrolia/example-express:lint: 
+@kontrolia/example-express:lint: > @kontrolia/example-express@0.1.0 lint C:\Codigo\KONTROLIA\auth\examples\express
+@kontrolia/example-nestjs:lint: > @kontrolia/example-nestjs@0.1.0 lint C:\Codigo\KONTROLIA\auth\examples\nestjs
+@kontrolia/example-nestjs:lint: > eslint .
+@kontrolia/example-nestjs:lint: 
+@kontrolia/next:lint: 
+@kontrolia/react:lint: 
+@kontrolia/react:lint: > @kontrolia/react@1.2.1 lint C:\Codigo\KONTROLIA\auth\packages\react-sdk
+@kontrolia/react:lint: > eslint .
+@kontrolia/react:lint: 
+@kontrolia/react:lint: 
+@kontrolia/react:lint: C:\Codigo\KONTROLIA\auth\packages\react-sdk\src\context.tsx
+@kontrolia/react:lint:   27:63  warning  React Hook useMemo has a missing dependency: 'config'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+@kontrolia/react:lint: 
+@kontrolia/react:lint: ✖ 1 problem (0 errors, 1 warning)
+@kontrolia/react:lint: 
+@kontrolia/example-express:lint: > eslint .
+@kontrolia/example-express:lint: 
+@kontrolia/next:lint: > @kontrolia/next@1.1.2 lint C:\Codigo\KONTROLIA\auth\packages\next-sdk
+@kontrolia/next:lint: > eslint .
+@kontrolia/next:lint: 
+@kontrolia/react:build: cache hit, replaying logs f995436c0c2abb74
+@kontrolia/next:build: cache hit, replaying logs 01316fa2a8b0635b
+@kontrolia/react:build: 
+@kontrolia/react:build: > @kontrolia/react@1.2.1 build C:\Codigo\KONTROLIA\auth\packages\react-sdk
+@kontrolia/react:build: > tsc -p tsconfig.json
+@kontrolia/react:build: 
+@kontrolia/next:build: 
+@kontrolia/next:build: > @kontrolia/next@1.1.2 build C:\Codigo\KONTROLIA\auth\packages\next-sdk
+@kontrolia/next:build: > tsc -p tsconfig.json
+@kontrolia/next:build: 
+@kontrolia/playground:lint: cache hit, replaying logs 8b0c28715c0fb269
+@kontrolia/playground:lint: 
+@kontrolia/playground:lint: > @kontrolia/playground@0.1.0 lint C:\Codigo\KONTROLIA\auth\apps\playground
+@kontrolia/playground:lint: > eslint .
+@kontrolia/playground:lint: 
+@kontrolia/ui:lint: cache hit, replaying logs b75ed94339e68a06
+@kontrolia/example-nextjs:lint: cache hit, replaying logs 8ef1c780780e29de
+@kontrolia/example-react:lint: cache hit, replaying logs 0179b66e36bf765a
+@kontrolia/example-react:lint: 
+@kontrolia/example-nextjs:lint: 
+@kontrolia/example-nextjs:lint: > @kontrolia/example-nextjs@0.1.0 lint C:\Codigo\KONTROLIA\auth\examples\nextjs
+@kontrolia/example-react:lint: > @kontrolia/example-react@0.1.0 lint C:\Codigo\KONTROLIA\auth\examples\react
+@kontrolia/example-react:lint: > eslint .
+@kontrolia/example-react:lint: 
+@kontrolia/example-nextjs:lint: > eslint .
+@kontrolia/example-nextjs:lint: 
+@kontrolia/ui:lint: 
+@kontrolia/ui:lint: > @kontrolia/ui@1.0.3 lint C:\Codigo\KONTROLIA\auth\packages\ui
+@kontrolia/ui:lint: > eslint .
+@kontrolia/ui:lint: 
+@kontrolia/ui:build: cache hit, replaying logs 3d8609472550c987
+@kontrolia/ui:build: 
+@kontrolia/ui:build: > @kontrolia/ui@1.0.3 build C:\Codigo\KONTROLIA\auth\packages\ui
+@kontrolia/ui:build: > tsc -p tsconfig.json
+@kontrolia/ui:build: 
+@kontrolia/auth-server:lint: cache hit, replaying logs fb9fcbec841b86c5
+@kontrolia/admin-panel:lint: cache hit, replaying logs 293592a534650f2f
+@kontrolia/auth-server:lint: 
+@kontrolia/auth-server:lint: > @kontrolia/auth-server@0.1.0 lint C:\Codigo\KONTROLIA\auth\apps\auth-server
+@kontrolia/auth-server:lint: > eslint .
+@kontrolia/auth-server:lint: 
+@kontrolia/admin-panel:lint: 
+@kontrolia/admin-panel:lint: > @kontrolia/admin-panel@0.1.0 lint C:\Codigo\KONTROLIA\auth\apps\admin-panel
+@kontrolia/admin-panel:lint: > eslint .
+@kontrolia/admin-panel:lint: 
+@kontrolia/admin-panel:lint: 
+@kontrolia/admin-panel:lint: C:\Codigo\KONTROLIA\auth\apps\admin-panel\app\applications\page.tsx
+@kontrolia/admin-panel:lint:   67:6  warning  React Hook useEffect has a missing dependency: 'organization'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+@kontrolia/admin-panel:lint: 
+@kontrolia/admin-panel:lint: C:\Codigo\KONTROLIA\auth\apps\admin-panel\app\audit-logs\page.tsx
+@kontrolia/admin-panel:lint:   44:6  warning  React Hook useEffect has a missing dependency: 'organization'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+@kontrolia/admin-panel:lint: 
+@kontrolia/admin-panel:lint: ✖ 2 problems (0 errors, 2 warnings)
+@kontrolia/admin-panel:lint: 
+
+ Tasks:    23 successful, 23 total
+Cached:    23 cached, 23 total
+  Time:    139ms >>> FULL TURBO
+
+EXIT:0

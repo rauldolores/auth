@@ -4,9 +4,11 @@ import { kontroliaClientConfig } from "./kontrolia-config";
 const KONTROLIA_SCHEMA = "kontrolia_auth";
 
 /**
- * Read-only browser client for the kontrolia_auth schema, used by the
- * dashboard list pages. Every query is still RLS-scoped to what the
- * signed-in admin can see — this client carries no elevated privileges.
+ * Browser client for the kontrolia_auth schema, used by the dashboard list
+ * and mutation pages (invitations, role assignment, member status, etc).
+ * It carries no elevated privileges of its own — every query, reads and
+ * writes alike, is RLS-scoped to what the signed-in admin's own token is
+ * allowed to see or change.
  *
  * Uses @supabase/ssr's createBrowserClient (cookie-backed, shared with the
  * session @kontrolia/react's <AuthProvider> already established) instead of

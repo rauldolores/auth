@@ -88,6 +88,12 @@ export default function UserDetailPage() {
   async function handleToggleStatus() {
     if (!organization || !member) return;
     const nextStatus = member.status === "suspended" ? "active" : "suspended";
+    if (nextStatus === "suspended") {
+      const confirmed = window.confirm(
+        `¿Suspender a ${member.email}? Perderá acceso a ${organization.name} hasta que lo reactives.`,
+      );
+      if (!confirmed) return;
+    }
     setError(null);
     setPending(true);
     try {

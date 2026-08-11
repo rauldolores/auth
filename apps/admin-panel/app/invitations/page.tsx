@@ -27,6 +27,16 @@ function invitationLink(token: string): string {
   return `${AUTH_SERVER_URL}/invitations/accept?token=${token}`;
 }
 
+/** Matches the DB's own token shape (24 random bytes, hex-encoded — see
+ * packages/db/migrations/0006_invitations_devices_audit.sql's column
+ * default), so a resent invitation is exactly as hard to guess as a new
+ * one, and the old link stops working instead of staying valid forever. */
+function randomToken(): string {
+  const bytes = new Uint8Array(24);
+  crypto.getRandomValues(bytes);
+  return [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 export default function InvitationsPage() {
   const { organization } = useAuth();
   const [roles, setRoles] = useState<RoleOption[]>([]);
@@ -118,12 +128,13 @@ export default function InvitationsPage() {
     try {
       const supabase = createKontroliaSchemaClient();
       const newExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      const newToken = randomToken();
       const { error: updateError } = await supabase
         .from("invitations")
-        .update({ expires_at: newExpiry })
+        .update({ expires_at: newExpiry, token: newToken })
         .eq("id", row.id);
       if (updateError) throw updateError;
-      setLastInviteLink(invitationLink(row.token));
+      setLastInviteLink(invitationLink(newToken));
       await loadData(organization.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo reenviar la invitación.");
