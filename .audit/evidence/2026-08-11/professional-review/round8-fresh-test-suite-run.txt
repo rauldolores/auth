@@ -1,0 +1,138 @@
+• turbo 2.10.8
+
+   • Packages in scope: @kontrolia/admin-panel, @kontrolia/auth, @kontrolia/auth-server, @kontrolia/config, @kontrolia/db, @kontrolia/documentation, @kontrolia/example-express, @kontrolia/example-nestjs, @kontrolia/example-nextjs, @kontrolia/example-react, @kontrolia/next, @kontrolia/permissions, @kontrolia/playground, @kontrolia/react, @kontrolia/shared, @kontrolia/ui, create-kontrolia-auth
+   • Running test in 17 packages
+   • Remote caching disabled
+
+@kontrolia/shared:build: cache hit, replaying logs 9496b73c06b8c8d0
+@kontrolia/shared:build: 
+@kontrolia/shared:build: > @kontrolia/shared@1.1.0 build C:\Codigo\KONTROLIA\auth\packages\shared
+@kontrolia/shared:build: > tsc -p tsconfig.json
+@kontrolia/shared:build: 
+@kontrolia/permissions:test: cache hit, replaying logs 37409aed5c1946cb
+@kontrolia/permissions:test: 
+@kontrolia/permissions:test: > @kontrolia/permissions@1.0.1 test C:\Codigo\KONTROLIA\auth\packages\permissions
+@kontrolia/permissions:test: > vitest run
+@kontrolia/permissions:test: 
+@kontrolia/permissions:test: 
+@kontrolia/permissions:test: [1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mC:/Codigo/KONTROLIA/auth/packages/permissions[39m
+@kontrolia/permissions:test: 
+@kontrolia/permissions:test:  [32m✓[39m src/__tests__/match.test.ts [2m([22m[2m5 tests[22m[2m)[22m[90m 5[2mms[22m[39m
+@kontrolia/permissions:test: 
+@kontrolia/permissions:test: [2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+@kontrolia/permissions:test: [2m      Tests [22m [1m[32m5 passed[39m[22m[90m (5)[39m
+@kontrolia/permissions:test: [2m   Start at [22m 09:39:30
+@kontrolia/permissions:test: [2m   Duration [22m 1.26s[2m (transform 137ms, setup 0ms, collect 89ms, tests 5ms, environment 0ms, prepare 488ms)[22m
+@kontrolia/permissions:test: 
+@kontrolia/db:build: cache hit, replaying logs d8a97993d76a36b0
+@kontrolia/permissions:build: cache hit, replaying logs 8164f408e402e222
+@kontrolia/db:build: 
+@kontrolia/permissions:build: 
+@kontrolia/permissions:build: > @kontrolia/permissions@1.0.1 build C:\Codigo\KONTROLIA\auth\packages\permissions
+@kontrolia/db:build: > @kontrolia/db@2.1.0 build C:\Codigo\KONTROLIA\auth\packages\db
+@kontrolia/db:build: > tsc -p tsconfig.json
+@kontrolia/db:build: 
+@kontrolia/permissions:build: > tsc -p tsconfig.json
+@kontrolia/permissions:build: 
+@kontrolia/auth:test: cache hit, replaying logs feb6572b4a8d52b3
+@kontrolia/auth:test: 
+@kontrolia/auth:test: > @kontrolia/auth@2.0.0 test C:\Codigo\KONTROLIA\auth\packages\auth-sdk
+@kontrolia/auth:test: > vitest run
+@kontrolia/auth:test: 
+@kontrolia/auth:test: 
+@kontrolia/auth:test: [1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mC:/Codigo/KONTROLIA/auth/packages/auth-sdk[39m
+@kontrolia/auth:test: 
+@kontrolia/auth:test:  [32m✓[39m src/__tests__/jwt.test.ts [2m([22m[2m5 tests[22m[2m)[22m[90m 12[2mms[22m[39m
+@kontrolia/auth:test:  [32m✓[39m src/__tests__/pkce.test.ts [2m([22m[2m3 tests[22m[2m)[22m[90m 15[2mms[22m[39m
+@kontrolia/auth:test:  [32m✓[39m src/__tests__/client.test.ts [2m([22m[2m13 tests[22m[2m)[22m[90m 187[2mms[22m[39m
+@kontrolia/auth:test:  [32m✓[39m src/__tests__/server.test.ts [2m([22m[2m9 tests[22m[2m)[22m[33m 1006[2mms[22m[39m
+@kontrolia/auth:test: 
+@kontrolia/auth:test: [2m Test Files [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+@kontrolia/auth:test: [2m      Tests [22m [1m[32m30 passed[39m[22m[90m (30)[39m
+@kontrolia/auth:test: [2m   Start at [22m 09:38:48
+@kontrolia/auth:test: [2m   Duration [22m 2.84s[2m (transform 791ms, setup 0ms, collect 1.54s, tests 1.22s, environment 2ms, prepare 2.14s)[22m
+@kontrolia/auth:test: 
+@kontrolia/auth:build: cache hit, replaying logs 89f8f82d0284907b
+@kontrolia/auth:build: 
+@kontrolia/auth:build: > @kontrolia/auth@2.0.0 build C:\Codigo\KONTROLIA\auth\packages\auth-sdk
+@kontrolia/auth:build: > tsc -p tsconfig.json
+@kontrolia/auth:build: 
+@kontrolia/react:test: cache hit, replaying logs e3f10652213c28d1
+@kontrolia/next:test: cache hit, replaying logs 2865ad2d8f8a82f1
+@kontrolia/react:test: 
+@kontrolia/react:test: > @kontrolia/react@1.2.1 test C:\Codigo\KONTROLIA\auth\packages\react-sdk
+@kontrolia/react:test: > vitest run
+@kontrolia/react:test: 
+@kontrolia/react:test: 
+@kontrolia/react:test: [1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mC:/Codigo/KONTROLIA/auth/packages/react-sdk[39m
+@kontrolia/react:test: 
+@kontrolia/react:test:  [32m✓[39m src/__tests__/context.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[90m 170[2mms[22m[39m
+@kontrolia/react:test: 
+@kontrolia/react:test: [2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+@kontrolia/react:test: [2m      Tests [22m [1m[32m7 passed[39m[22m[90m (7)[39m
+@kontrolia/react:test: [2m   Start at [22m 09:51:51
+@kontrolia/react:test: [2m   Duration [22m 5.47s[2m (transform 215ms, setup 0ms, collect 767ms, tests 170ms, environment 3.45s, prepare 466ms)[22m
+@kontrolia/react:test: 
+@kontrolia/next:test: 
+@kontrolia/next:test: > @kontrolia/next@1.1.2 test C:\Codigo\KONTROLIA\auth\packages\next-sdk
+@kontrolia/next:test: > vitest run
+@kontrolia/next:test: 
+@kontrolia/next:test: 
+@kontrolia/next:test: [1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mC:/Codigo/KONTROLIA/auth/packages/next-sdk[39m
+@kontrolia/next:test: 
+@kontrolia/next:test:  [32m✓[39m src/__tests__/middleware.test.ts [2m([22m[2m8 tests[22m[2m)[22m[90m 14[2mms[22m[39m
+@kontrolia/next:test: 
+@kontrolia/next:test: [2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+@kontrolia/next:test: [2m      Tests [22m [1m[32m8 passed[39m[22m[90m (8)[39m
+@kontrolia/next:test: [2m   Start at [22m 09:39:36
+@kontrolia/next:test: [2m   Duration [22m 1.54s[2m (transform 148ms, setup 0ms, collect 550ms, tests 14ms, environment 0ms, prepare 433ms)[22m
+@kontrolia/next:test: 
+@kontrolia/next:build: cache hit, replaying logs fd9deb7ab0a6ef5a
+@kontrolia/next:build: 
+@kontrolia/next:build: > @kontrolia/next@1.1.2 build C:\Codigo\KONTROLIA\auth\packages\next-sdk
+@kontrolia/next:build: > tsc -p tsconfig.json
+@kontrolia/next:build: 
+@kontrolia/react:build: cache hit, replaying logs 51dd0849ff5d76e1
+@kontrolia/react:build: 
+@kontrolia/react:build: > @kontrolia/react@1.2.1 build C:\Codigo\KONTROLIA\auth\packages\react-sdk
+@kontrolia/react:build: > tsc -p tsconfig.json
+@kontrolia/react:build: 
+@kontrolia/ui:build: cache hit, replaying logs 1787bac41be016e7
+@kontrolia/ui:build: 
+@kontrolia/ui:build: > @kontrolia/ui@1.0.3 build C:\Codigo\KONTROLIA\auth\packages\ui
+@kontrolia/ui:build: > tsc -p tsconfig.json
+@kontrolia/ui:build: 
+@kontrolia/auth-server:test: cache miss, executing 2f0a6f6d1c243872
+@kontrolia/auth-server:test: 
+@kontrolia/auth-server:test: > @kontrolia/auth-server@0.1.0 test C:\Codigo\KONTROLIA\auth\apps\auth-server
+@kontrolia/auth-server:test: > vitest run
+@kontrolia/auth-server:test: 
+@kontrolia/auth-server:test: 
+@kontrolia/auth-server:test: [1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mC:/Codigo/KONTROLIA/auth/apps/auth-server[39m
+@kontrolia/auth-server:test: 
+@kontrolia/auth-server:test:  [32m✓[39m app/api/__tests__/platform-admins.test.ts [2m([22m[2m16 tests[22m[2m)[22m[90m 225[2mms[22m[39m
+@kontrolia/auth-server:test:  [32m✓[39m app/api/__tests__/organizations.test.ts [2m([22m[2m6 tests[22m[2m)[22m[90m 115[2mms[22m[39m
+@kontrolia/auth-server:test:  [32m✓[39m app/api/__tests__/organizations-id.test.ts [2m([22m[2m5 tests[22m[2m)[22m[90m 142[2mms[22m[39m
+@kontrolia/auth-server:test:  [32m✓[39m app/api/__tests__/invitations-accept.test.ts [2m([22m[2m15 tests[22m[2m)[22m[90m 226[2mms[22m[39m
+@kontrolia/auth-server:test:  [32m✓[39m app/api/__tests__/devices-revoke.test.ts [2m([22m[2m4 tests[22m[2m)[22m[90m 145[2mms[22m[39m
+@kontrolia/auth-server:test:  [32m✓[39m app/api/__tests__/invitations.test.ts [2m([22m[2m3 tests[22m[2m)[22m[90m 130[2mms[22m[39m
+@kontrolia/auth-server:test:  [32m✓[39m app/api/__tests__/organizations-id-applications.test.ts [2m([22m[2m4 tests[22m[2m)[22m[90m 234[2mms[22m[39m
+@kontrolia/auth-server:test: [90mstderr[2m | app/api/__tests__/oauth-clients.test.ts[2m > [22m[2mPOST /api/oauth-clients[2m > [22m[2mreturns 502 when GoTrue can't be reached at all
+@kontrolia/auth-server:test: [22m[39m{"level":"error","timestamp":"2026-08-11T17:40:43.298Z","context":"oauth-clients:callGotrueAdmin","message":"ECONNREFUSED","stack":"Error: ECONNREFUSED\n    at C:\\Codigo\\KONTROLIA\\auth\\apps\\auth-server\\app\\api\\__tests__\\oauth-clients.test.ts:92:33\n    at file:///C:/Codigo/KONTROLIA/auth/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:146:14\n    at file:///C:/Codigo/KONTROLIA/auth/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:533:11\n    at runWithTimeout (file:///C:/Codigo/KONTROLIA/auth/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:39:7)\n    at runTest (file:///C:/Codigo/KONTROLIA/auth/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1056:17)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at runSuite (file:///C:/Codigo/KONTROLIA/auth/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1205:15)\n    at runSuite (file:///C:/Codigo/KONTROLIA/auth/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1205:15)\n    at runFiles (file:///C:/Codigo/KONTROLIA/auth/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1262:5)\n    at startTests (file:///C:/Codigo/KONTROLIA/auth/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1271:3)","meta":{"path":""}}
+@kontrolia/auth-server:test: 
+@kontrolia/auth-server:test:  [32m✓[39m app/api/__tests__/organization-members.test.ts [2m([22m[2m19 tests[22m[2m)[22m[90m 283[2mms[22m[39m
+@kontrolia/auth-server:test:  [32m✓[39m app/api/__tests__/oauth-clients.test.ts [2m([22m[2m9 tests[22m[2m)[22m[90m 191[2mms[22m[39m
+@kontrolia/auth-server:test:  [32m✓[39m app/api/__tests__/applications-sync.test.ts [2m([22m[2m7 tests[22m[2m)[22m[90m 67[2mms[22m[39m
+@kontrolia/auth-server:test:  [32m✓[39m app/api/__tests__/devices.test.ts [2m([22m[2m3 tests[22m[2m)[22m[90m 42[2mms[22m[39m
+@kontrolia/auth-server:test:  [32m✓[39m app/api/__tests__/devices-touch.test.ts [2m([22m[2m4 tests[22m[2m)[22m[90m 57[2mms[22m[39m
+@kontrolia/auth-server:test: 
+@kontrolia/auth-server:test: [2m Test Files [22m [1m[32m12 passed[39m[22m[90m (12)[39m
+@kontrolia/auth-server:test: [2m      Tests [22m [1m[32m95 passed[39m[22m[90m (95)[39m
+@kontrolia/auth-server:test: [2m   Start at [22m 11:40:38
+@kontrolia/auth-server:test: [2m   Duration [22m 6.04s[2m (transform 5.98s, setup 0ms, collect 19.77s, tests 1.86s, environment 10ms, prepare 10.17s)[22m
+@kontrolia/auth-server:test: 
+
+ Tasks:    12 successful, 12 total
+Cached:    11 cached, 12 total
+  Time:    9.723s 
+

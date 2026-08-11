@@ -1,0 +1,15 @@
+Search for route.ts/route.tsx anywhere under apps/admin-panel: 0 results (file above is empty), confirming admin-panel has zero API routes of its own.
+apps/admin-panel/app
+apps/admin-panel/app/applications
+apps/admin-panel/app/audit-logs
+apps/admin-panel/app/invitations
+apps/admin-panel/app/oauth
+apps/admin-panel/app/oauth/callback
+apps/admin-panel/app/oauth-clients
+apps/admin-panel/app/organizations
+apps/admin-panel/app/permissions
+apps/admin-panel/app/platform-admins
+apps/admin-panel/app/roles
+apps/admin-panel/app/roles/[roleId]
+apps/admin-panel/app/users
+apps/admin-panel/app/users/[membershipId]

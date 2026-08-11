@@ -1,0 +1,76 @@
+commit 07d8ec5a9090c8a54e25130f11775831292e2e9d
+Author: Raul <raul.dolores@gmail.com>
+Date:   Tue Aug 11 11:39:03 2026 -0600
+
+    Add API route handler tests, closing the last open Phase 2 finding
+    
+    PQ-TECH-001 was the sole remaining item after seven rounds of Phase 2
+    auditing today (security itself was independently live-exploit-tested
+    and closed across migrations 0025-0030) — zero test coverage existed
+    for any Next.js API route handler in apps/auth-server.
+    
+    95 tests across all 12 route files. Thorough coverage on the three
+    highest-risk routes:
+    - organization-members: full wouldRemoveLastOwner() branch coverage
+      (blocks suspending/removing the org's sole active Owner, allows it
+      with a second active Owner present, allows it freely for non-Owners).
+    - platform-admins: the authorizePlatformAdmin() gate on all three
+      verbs, and the last-platform-admin block on DELETE.
+    - invitations/accept: expired/used/wrong-email rejection, successful
+      accept, and a regression test for commit 717bf03's fix — when the
+      role-grant upsert fails, the route now returns 500 and never touches
+      the invitation's accepted_at, confirmed by asserting the invitations
+      table is only ever queried once.
+    
+    Lighter but real coverage (happy path + key error/validation branches)
+    on the remaining 9 routes.
+    
+    apps/auth-server had no test infrastructure — added vitest + a
+    vitest.config.ts resolving the app's "@/*" path alias (needed since
+    these route handlers and their vi.mock() calls use it), matching the
+    version already used in packages/auth-sdk/next-sdk.
+    
+    All 145 tests across the monorepo pass; build/lint/typecheck clean.
+    
+    Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+ .../app/api/__tests__/applications-sync.test.ts    | 111 ++++++++
+ .../app/api/__tests__/devices-revoke.test.ts       |  52 ++++
+ .../app/api/__tests__/devices-touch.test.ts        |  67 +++++
+ apps/auth-server/app/api/__tests__/devices.test.ts |  66 +++++
+ .../app/api/__tests__/invitations-accept.test.ts   | 239 +++++++++++++++++
+ .../app/api/__tests__/invitations.test.ts          |  62 +++++
+ .../app/api/__tests__/oauth-clients.test.ts        | 124 +++++++++
+ .../app/api/__tests__/organization-members.test.ts | 296 +++++++++++++++++++++
+ .../organizations-id-applications.test.ts          |  63 +++++
+ .../app/api/__tests__/organizations-id.test.ts     |  61 +++++
+ .../app/api/__tests__/organizations.test.ts        |  81 ++++++
+ .../app/api/__tests__/platform-admins.test.ts      | 200 ++++++++++++++
+ apps/auth-server/app/api/__tests__/test-helpers.ts |  83 ++++++
+ apps/auth-server/package.json                      |   4 +-
+ apps/auth-server/vitest.config.ts                  |  22 ++
+ pnpm-lock.yaml                                     |   3 +
+ 16 files changed, 1533 insertions(+), 1 deletion(-)
+diff --git a/apps/auth-server/package.json b/apps/auth-server/package.json
+index 2786bd9..edef611 100644
+--- a/apps/auth-server/package.json
++++ b/apps/auth-server/package.json
+@@ -11,6 +11,7 @@
+     "start": "next start",
+     "lint": "eslint .",
+     "typecheck": "tsc --noEmit",
++    "test": "vitest run",
+     "clean": "rimraf .next"
+   },
+   "dependencies": {
+@@ -36,6 +37,7 @@
+     "eslint": "^9.17.0",
+     "postcss": "^8.4.49",
+     "tailwindcss": "^3.4.17",
+-    "typescript": "^5.7.2"
++    "typescript": "^5.7.2",
++    "vitest": "^2.1.8"
+   }
+ }
+
+Confirmed: zero route.ts or other implementation files touched by commit 07d8ec5 - only test files, vitest.config.ts, package.json (test script + vitest devDep), pnpm-lock.yaml.

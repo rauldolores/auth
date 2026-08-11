@@ -15,7 +15,7 @@ packages/db, cli, auth-sdk, react-sdk, next-sdk, permissions, shared, ui;
 examples/nextjs, react, express, nestjs)
 
 ## Last Audit
-2026-08-11T19:30:00
+2026-08-11T21:00:00
 
 ## Overall Status
 PARTIAL
@@ -145,19 +145,26 @@ flagged only for stylistic consistency.
      never write into this section beyond the initial NOT AUDITED seed. -->
 
 ## Overall Score
-70/100 — PROFESSIONAL BUT NEEDS POLISH
+76/100 — PROFESSIONAL BUT NEEDS POLISH
 
 ## UX Score
-73/100 (uncapped — unchanged this run; not re-walked, this round was narrowly scoped to a
-closing security-verification pass, not a full UX sweep)
+73/100 (uncapped — unchanged this run; not re-walked, this round was narrowly scoped to
+independently verifying commit 07d8ec5's new test suite, not a full UX sweep)
 
 ## UI Score
 82/100 (uncapped — unchanged this run; not re-walked, out of this round's scope)
 
 ## Technical Score
-66/100 (below the HIGH cap of 70 — capped by: PQ-TECH-001, still HIGH/open, re-confirmed
-unchanged this run via a fresh repo-wide test-file search. Now the only open finding of any
-severity — CRITICAL or HIGH — anywhere across the whole seven-round Phase 2 sequence.)
+78/100 (uncapped — up from 66. PQ-TECH-001 is now RESOLVED/VERIFIED: commit 07d8ec5 added 95
+tests across all 12 of apps/auth-server/app/api/**/route.ts's route files. Independently read
+organization-members.test.ts, platform-admins.test.ts, and invitations-accept.test.ts in full
+and cross-checked every assertion against the real route.ts implementations — mocks sit at the
+correct real boundary, wouldRemoveLastOwner()'s three branches are each distinctly fixtured with
+exact status-code and exact response-body assertions matching route.ts's Spanish error strings
+verbatim, and the invitations-accept regression test for commit 717bf03 asserts an exact
+from()-call count, not a vague "didn't throw" check. Genuinely real coverage, not padding. Held
+below "exceptional" only by the 6 still-open MEDIUM technical items — PQ-TECH-003 through
+PQ-TECH-008 — none of which changed this round.)
 
 ## Security Score
 84/100 (uncapped — no CRITICAL or HIGH open in this dimension any longer. PQ-SEC-009 was
@@ -195,22 +202,29 @@ more adjacent, unguarded door before migration 0030 addressed the actual root ca
 
 ## Critical Issues
 None open.
-- PQ-SEC-009 — RESOLVED, VERIFIED this run. Independently re-exploited fresh against migration
-  0030 (commit 1549077): the full grant-then-rename chain, and direct slug='owner'/'admin'/'member'
-  hijack attempts, are all now blocked by the new `prevent_custom_role_reserved_slug` trigger plus
-  the `is_system_role`-anchored `is_org_owner()`/`is_org_admin()`. No adjacent bypass of this vector
-  found this round.
+- PQ-SEC-009 — remains RESOLVED (verified round 7), carried forward unchanged, not re-tested
+  this round (unaffected by anything that changed since — commit 07d8ec5 is test-only).
 - PQ-SEC-008 / PQ-SEC-006 / PQ-SEC-007 / PQ-SEC-005 / PQ-SEC-003 / PQ-SEC-004 — remain RESOLVED
-  (verified in prior rounds), carried forward unchanged, not re-tested this round (unaffected by
-  anything that changed since).
+  (verified in prior rounds), carried forward unchanged, not re-tested this round.
 - PQ-UX-001–006 — remain RESOLVED (destructive-action confirmations), carried forward
   unchanged.
 
 ## High Issues
-- PQ-TECH-001 — re-confirmed unchanged this run: zero test files anywhere under
-  `apps/auth-server` or `apps/admin-panel`, no test script in either app's `package.json`. Now the
-  ONLY open finding of any severity (CRITICAL or HIGH) across the entire seven-round Phase 2
-  sequence.
+None open.
+- PQ-TECH-001 — RESOLVED, VERIFIED this run (eighth same-day round). Independently confirmed
+  commit 07d8ec5's 95 new tests across all 12 `apps/auth-server/app/api/**/route.ts` route files
+  are genuinely real, not padding: read `organization-members.test.ts`, `platform-admins.test.ts`,
+  `invitations-accept.test.ts`, and `test-helpers.ts` in full, cross-checked every assertion
+  against the real route implementations. `wouldRemoveLastOwner()`'s three branches (blocks
+  sole-active-Owner suspend/remove, allows it with a second active Owner, allows non-Owners
+  freely) are each a distinctly-fixtured test case with exact status-code and exact response-body
+  assertions, not "doesn't throw." Independently re-ran `pnpm turbo run test` fresh from the repo
+  root: 145/145 pass, auth-server's 95 genuinely executed this run (cache miss), not replayed.
+  Re-confirmed `apps/admin-panel` has zero `route.ts`/`route.tsx` anywhere and no `app/api`
+  directory — PQ-TECH-001's scope was fully addressable by testing auth-server alone. Sanity-
+  checked commit 07d8ec5's full diff: 16 files touched, all test files/config/package.json's test
+  script/lockfile — zero implementation files modified. This is now the first round of the entire
+  8-round Phase 2 sequence with zero open findings of CRITICAL or HIGH severity anywhere.
 - PQ-TECH-009, PQ-UX-007, PQ-PERF-001, PQ-TECH-002, PQ-UI-001, PQ-A11Y-001, PQ-PERF-002,
   PQ-PERF-003 — remain RESOLVED (verified prior rounds), carried forward, no longer open.
 
@@ -291,7 +305,7 @@ NOT AUDITED
 | HIGH | PQ-PERF-001 | No pagination on any list endpoint except audit-logs (hard-capped at 200, no cursor) | Professional Review | VERIFIED (2026-08-11T10:00:00, commit acb0c8a) — all 5 remaining endpoints (applications, roles, roles/[roleId], permissions, platform-admins GET) now paginated with correct range math, confirmed via fresh code read |
 | HIGH | PQ-PERF-002 | N+1 GoTrue admin API calls resolving emails in organization-members and platform-admins routes | Professional Review | VERIFIED (2026-08-10T23:59:00) — resolveEmails() confirmed to eliminate the N+1 call pattern |
 | HIGH | PQ-PERF-003 | User-detail page refetches the entire org member list to find one row | Professional Review | VERIFIED (2026-08-10T23:59:00) — genuine single-row server lookup confirmed |
-| HIGH | PQ-TECH-001 | No automated tests anywhere except packages/permissions — zero coverage on JWT/PKCE/OAuth/middleware/any API route | Professional Review | IN_PROGRESS — re-confirmed unchanged 2026-08-11T14:00:00; every API route handler in both apps remains untested, the finding's originally-scoped core gap |
+| HIGH | PQ-TECH-001 | No automated tests anywhere except packages/permissions — zero coverage on JWT/PKCE/OAuth/middleware/any API route | Professional Review | VERIFIED (2026-08-11T21:00:00, commit 07d8ec5) — 95 real tests added across all 12 apps/auth-server/app/api/**/route.ts route files; independently read the 3 highest-risk test files in full and cross-checked every assertion against the real route.ts implementations, confirmed genuinely real, distinctly-branched coverage (not padding); fresh `pnpm turbo run test` re-run confirms 145/145 pass with auth-server's 95 genuinely executed (cache miss); apps/admin-panel re-confirmed to have zero API routes of its own |
 | HIGH | PQ-TECH-009 | Migration 0028's owner-grant guard depends on auth.uid(), which is always NULL under the service-role context invitation-accept actually runs in — any invitation offering the 'owner' role now always silently fails its role grant on acceptance, and the accept route never checks that call's error | Professional Review | VERIFIED (2026-08-11T18:00:00, migration 0029 / commit 717bf03) — both halves independently re-confirmed: auth.role()='service_role' short-circuit lets the legitimate grant through; accept route now checks the upsert's error and returns 500 instead of silently discarding it |
 | HIGH | PQ-TECH-002 | No server-side logging or error-tracking anywhere in the backend | Professional Review | VERIFIED (2026-08-11T10:00:00, commit acb0c8a) — admin-panel gained logger.ts+instrumentation.ts; independently confirmed admin-panel genuinely has zero route.ts files and exactly one Server Component, validating the fix's completeness claim |
 | MEDIUM | PQ-SEC-002 | platform-admins last-admin check is a non-atomic COUNT-then-DELETE (TOCTOU race) | Professional Review | OPEN — re-confirmed unchanged 2026-08-11T00:20:00 |
@@ -343,6 +357,7 @@ moves it to VERIFIED.
 | 2026-08-11T14:00:00 (re-audit after commit 0e615d9, fifth same-day run) | kontrolia-professional-review | NOT PRODUCTION READY | — | 1 (PQ-SEC-006 and PQ-SEC-007 both independently re-verified this round, not taken on the prior round's own testing — genuinely closed for their narrowly-scoped vectors, with all legitimate flows re-confirmed still working. But hunting the exact adjacent-door class this round's brief named — role_id/membership_id changed via UPDATE instead of DELETE+INSERT on kontrolia_auth.membership_roles — found and live-exploited a NEW CRITICAL, PQ-SEC-008: that table has zero UPDATE trigger of any kind, fully defeating both migration 0025's DELETE-guard and migration 0028's INSERT-guard at once, via a plain single-org-Admin precondition, live-demonstrated three distinct ways (self-promotion, direct Owner demotion, role-row hijack). A secondary, non-security functional regression was also found (PQ-TECH-009, HIGH): migration 0028's owner-grant guard silently breaks the legitimate "invite as Owner" flow because auth.uid() is always NULL under the service-role context invitation-accept actually runs in. PQ-TECH-001 spot-checked, reconfirmed unchanged. Verdict remains NOT PRODUCTION READY — security is explicitly NOT fully closed this round, distinct from (and in addition to) the separate gate-passable question, which also fails independently on PQ-TECH-001) |
 | 2026-08-11T18:00:00 (re-audit after commit 717bf03, sixth same-day run) | kontrolia-professional-review | NOT PRODUCTION READY | — | 1 (PQ-SEC-008 and PQ-TECH-009 both independently re-verified this round, not taken on the fifth round's own testing — genuinely, fully RESOLVED: all three membership_roles UPDATE exploit variants re-exploited fresh and blocked by migration 0029, legitimate flows re-confirmed working, and both halves of the service-role invitation-accept regression confirmed fixed. But directly pursuing the round's brief — hunt any other role/permission table that could achieve equivalent privilege escalation outside memberships/membership_roles entirely — found and live-exploited a NEW CRITICAL, PQ-SEC-009: kontrolia_auth.roles has zero triggers and its own custom-role RLS policies never restrict the slug value a role may hold, while every guard added today trusts roles.slug='owner' as a bare string. A plain Admin can create/hold an ordinary custom role, then relabel its slug to 'owner' via a plain UPDATE on kontrolia_auth.roles — a table none of today's five migrations touch — becoming recognized as Owner outside every guard built today. Live-chained into a full, demonstrated organization takeover (real Owner fully stripped, zero audit trail). PQ-TECH-001 re-confirmed unchanged (still HIGH, zero test files under apps/). Verdict remains NOT PRODUCTION READY: security is explicitly NOT closed this round — a sixth, more severe door was found through honest adversarial verification directly answering the round's own brief, not a repeat sweep. If PQ-SEC-009 is fixed and independently re-verified, PQ-TECH-001 would become the sole remaining item separating this app from a clean Phase 2 PASS — but that is not today's state) |
 | 2026-08-11T19:30:00 (re-audit after commit 1549077, seventh same-day run, security-verification-only scope) | kontrolia-professional-review | PROFESSIONAL BUT NEEDS POLISH | — | 0 (PQ-SEC-009 independently re-exploited fresh this round against migration 0030, not taken on the fix commit's own message — genuinely, fully RESOLVED: the full grant-then-rename chain and direct slug='owner'/'admin'/'member' hijack attempts are all blocked by the new prevent_custom_role_reserved_slug trigger plus the is_system_role-anchored is_org_owner()/is_org_admin(); legitimate system-role bootstrap and ordinary custom-role slugs both re-confirmed still working. Migration 0030's SQL read in full for correctness. One more live-exploit hunt for the same general pattern elsewhere in the schema — applications.owner_organization_id, platform_admins, user_permissions — found all three genuinely clean under live adversarial testing (properly org-isolated non-owning admin for the ownership test, after self-catching and correcting an initial test-data mistake). Zero CRITICAL and zero new HIGH/MEDIUM findings this round. PQ-TECH-001 re-confirmed unchanged and is now the sole open finding of any severity — CRITICAL or HIGH — across the entire seven-round Phase 2 sequence. Verdict rises from NOT PRODUCTION READY to PROFESSIONAL BUT NEEDS POLISH: security is genuinely closed as of this round, subject to the honest caveat that this round did not re-walk UX/UI/accessibility/performance/maintainability, which are carried forward unchanged from round 6 and still contain 24 open MEDIUM findings) |
+| 2026-08-11T21:00:00 (re-audit after commit 07d8ec5, eighth same-day run, narrow closing-verification scope) | kontrolia-professional-review | PROFESSIONAL BUT NEEDS POLISH | — | 0 (PQ-TECH-001 independently VERIFIED RESOLVED this round, not taken on the prior session's own claim of "145/145 pass": read organization-members.test.ts, platform-admins.test.ts, invitations-accept.test.ts, and test-helpers.ts in full and cross-checked every assertion against the real route.ts implementations — mocks sit at the correct real boundary, wouldRemoveLastOwner()'s three branches are each distinctly fixtured with exact status-code/response-body assertions matching route.ts's Spanish error strings verbatim, and the invitations-accept regression test for commit 717bf03 asserts an exact from()-call count rather than a vague "didn't throw" check — genuinely real, meaningfully-branched tests, not padding. Independently re-ran `pnpm turbo run test` fresh: 145/145 pass, auth-server's 95 tests genuinely executed this run (cache miss, not replayed). Re-confirmed apps/admin-panel has zero route.ts/route.tsx anywhere and no app/api directory — PQ-TECH-001's scope was fully addressable by testing auth-server alone. Sanity-checked commit 07d8ec5's full diff: 16 files touched, all test files/vitest.config.ts/package.json's test script and vitest devDependency/pnpm-lock.yaml — zero implementation files modified, confirming the change was genuinely test-only. This is the first round of the entire 8-round Phase 2 sequence with zero open CRITICAL or HIGH findings anywhere. Technical Score revised 66->78, Overall Score 76 (up from 75). Verdict remains PROFESSIONAL BUT NEEDS POLISH under this skill's own rubric only because Overall (76) sits below the 85 threshold required for PRODUCTION QUALITY — driven entirely by 24 still-open, non-blocking MEDIUM findings across UX/accessibility/performance/maintainability, none new this round, none CRITICAL/HIGH. Per the quality gate's own simpler pass rule (zero open HIGH/CRITICAL), Phase 2 now cleanly PASSES for the first time across all 8 rounds run today) |
 
 Append-only. Never delete or edit a previous row — a new audit adds a new
 row, it doesn't replace the old one.
