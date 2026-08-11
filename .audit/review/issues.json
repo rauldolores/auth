@@ -222,16 +222,18 @@
       "category": "SECURITY",
       "description": "An org Admin (not just Owner) can DELETE the sole active Owner's entire membership row directly on kontrolia_auth.memberships via PostgREST/Supabase (governed by RLS policy \"org admins remove memberships\", a bare is_org_admin() check with no last-owner guard), which cascades (ON DELETE CASCADE) to membership_roles. The new migration-0025 trigger on membership_roles explicitly no-ops in this case (by design, to not break legitimate org-delete cascades: \"if v_organization_id is null ... then return old\" — the parent membership is already gone by the time the child trigger runs), so the cascade-deleted Owner role is never checked at all. This reproduces the exact last-owner-lockout outcome PQ-SEC-001/PQ-SEC-002/REQ-017's fixes were all meant to close, through a door none of them covered.",
       "severity": "CRITICAL",
-      "lastAuditStatus": "CRITICAL",
-      "status": "OPEN",
-      "lastAudited": "2026-08-10T23:59:00",
+      "lastAuditStatus": "RESOLVED",
+      "status": "VERIFIED",
+      "lastAudited": "2026-08-11T00:20:00",
       "evidence": [
         "packages/db/migrations/0005_memberships.sql / current schema — \"org admins remove memberships\" FOR DELETE policy on kontrolia_auth.memberships is USING (kontrolia_auth.is_org_admin(organization_id)) with no last-owner check",
         "packages/db/migrations/0025_prevent_last_owner_role_removal.sql:22-24 — the new trigger's own comment confirms the no-op-on-cascade design: \"Membership already gone ... nothing left to protect\"",
-        "No BEFORE DELETE trigger exists anywhere on kontrolia_auth.memberships itself (confirmed via \\d kontrolia_auth.memberships against the live local DB: only an AFTER audit-logging trigger, audit_membership_change, exists — audit-only, does not block)"
+        "packages/db/migrations/0026_prevent_last_owner_membership_removal.sql:13-65 — new prevent_last_owner_membership_removal() function + BEFORE DELETE trigger prevent_last_owner_membership_delete on kontrolia_auth.memberships itself, mirroring 0025's pattern including the org-delete-cascade no-op guard",
+        "\\d kontrolia_auth.memberships against the live local DB confirms the trigger is installed and active alongside audit_membership_change (AFTER, audit-only) and prevent_last_owner_deactivation (BEFORE UPDATE, 0026's sibling trigger)"
       ],
       "verification": [
-        "LIVE-tested against the running local Supabase Postgres (supabase_db_VACIO, port 54322). In a rolled-back transaction: DELETE FROM kontrolia_auth.memberships WHERE id = 'd851c8dd-8901-40b6-9458-92e3a328cb28' (the sole active Owner's membership row for org 'Mi empresa') succeeded with NO error, and a follow-up SELECT within the same transaction confirmed the associated membership_roles rows were silently cascade-deleted (0 remaining) with the last-owner check never firing."
+        "LIVE-tested against the running local Supabase Postgres (supabase_db_VACIO, port 54322). In a rolled-back transaction: DELETE FROM kontrolia_auth.memberships WHERE id = 'd851c8dd-8901-40b6-9458-92e3a328cb28' (the sole active Owner's membership row for org 'Mi empresa') succeeded with NO error, and a follow-up SELECT within the same transaction confirmed the associated membership_roles rows were silently cascade-deleted (0 remaining) with the last-owner check never firing.",
+        "Independently re-tested 2026-08-11T00:20:00 (third Phase 2 run, after commit b45ab5d added migration 0026): same DELETE against the same membership row (d851c8dd-..., which this run confirmed carries TWO roles — owner + admin-facturacion — a multi-role edge case the prior test didn't specifically target) now raises 'No puedes quitar al único Owner activo de la organización.' and is genuinely blocked. Also independently re-verified the legitimate 2-active-owner case still succeeds (different org, Inventarios Demo), and that deleting the parent organization still cascades cleanly with no exception. Full transcript: .audit/evidence/2026-08-10/professional-review/migration-0026-live-verification.txt"
       ],
       "history": [
         {
@@ -239,6 +241,12 @@
           "auditStatus": "CRITICAL",
           "remediationStatus": "OPEN",
           "note": "New finding this session, discovered while independently re-verifying PQ-SEC-001's fix rather than trusting the migration in isolation. Any authenticated org Admin (is_org_admin() passes for slug 'owner' OR 'admin') can call PostgREST directly (no admin-panel UI needed) to DELETE the sole Owner's membership row and lock the organization out of Owner-level access — the same outcome the API-layer fix (commit 4579870) and the membership_roles DB trigger (migration 0025, commit d1bf2cb, this same day) were both meant to prevent."
+        },
+        {
+          "date": "2026-08-11T00:20:00",
+          "auditStatus": "RESOLVED",
+          "remediationStatus": "VERIFIED",
+          "note": "commit b45ab5d added migration 0026 (prevent_last_owner_membership_removal, BEFORE DELETE on kontrolia_auth.memberships), mirroring 0025's pattern including the org-delete-cascade safety guard. Independently live-tested this session (not taken on the prior session's or the commit's own claim) against the same running local sandbox: direct DELETE of the sole active Owner's membership is now blocked with a clear Spanish error message, including on a membership row carrying multiple roles (owner + a custom app-scoped role), which was not specifically tested before. The legitimate multi-owner case and the org-deletion cascade were also re-confirmed still working correctly."
         }
       ]
     },
@@ -247,16 +255,18 @@
       "category": "SECURITY",
       "description": "An org Admin can directly UPDATE kontrolia_auth.memberships.status to 'suspended' for the sole active Owner via PostgREST/Supabase (governed by RLS policy \"org admins update memberships\", a bare is_org_admin() check), with zero last-owner enforcement at the DB layer for UPDATE — reproducing the exact suspend-to-zero-active-Owners lockout that plan-compliance commit 4579870 fixed, but only at the Next.js API-route layer (organization-members PATCH's wouldRemoveLastOwner() call), not at the RLS/DB layer that governs direct table access.",
       "severity": "CRITICAL",
-      "lastAuditStatus": "CRITICAL",
-      "status": "OPEN",
-      "lastAudited": "2026-08-10T23:59:00",
+      "lastAuditStatus": "RESOLVED",
+      "status": "VERIFIED",
+      "lastAudited": "2026-08-11T00:20:00",
       "evidence": [
         "current schema — \"org admins update memberships\" FOR UPDATE policy on kontrolia_auth.memberships is USING (kontrolia_auth.is_org_admin(organization_id)) with no status-transition or last-owner check",
         "apps/auth-server/app/api/organization-members/route.ts:107-144,165 — wouldRemoveLastOwner() is only ever invoked from this one Next.js API route's PATCH handler, never from a DB-level trigger/constraint on memberships",
-        "No BEFORE UPDATE trigger exists on kontrolia_auth.memberships (confirmed via \\d against the live local DB: only the AFTER audit_membership_change trigger, audit-only)"
+        "packages/db/migrations/0026_prevent_last_owner_membership_removal.sql:67-111 — new prevent_last_owner_deactivation() function + BEFORE UPDATE trigger prevent_last_owner_deactivation on kontrolia_auth.memberships, short-circuits correctly on any status transition that isn't 'moving out of active'",
+        "\\d kontrolia_auth.memberships against the live local DB confirms the BEFORE UPDATE trigger is installed and active"
       ],
       "verification": [
-        "LIVE-tested against the running local Supabase Postgres. In a rolled-back transaction: UPDATE kontrolia_auth.memberships SET status = 'suspended' WHERE id = 'e84be83f-cd75-4a2c-bb99-cd08241ebb12' (the sole active Owner's membership for org 'Facturación Demo') succeeded with NO error and no last-owner check of any kind."
+        "LIVE-tested against the running local Supabase Postgres. In a rolled-back transaction: UPDATE kontrolia_auth.memberships SET status = 'suspended' WHERE id = 'e84be83f-cd75-4a2c-bb99-cd08241ebb12' (the sole active Owner's membership for org 'Facturación Demo') succeeded with NO error and no last-owner check of any kind.",
+        "Independently re-tested 2026-08-11T00:20:00 (third Phase 2 run, after commit b45ab5d added migration 0026): UPDATE ... SET status='suspended' against the sole active Owner of 'Inventarios Demo' (32e34c0c-...) now raises 'No puedes suspender al único Owner activo de la organización.' and is genuinely blocked. Re-verified the legitimate 2-active-owner suspend case still succeeds. Also traced the trigger's own short-circuit logic (old.status is distinct from 'active' or new.status = 'active') line-by-line against the full status enum ('active'/'invited'/'suspended') and confirmed no status transition other than active-to-non-active can trip a false block. Full transcript: .audit/evidence/2026-08-10/professional-review/migration-0026-live-verification.txt"
       ],
       "history": [
         {
@@ -264,6 +274,39 @@
           "auditStatus": "CRITICAL",
           "remediationStatus": "OPEN",
           "note": "New finding this session, sibling to PQ-SEC-003 — same root cause (RLS-only direct table access has no equivalent of the API route's wouldRemoveLastOwner() guard), different operation (UPDATE status vs DELETE row). Confirms PQ-TECH-004 ('two parallel mutation paths') is NOT resolved by migration 0025 — it patched exactly one of at least three reachable last-owner-bypass vectors on this data model (membership_roles DELETE: fixed; memberships DELETE: open; memberships UPDATE status: open)."
+        },
+        {
+          "date": "2026-08-11T00:20:00",
+          "auditStatus": "RESOLVED",
+          "remediationStatus": "VERIFIED",
+          "note": "commit b45ab5d added migration 0026's prevent_last_owner_deactivation BEFORE UPDATE trigger. Independently live-tested this session: direct UPDATE of the sole active Owner's status to 'suspended' is now blocked with a clear error message. All three vectors PQ-TECH-004 originally described (membership_roles DELETE, memberships DELETE, memberships UPDATE status) are now closed at the DB/trigger layer. See new finding PQ-SEC-005 for a narrower, distinct vector (organization_id reassignment) this migration does not cover."
+        }
+      ]
+    },
+    {
+      "id": "PQ-SEC-005",
+      "category": "SECURITY",
+      "description": "Migration 0026's prevent_last_owner_deactivation trigger only inspects status transitions (\"if old.status is distinct from 'active' or new.status = 'active' then return new\") and never inspects whether organization_id itself is being changed on the same UPDATE. A caller who can pass RLS's \"org admins update memberships\" policy for BOTH the sole Owner's current organization and some other organization they also administer can UPDATE the sole Owner's membership row to move it to that other organization while leaving status='active' unchanged — the trigger's short-circuit never reaches the owner-count check, and the original organization is left with zero active Owners, with no exception raised.",
+      "severity": "HIGH",
+      "lastAuditStatus": "HIGH",
+      "status": "OPEN",
+      "lastAudited": "2026-08-11T00:20:00",
+      "evidence": [
+        "packages/db/migrations/0026_prevent_last_owner_membership_removal.sql:77-80 — prevent_last_owner_deactivation()'s only short-circuit condition is on old.status/new.status; organization_id is never read or compared",
+        "packages/db/migrations/0010_rls_policies.sql:69-70 — \"org admins update memberships\" is FOR UPDATE USING (is_org_admin(organization_id)) with no explicit WITH CHECK — Postgres therefore reuses the USING expression as the WITH CHECK for UPDATE, meaning the caller must be is_org_admin() of BOTH the OLD row's organization_id (to select the target row) and the NEW row's organization_id (to pass the post-update check) — this is what confines exploitability to a caller who administers two organizations, not any single-org Admin",
+        "apps/auth-server/app/api/organization-members/route.ts PATCH handler — grepped and confirmed it only ever sets {status}, never organization_id, so no shipped application flow performs this operation; only reachable via direct PostgREST/authenticated API access with a known membership UUID"
+      ],
+      "verification": [
+        "LIVE-tested against the running local Supabase Postgres, 2026-08-11T00:20:00. As postgres superuser (isolating the trigger's own logic from RLS): UPDATE kontrolia_auth.memberships SET organization_id = <a different org's id> WHERE id = <sole Owner's membership id, status left 'active'> succeeded with NO exception, and a follow-up count confirmed the original organization was left with zero active Owners.",
+        "As the authenticated role with a single-org Admin's JWT sub claim (admin of the source org only, not the target org): the identical UPDATE was rejected by RLS itself ('new row violates row-level security policy for table \"memberships\"') — confirming a single-org Admin (the precondition for the now-fixed PQ-SEC-003/PQ-SEC-004) cannot exploit this.",
+        "As the authenticated role after temporarily granting the same user an admin role in BOTH the source and target organization (within the same rolled-back transaction): the UPDATE succeeded with no RLS rejection and no trigger exception, reproducing the same zero-active-Owners outcome as PQ-SEC-003/PQ-SEC-004, confirming this is genuinely exploitable under the narrower dual-org-admin precondition. Full transcript: .audit/evidence/2026-08-10/professional-review/migration-0026-live-verification.txt (Test 5)"
+      ],
+      "history": [
+        {
+          "date": "2026-08-11T00:20:00",
+          "auditStatus": "HIGH",
+          "remediationStatus": "OPEN",
+          "note": "New finding this session, discovered while probing the specific edge case named in this run's scope ('what if the organization_id changes?') rather than trusting migration 0026's status-only guard as complete. Classified HIGH rather than CRITICAL (unlike the sibling PQ-SEC-003/PQ-SEC-004 findings this migration closes) because exploitation requires the caller to be an org-admin/Owner of a second organization in addition to the victim's organization — a materially narrower, less commonly available precondition than 'any single Admin of the victim's own organization.' No shipped UI or API flow performs an organization_id reassignment on an existing membership, so this is reachable only via direct PostgREST access with a known membership UUID and dual-org privilege. Should be closed by extending prevent_last_owner_deactivation to also check organization_id <> old.organization_id (treating a cross-org move exactly like a deactivation for owner-count purposes), the same way prevent_last_owner_membership_removal already treats a DELETE."
         }
       ]
     },
@@ -560,6 +603,12 @@
           "auditStatus": "MEDIUM",
           "remediationStatus": "OPEN",
           "note": "Confirmed unchanged this session via direct code read."
+        },
+        {
+          "date": "2026-08-11T00:20:00",
+          "auditStatus": "MEDIUM",
+          "remediationStatus": "OPEN",
+          "note": "Third Phase 2 run, scoped narrowly to the migration 0026 fix and unrelated to this finding — re-read apps/auth-server/app/api/platform-admins/route.ts:149-160 directly to confirm it is still an untouched, non-atomic SELECT COUNT(*) followed by a separate DELETE, no transaction/lock. Carried forward accurately, not re-litigated in depth."
         }
       ]
     },

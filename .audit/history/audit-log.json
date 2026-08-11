@@ -100,5 +100,20 @@
       "PQ-MAINT-001","PQ-MAINT-002","PQ-MAINT-003","PQ-MAINT-004"
     ],
     "note": "Second Phase 2 run — independent re-audit of fix commit d1bf2cb, which claimed to resolve all 7 CRITICAL and 8 HIGH findings from the first run. 13 of 15 claims independently VERIFIED as genuine, non-trivial fixes (6 confirm() dialogs with specific messages verified present; MFA fieldset/labels verified; responsive hamburger + 11/11 tables wrapped verified; pagination verified with correct range math on 3 of 4 target files; N+1 email resolution verified fixed; user-detail single-row lookup verified; 25 real passing tests added for JWT/PKCE/middleware; structured logger + instrumentation verified wired through all 12 auth-server routes). BUT: live database testing (not just reading the migration) against the running local Supabase instance found the headline security fix (migration 0025, blocking last-owner removal via membership_roles DELETE) only closes one of at least three reachable doors to the same lockout outcome — direct RLS DELETE and UPDATE on the neighboring kontrolia_auth.memberships table remain fully unguarded and were both live-exploited successfully in rolled-back transactions this session (PQ-SEC-003, PQ-SEC-004, both CRITICAL). Verdict unchanged from the first run (NOT PRODUCTION READY) despite substantial real progress, because any open CRITICAL caps the verdict regardless of how much else improved."
+  },
+  {
+    "date": "2026-08-11T00:20:00",
+    "skill": "kontrolia-professional-review",
+    "auditFile": ".audit/audits/2026-08-10-professional-review-3.md",
+    "result": "FUNCTIONAL MVP",
+    "overallScore": 70,
+    "critical": 0,
+    "high": 5,
+    "medium": 21,
+    "issuesInScope": [
+      "PQ-SEC-001","PQ-SEC-002","PQ-SEC-003","PQ-SEC-004","PQ-SEC-005",
+      "PQ-UX-007","PQ-PERF-001","PQ-TECH-001","PQ-TECH-002"
+    ],
+    "note": "Third Phase 2 run — narrowly scoped, independent re-audit of migration 0026 (commit b45ab5d), which claimed to close the last-owner-lockout gap PQ-SEC-003/PQ-SEC-004 exposed in memberships DELETE/UPDATE. Both independently live-tested and VERIFIED resolved against the running local Supabase sandbox, including a multi-role-membership edge case not previously tested. While probing the edge cases this run's scope specifically named (multiple roles, organization_id changes, non-org-deletion cascades), found ONE new, narrower gap: the UPDATE trigger never checks organization_id changes, only status — live-exploited under a dual-org-admin precondition (confirmed NOT exploitable by a single-org Admin, since RLS's implicit WITH CHECK already blocks that narrower case), tracked as new HIGH finding PQ-SEC-005, not CRITICAL given the materially narrower precondition than PQ-SEC-003/004. No conflict found between migration 0026 and the existing 0025 (membership_roles) or 0024 (audit-log) triggers — BEFORE/AFTER ordering cleanly separates the last-owner guard from audit logging, and 0025's cascade-safety no-op correctly engages once 0026's trigger has already removed the parent row. Per user's explicit, deliberate scope decision this run, the 4 HIGH findings from the second run (PQ-UX-007, PQ-PERF-001, PQ-TECH-001, PQ-TECH-002) were accepted as documented technical debt and carried forward unchanged rather than re-verified in depth. Verdict improves from NOT PRODUCTION READY to FUNCTIONAL MVP now that both CRITICALs are closed, but Phase 2 still cannot PASS today: 5 HIGH findings remain open (1 new, 4 deliberately deferred), and the gate's own rule requires zero open HIGH/CRITICAL for PASS."
   }
 ]

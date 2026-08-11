@@ -15,10 +15,10 @@ packages/db, cli, auth-sdk, react-sdk, next-sdk, permissions, shared, ui;
 examples/nextjs, react, express, nestjs)
 
 ## Last Audit
-2026-08-10T23:59:00
+2026-08-11T00:20:00
 
 ## Overall Status
-NOT READY
+PARTIAL
 
 ## Overall Compliance
 100%
@@ -145,72 +145,87 @@ flagged only for stylistic consistency.
      never write into this section beyond the initial NOT AUDITED seed. -->
 
 ## Overall Score
-40/100 — NOT PRODUCTION READY
+70/100 — FUNCTIONAL MVP
 
 ## UX Score
-70/100 (capped by: PQ-UX-007 — HIGH, admin-panel's list-error fix left the near-identical
-auth-server hook untouched, still silently swallowing failures. All 6 destructive-action
-confirmation CRITICALs — PQ-UX-001–006 — VERIFIED resolved this run.)
+70/100 (capped by: PQ-UX-007 — HIGH, deferred by explicit user decision this round; unchanged
+since the second run. All 6 destructive-action confirmation CRITICALs — PQ-UX-001–006 — remain
+VERIFIED resolved.)
 
 ## UI Score
-82/100 (uncapped — PQ-UI-001 VERIFIED resolved: responsive hamburger toggle and all 11
-admin-panel tables wrapped in overflow-x-auto, confirmed this run)
+82/100 (uncapped — PQ-UI-001 VERIFIED resolved in the second run; not re-walked this run, carried
+forward)
 
 ## Technical Score
-70/100 (capped by: PQ-TECH-001, PQ-TECH-002 — HIGH, real progress (25 new passing tests for
-JWT/PKCE/middleware; structured logger wired through all 12 auth-server routes) but OAuth
-exchange/react-sdk/all API routes still untested, admin-panel still entirely unobserved)
+70/100 (capped by: PQ-TECH-001, PQ-TECH-002 — HIGH, both deferred by explicit user decision this
+round; unchanged since the second run — see `.audit/audits/2026-08-10-professional-review-2.md`
+for full detail)
 
 ## Security Score
-40/100 (capped by: PQ-SEC-003, PQ-SEC-004 — CRITICAL, NEW this run. PQ-SEC-001's specific
-cited vector — membership_roles DELETE — is live-verified fixed by migration 0025, but the same
-last-owner-lockout outcome is live-exploitable via 2 sibling doors migration 0025 doesn't cover:
-a direct RLS DELETE and a direct RLS UPDATE(status) on kontrolia_auth.memberships itself)
+70/100 (capped by: PQ-SEC-005 — HIGH, NEW this run. Up from 40/100 last run: PQ-SEC-003 and
+PQ-SEC-004 — CRITICAL last run — are independently live-verified RESOLVED by migration 0026
+(commit b45ab5d), including on a multi-role membership. While probing this run's named edge cases,
+found one narrower gap migration 0026 left open: its UPDATE trigger never checks
+`organization_id` changes, only `status` — live-exploited under a dual-org-admin precondition,
+confirmed NOT exploitable by a single-org Admin. PQ-SEC-001 remains RESOLVED (narrow) on record
+per the no-silent-rewrite rule; PQ-SEC-002 (TOCTOU) confirmed unchanged.)
 
 ## Accessibility Score
-68/100 (uncapped — PQ-A11Y-001 VERIFIED resolved: MFA-challenge fieldset/legend/aria-labels
-confirmed present. 6 MEDIUM findings remain, including 1 new: PQ-A11Y-006, the new hamburger
-toggle missing aria-expanded/focus management)
+68/100 (uncapped — carried forward from the second run, not re-walked this run)
 
 ## Performance Score
-70/100 (capped by: PQ-PERF-001 — HIGH, organization-members/invitations/audit-logs correctly
-paginated and verified this run, but 5 other list endpoints remain unbounded. PQ-PERF-002 and
-PQ-PERF-003 VERIFIED resolved.)
+70/100 (capped by: PQ-PERF-001 — HIGH, deferred by explicit user decision this round; unchanged
+since the second run — 5 of 8 list endpoints remain unbounded)
 
 ## Maintainability Score
-70/100 (capped by: — MEDIUM findings only, unchanged this run — duplicated corsHeaders/
-authorizePlatformAdmin/error-message-extraction/useOrganizations; the useOrganizations
-duplication (PQ-MAINT-004) is confirmed to have diverged further, not converged, this run)
+70/100 (capped by: — MEDIUM findings only, unchanged this run — carried forward from the second
+run, not re-walked)
 
 ## Critical Issues
-- PQ-SEC-003 (NEW) — Direct RLS DELETE on `kontrolia_auth.memberships` deletes the sole active
-  Owner's membership entirely, cascading past the last-owner check migration 0025 added — live-
-  exploited this session against the running local DB.
-- PQ-SEC-004 (NEW) — Direct RLS UPDATE of `memberships.status` to `'suspended'` for the sole
-  active Owner has zero last-owner check at the DB layer — live-exploited this session.
-- PQ-SEC-001 — RESOLVED for its literal cited vector (membership_roles DELETE, live-verified
-  blocked); the underlying vulnerability class is NOT resolved — see PQ-SEC-003/004. Kept CRITICAL
-  on record per the no-silent-rewrite rule; see `.audit/review/issues.json` history.
-- PQ-UX-001–006 — RESOLVED. All 6 destructive-action confirmations verified present with specific
-  messages (remove-member, revoke-platform-admin, revoke-invitation, disable-application,
-  remove-MFA-factor, revoke-device).
+None open. PQ-SEC-003 and PQ-SEC-004 — both CRITICAL last run — are independently VERIFIED
+resolved this run:
+- PQ-SEC-003 — RESOLVED. Migration 0026 (commit b45ab5d) added a BEFORE DELETE trigger on
+  `kontrolia_auth.memberships` mirroring 0025's pattern. Live-tested against the running local
+  Supabase sandbox: direct DELETE of the sole active Owner's membership row is now blocked, tested
+  including on a membership carrying multiple roles (owner + a custom app-scoped role). The
+  cascade-safety guard (org already deleted) and the legitimate 2-active-owner case were both
+  re-confirmed still working.
+- PQ-SEC-004 — RESOLVED. Migration 0026's companion BEFORE UPDATE trigger blocks direct
+  `UPDATE ... SET status='suspended'` on the sole active Owner. Live-tested and confirmed.
+- PQ-SEC-001 — kept RESOLVED (narrow)/CRITICAL-on-record per the no-silent-rewrite rule; its
+  literal cited vector (membership_roles DELETE) remains fixed by migration 0025, now joined by
+  0026 closing the two sibling vectors. See `.audit/review/issues.json` history.
+- PQ-UX-001–006 — remain RESOLVED (destructive-action confirmations), carried forward unchanged.
 
 ## High Issues
-- PQ-UX-007 — FIXED-but-partial: admin-panel's 3 cited call sites fixed; auth-server's near-
-  identical use-organizations.ts hook untouched, still silently swallows failures.
-- PQ-UI-001 — RESOLVED (verified: hamburger toggle + all 11 tables wrapped).
-- PQ-A11Y-001 — RESOLVED (verified: fieldset/legend/aria-label).
-- PQ-PERF-001 — FIXED-but-partial: 3 of 8 unbounded list endpoints paginated and verified; 5 remain
-  unbounded (applications, roles, roles/[roleId], permissions, platform-admins GET).
-- PQ-PERF-002 — RESOLVED (verified: N+1 call pattern genuinely eliminated).
-- PQ-PERF-003 — RESOLVED (verified: genuine single-row server lookup).
-- PQ-TECH-001 — FIXED-but-partial: 25 real passing tests added for JWT/PKCE/middleware; OAuth
-  code exchange, react-sdk, and all API route handlers remain untested.
-- PQ-TECH-002 — FIXED-but-partial: structured logger + instrumentation verified wired through all
-  12 auth-server routes; admin-panel has zero observability, untouched.
+- PQ-SEC-005 (NEW) — Migration 0026's UPDATE trigger only inspects `status` transitions, never
+  `organization_id` changes. A caller who is an org-admin of both the sole Owner's current
+  organization and another organization they also administer can move that membership to the
+  other org while leaving `status='active'` unchanged, bypassing the owner-count check entirely.
+  Live-exploited this run under that dual-org-admin precondition; confirmed a single-org Admin
+  (PQ-SEC-003/004's precondition) is blocked by RLS's implicit `WITH CHECK`. Not reachable via any
+  shipped UI/API flow.
+- PQ-UX-007 — deferred by explicit user decision this round, accepted as documented technical
+  debt. admin-panel's 3 cited call sites fixed; auth-server's near-identical `use-organizations.ts`
+  hook untouched, still silently swallows failures.
+- PQ-PERF-001 — deferred by explicit user decision this round. 3 of 8 unbounded list endpoints
+  paginated and verified; 5 remain unbounded (applications, roles, roles/[roleId], permissions,
+  platform-admins GET).
+- PQ-TECH-001 — deferred by explicit user decision this round. 25 real passing tests added for
+  JWT/PKCE/middleware; OAuth code exchange, react-sdk, and all API route handlers remain untested.
+- PQ-TECH-002 — deferred by explicit user decision this round. Structured logger + instrumentation
+  verified wired through all 12 auth-server routes; admin-panel has zero observability, untouched.
+- PQ-UI-001 — RESOLVED (verified second run: hamburger toggle + all 11 tables wrapped), carried
+  forward, no longer open.
+- PQ-A11Y-001 — RESOLVED (verified second run: fieldset/legend/aria-label), carried forward, no
+  longer open.
+- PQ-PERF-002 — RESOLVED (verified second run: N+1 call pattern genuinely eliminated), carried
+  forward, no longer open.
+- PQ-PERF-003 — RESOLVED (verified second run: genuine single-row server lookup), carried forward,
+  no longer open.
 
 ## Medium Issues
-- PQ-SEC-002 — platform-admins last-admin check is a non-atomic COUNT-then-DELETE (TOCTOU race) — confirmed unchanged this run
+- PQ-SEC-002 — platform-admins last-admin check is a non-atomic COUNT-then-DELETE (TOCTOU race) — re-confirmed unchanged this run
 - PQ-UX-008 — Raw Postgres/PostgREST error text reaches the UI — now in 5 places (2 original + 3 new, introduced by this run's PQ-UX-007 fix reusing the same anti-pattern)
 - PQ-UX-009 — No UI to revoke/delete a registered OAuth client
 - PQ-A11Y-002 — Several inputs rely on placeholder-only or no label
@@ -295,17 +310,18 @@ NOT AUDITED
 | CRITICAL | PQ-UX-005 | Remove MFA factor fires immediately, no confirmation | Professional Review | VERIFIED (2026-08-10T23:59:00) — window.confirm() confirmed present |
 | CRITICAL | PQ-UX-006 | Revoke device fires immediately, no confirmation | Professional Review | VERIFIED (2026-08-10T23:59:00) — window.confirm() confirmed present |
 | CRITICAL | PQ-SEC-001 | Last-owner lockout protection bypassable via direct DELETE on `kontrolia_auth.membership_roles` — the DB/RLS layer has no equivalent of the API-layer `wouldRemoveLastOwner` guard fixed earlier today | Professional Review | VERIFIED (2026-08-10T23:59:00) — migration 0025 live-tested against the running local DB, blocked as designed. NOTE: underlying vulnerability class NOT closed — see new rows PQ-SEC-003/PQ-SEC-004 below |
-| CRITICAL | PQ-SEC-003 | Direct RLS DELETE on `kontrolia_auth.memberships` deletes the sole active Owner's membership entirely, cascading past migration 0025's last-owner check (which explicitly no-ops on cascade) | Professional Review | OPEN — live-exploited 2026-08-10T23:59:00 against the running local DB |
-| CRITICAL | PQ-SEC-004 | Direct RLS UPDATE of `memberships.status` to `'suspended'` for the sole active Owner has zero last-owner check at the DB layer | Professional Review | OPEN — live-exploited 2026-08-10T23:59:00 against the running local DB |
-| HIGH | PQ-UX-007 | List fetches (organizations, use-organizations hook, audit-logs) never check the Supabase error — a real outage renders identically to "empty" | Professional Review | IN_PROGRESS (2026-08-10T23:59:00) — 3 admin-panel call sites fixed and verified; apps/auth-server/lib/use-organizations.ts (near-duplicate hook) untouched, still silent |
+| CRITICAL | PQ-SEC-003 | Direct RLS DELETE on `kontrolia_auth.memberships` deletes the sole active Owner's membership entirely, cascading past migration 0025's last-owner check (which explicitly no-ops on cascade) | Professional Review | VERIFIED (2026-08-11T00:20:00, commit b45ab5d) — migration 0026 live-tested against the running local DB, blocked as designed, including on a multi-role membership |
+| CRITICAL | PQ-SEC-004 | Direct RLS UPDATE of `memberships.status` to `'suspended'` for the sole active Owner has zero last-owner check at the DB layer | Professional Review | VERIFIED (2026-08-11T00:20:00, commit b45ab5d) — migration 0026 live-tested against the running local DB, blocked as designed |
+| HIGH | PQ-SEC-005 | Migration 0026's UPDATE trigger only inspects `status` transitions, never `organization_id` changes — a dual-org admin can move the sole active Owner's membership to another org they also administer, bypassing the owner-count check | Professional Review | OPEN — new 2026-08-11T00:20:00, live-exploited under a dual-org-admin precondition; confirmed NOT exploitable by a single-org Admin (RLS's implicit WITH CHECK blocks that narrower case) |
+| HIGH | PQ-UX-007 | List fetches (organizations, use-organizations hook, audit-logs) never check the Supabase error — a real outage renders identically to "empty" | Professional Review | IN_PROGRESS — deferred by explicit user decision 2026-08-11T00:20:00 as accepted technical debt; unchanged since 2026-08-10T23:59:00 (3 admin-panel call sites fixed and verified; apps/auth-server/lib/use-organizations.ts still silent) |
 | HIGH | PQ-UI-001 | Zero responsive design anywhere — no sm:/md:/lg: breakpoints in either app or packages/ui; tables have no overflow-x-auto | Professional Review | VERIFIED (2026-08-10T23:59:00) — hamburger toggle + all 11 tables confirmed wrapped |
 | HIGH | PQ-A11Y-001 | MFA-challenge 6-digit code entry has no labels/fieldset — a primary, blocking login step | Professional Review | VERIFIED (2026-08-10T23:59:00) — fieldset/legend/aria-label confirmed present |
-| HIGH | PQ-PERF-001 | No pagination on any list endpoint except audit-logs (hard-capped at 200, no cursor) | Professional Review | IN_PROGRESS (2026-08-10T23:59:00) — organization-members/invitations/audit-logs paginated and verified; 5 other endpoints remain unbounded |
+| HIGH | PQ-PERF-001 | No pagination on any list endpoint except audit-logs (hard-capped at 200, no cursor) | Professional Review | IN_PROGRESS — deferred by explicit user decision 2026-08-11T00:20:00 as accepted technical debt; unchanged since 2026-08-10T23:59:00 (organization-members/invitations/audit-logs paginated; 5 other endpoints remain unbounded) |
 | HIGH | PQ-PERF-002 | N+1 GoTrue admin API calls resolving emails in organization-members and platform-admins routes | Professional Review | VERIFIED (2026-08-10T23:59:00) — resolveEmails() confirmed to eliminate the N+1 call pattern |
 | HIGH | PQ-PERF-003 | User-detail page refetches the entire org member list to find one row | Professional Review | VERIFIED (2026-08-10T23:59:00) — genuine single-row server lookup confirmed |
-| HIGH | PQ-TECH-001 | No automated tests anywhere except packages/permissions — zero coverage on JWT/PKCE/OAuth/middleware/any API route | Professional Review | IN_PROGRESS (2026-08-10T23:59:00) — 25 real passing tests added for JWT/PKCE/middleware; OAuth exchange/react-sdk/API routes still untested |
-| HIGH | PQ-TECH-002 | No server-side logging or error-tracking anywhere in the backend | Professional Review | IN_PROGRESS (2026-08-10T23:59:00) — logger+instrumentation wired through all 12 auth-server routes; admin-panel still unobserved |
-| MEDIUM | PQ-SEC-002 | platform-admins last-admin check is a non-atomic COUNT-then-DELETE (TOCTOU race) | Professional Review | OPEN — confirmed unchanged 2026-08-10T23:59:00 |
+| HIGH | PQ-TECH-001 | No automated tests anywhere except packages/permissions — zero coverage on JWT/PKCE/OAuth/middleware/any API route | Professional Review | IN_PROGRESS — deferred by explicit user decision 2026-08-11T00:20:00 as accepted technical debt; unchanged since 2026-08-10T23:59:00 (25 real passing tests added for JWT/PKCE/middleware; OAuth exchange/react-sdk/API routes still untested) |
+| HIGH | PQ-TECH-002 | No server-side logging or error-tracking anywhere in the backend | Professional Review | IN_PROGRESS — deferred by explicit user decision 2026-08-11T00:20:00 as accepted technical debt; unchanged since 2026-08-10T23:59:00 (logger+instrumentation wired through all 12 auth-server routes; admin-panel still unobserved) |
+| MEDIUM | PQ-SEC-002 | platform-admins last-admin check is a non-atomic COUNT-then-DELETE (TOCTOU race) | Professional Review | OPEN — re-confirmed unchanged 2026-08-11T00:20:00 |
 | MEDIUM | PQ-UX-008 | Raw Postgres/PostgREST error text reaches the UI (roles page, organization-members route) | Professional Review | OPEN — 3 new instances added by this run's PQ-UX-007 fix, confirmed 2026-08-10T23:59:00 |
 | MEDIUM | PQ-UX-009 | No UI to revoke/delete a registered OAuth client | Professional Review | OPEN |
 | MEDIUM | PQ-A11Y-002 | Several inputs rely on placeholder-only or no label (org create/rename/delete-confirm, TOTP enroll, app URL edit) | Professional Review | OPEN |
@@ -346,6 +362,7 @@ moves it to VERIFIED.
 | 2026-08-10T22:15:00 (re-audit after commit 4579870) | kontrolia-plan-compliance | PASS | 100% | 0 FAIL, 0 PARTIAL — all four prior PARTIAL findings (REQ-006, REQ-008, REQ-017, REQ-034) independently re-verified as fixed; no new regression found |
 | 2026-08-10T23:30:00 | kontrolia-professional-review | NOT PRODUCTION READY | — | 7 (6 destructive UI actions with no confirmation across both apps; last-owner lockout bypassable at the DB/RLS layer via `membership_roles`, a door the same-day plan-compliance fix didn't cover) |
 | 2026-08-10T23:59:00 (re-audit after commit d1bf2cb) | kontrolia-professional-review | NOT PRODUCTION READY | — | 2 (down from 7 — all 6 UX-confirmation CRITICALs and the specific membership_roles vector of PQ-SEC-001 independently VERIFIED fixed via live DB testing; but 2 NEW CRITICAL findings, PQ-SEC-003/PQ-SEC-004, live-exploited this session — the identical last-owner-lockout outcome is still reachable via direct RLS DELETE/UPDATE on `kontrolia_auth.memberships`, doors migration 0025 didn't cover) |
+| 2026-08-11T00:20:00 (re-audit after commit b45ab5d) | kontrolia-professional-review | FUNCTIONAL MVP | — | 0 (down from 2 — PQ-SEC-003/PQ-SEC-004 independently VERIFIED resolved via live DB testing against migration 0026, including a multi-role-membership edge case; 1 NEW HIGH finding, PQ-SEC-005, live-exploited this session under a narrower dual-org-admin precondition migration 0026 doesn't cover. 4 additional HIGH findings — PQ-UX-007, PQ-PERF-001, PQ-TECH-001, PQ-TECH-002 — deliberately deferred by explicit user decision as accepted technical debt, not re-verified in depth. Phase 2 still cannot PASS: 5 HIGH findings remain open) |
 
 Append-only. Never delete or edit a previous row — a new audit adds a new
 row, it doesn't replace the old one.

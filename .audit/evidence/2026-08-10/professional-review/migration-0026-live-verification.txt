@@ -1,0 +1,202 @@
+Live database verification — third Phase 2 (professional-quality) re-audit, 2026-08-10T23:59:00 (this run)
+Target: local Supabase Postgres, docker container supabase_db_VACIO, port 54322
+Command: docker exec -i supabase_db_VACIO psql -U postgres -d postgres <<'SQL' ... SQL
+All statements were run inside BEGIN;...ROLLBACK; transactions — no data was permanently modified.
+This session independently re-ran and extended the prior session's live tests rather than trusting
+its "already tested" claim; every result below was observed directly, not taken on report text.
+
+Trigger inventory confirmed present on kontrolia_auth.memberships (\d kontrolia_auth.memberships):
+  audit_membership_change              AFTER  INSERT OR DELETE OR UPDATE  (0024, audit-only)
+  prevent_last_owner_deactivation      BEFORE UPDATE                      (0026)
+  prevent_last_owner_membership_delete BEFORE DELETE                      (0026)
+RLS policies confirmed present: "org admins update memberships" FOR UPDATE USING (is_org_admin(organization_id))
+  — no explicit WITH CHECK clause (Postgres defaults WITH CHECK to the USING expression for UPDATE).
+  "org admins remove memberships" FOR DELETE USING (is_org_admin(organization_id)).
+
+=====================================================================
+TEST 1 — PQ-SEC-003's vector, re-verified: direct DELETE on kontrolia_auth.memberships
+Membership under test: d851c8dd-8901-40b6-9458-92e3a328cb28, org "Mi empresa", sole active
+member — deliberately chosen because this row carries TWO roles (owner + admin-facturacion),
+to test the "membership has multiple roles including owner" edge case named in this run's brief.
+=====================================================================
+
+BEGIN;
+DELETE FROM kontrolia_auth.memberships WHERE id = 'd851c8dd-8901-40b6-9458-92e3a328cb28';
+ROLLBACK;
+
+Result:
+  ERROR:  No puedes quitar al único Owner activo de la organización.
+  CONTEXT:  PL/pgSQL function kontrolia_auth.prevent_last_owner_membership_removal() line 39 at RAISE
+
+Conclusion: PQ-SEC-003 genuinely blocked, including on a multi-role membership (EXISTS-based
+owner-role check is unaffected by the presence of other roles on the same membership). VERIFIED FIXED.
+
+=====================================================================
+TEST 2 — PQ-SEC-004's vector, re-verified: direct UPDATE status='suspended'
+Membership under test: 32e34c0c-0e82-47bd-90d4-0f8ef9efd936, org "Inventarios Demo", sole
+active owner, single role.
+=====================================================================
+
+BEGIN;
+UPDATE kontrolia_auth.memberships SET status = 'suspended' WHERE id = '32e34c0c-0e82-47bd-90d4-0f8ef9efd936';
+ROLLBACK;
+
+Result:
+  ERROR:  No puedes suspender al único Owner activo de la organización.
+  CONTEXT:  PL/pgSQL function kontrolia_auth.prevent_last_owner_deactivation() line 31 at RAISE
+
+Conclusion: PQ-SEC-004 genuinely blocked. VERIFIED FIXED.
+
+=====================================================================
+TEST 3 — Legitimate case: suspend one of two active Owners still succeeds
+=====================================================================
+
+BEGIN;
+INSERT membership '11111111-...' (user ab44dde8) into Inventarios Demo, status active;
+INSERT membership_roles giving it the 'owner' role (copied from 32e34c0c's owner role row);
+UPDATE kontrolia_auth.memberships SET status='suspended' WHERE id = '32e34c0c-...';
+SELECT id, status FROM kontrolia_auth.memberships WHERE id = '32e34c0c-...';
+ROLLBACK;
+
+Result:
+  UPDATE 1
+  id: 32e34c0c-0e82-47bd-90d4-0f8ef9efd936 | status: suspended
+
+Conclusion: no false-positive blocking when >1 active Owner exists. Matches prior session's
+Test 3 result for CRM Demo; independently reproduced here on a different org.
+
+=====================================================================
+TEST 4 — Cascade-safety guard: deleting the organization itself still works
+=====================================================================
+
+BEGIN;
+DELETE FROM kontrolia_auth.organizations WHERE id = (Inventarios Demo's id);
+SELECT count(*) FROM kontrolia_auth.memberships WHERE id = '32e34c0c-...';
+ROLLBACK;
+
+Result:
+  DELETE 1 (organizations)
+  remaining_memberships: 0
+
+Conclusion: org deletion cascades cleanly through the sole owner's membership with no exception —
+the "if not exists (select 1 from organizations where id = old.organization_id) then return old"
+guard correctly no-ops once the parent organization row is already gone. VERIFIED, matches design intent.
+
+=====================================================================
+TEST 5 — NEW edge case probed this run: does the UPDATE trigger cover organization_id changes,
+not just status changes? ("what if the organization_id changes?" per this run's brief)
+=====================================================================
+
+Function prevent_last_owner_deactivation's short-circuit is:
+  if old.status is distinct from 'active' or new.status = 'active' then return new; end if;
+This only inspects status. It never inspects whether NEW.organization_id differs from
+OLD.organization_id. Hypothesis: moving the sole Owner's membership row to a DIFFERENT
+organization_id while leaving status='active' unchanged would never enter the owner-count
+check at all, regardless of how many active Owners the *source* org has left.
+
+Sub-test 5a — as postgres superuser (RLS bypassed, isolates the trigger's own logic):
+  BEGIN;
+  UPDATE kontrolia_auth.memberships SET organization_id = <CRM Demo id>
+    WHERE id = 'd851c8dd-...' (Mi empresa's sole Owner, status stays 'active');
+  SELECT count(*) active owners remaining in Mi empresa;
+  ROLLBACK;
+Result: UPDATE 1 (no exception raised). Remaining active owners in Mi empresa: 0.
+==> Confirms the hypothesis: the trigger itself has no organization_id-change guard. This is a
+real gap in the trigger's own logic, independent of RLS.
+
+Sub-test 5b — does RLS's implicit WITH CHECK mitigate this for an ordinary single-org Admin?
+  As authenticated role, sub=ab44dde8 (Admin of CRM Demo, only "member" of Facturación Demo):
+  BEGIN; SET LOCAL role authenticated; SET LOCAL request.jwt.claim.sub = 'ab44dde8-...';
+  UPDATE kontrolia_auth.memberships SET organization_id = <Facturación Demo id>
+    WHERE id = '96b5df42-...' (CRM Demo's sole Owner, 302d8127);
+  ROLLBACK;
+Result: ERROR: new row violates row-level security policy for table "memberships".
+==> Because the UPDATE policy has no explicit WITH CHECK, Postgres reuses the USING expression
+as WITH CHECK, which is evaluated against the NEW row. So the caller must be is_org_admin() of
+BOTH the source org (USING, old row) AND the target org (WITH CHECK, new row). A single-org
+Admin (the precondition for PQ-SEC-003/PQ-SEC-004) CANNOT exploit this — confirmed blocked.
+
+Sub-test 5c — is it exploitable by a caller who is an admin of BOTH orgs?
+  Temporarily granted ab44dde8 an 'admin' role membership in "Mi empresa" (within the same
+  rolled-back transaction), making them simultaneously Admin of CRM Demo and Admin of Mi empresa.
+  BEGIN;
+  INSERT membership + 'admin' role for ab44dde8 into Mi empresa;
+  SET LOCAL role authenticated; SET LOCAL request.jwt.claim.sub = 'ab44dde8-...';
+  UPDATE kontrolia_auth.memberships SET organization_id = <CRM Demo id>
+    WHERE id = 'd851c8dd-...' (Mi empresa's sole Owner, 778686ba, status stays active);
+  RESET role;
+  SELECT count(*) active owners remaining in Mi empresa;
+  ROLLBACK;
+Result: UPDATE 1 (succeeded, no RLS rejection this time — target org check now passes too).
+  Remaining active owners in Mi empresa: 0.
+==> Confirmed live-exploitable, but ONLY by a caller who is simultaneously an Admin/Owner of
+both the victim's current org and some other org they control — a materially narrower
+precondition than PQ-SEC-003/PQ-SEC-004 (any single-org Admin). No application code path
+performs this operation (organization-members PATCH only ever sets {status}, never
+organization_id — grepped apps/auth-server/app/api/organization-members/route.ts to confirm);
+reachable only via direct PostgREST/authenticated API access with a known membership UUID.
+Tracked as new finding PQ-SEC-005 (HIGH, not CRITICAL, given the narrower precondition).
+
+=====================================================================
+TEST 6 — NEW edge case probed this run: does the trigger fire correctly on a cascade that is
+NOT an organization deletion? ("what if this fires during a cascade from something other than
+org deletion?" per this run's brief) — tested via auth.users deletion, which cascades to
+memberships via memberships_user_id_fkey ... ON DELETE CASCADE.
+=====================================================================
+
+BEGIN;
+DELETE FROM auth.users WHERE id = '302d8127-...' (sole Owner of "Inventarios Demo", among
+  other orgs where they are also Owner but not sole);
+ROLLBACK;
+
+Result:
+  ERROR:  No puedes quitar al único Owner activo de la organización.
+  CONTEXT:  PL/pgSQL function kontrolia_auth.prevent_last_owner_membership_removal() ...
+  (raised while cascading into kontrolia_auth.memberships)
+
+Conclusion: the trigger correctly fires on ANY cascade path that isn't specifically an
+organization deletion, including a user-account deletion — the organization still exists at
+that point, so the cascade-safety guard (which only checks for the *organization* row) does not
+suppress the check, and the last-owner protection applies. This is protective, correct behavior
+(it prevents silently orphaning "Inventarios Demo" via account deletion) but is worth recording:
+there is currently no account-deletion feature anywhere in the app (grepped apps/ for
+deleteUser/auth.admin.deleteUser/deleteAccount — no matches), so this path is not reachable
+today. Noted for future development: if a "delete my account" / GDPR-erasure feature is ever
+added, it must handle this exception (e.g. require ownership transfer first) rather than
+surface the raw Postgres error to the end user.
+
+=====================================================================
+TEST 7 — Interaction check: migration 0025 (membership_roles) and 0026 (memberships) triggers
+firing together on the SAME delete, in the legitimate 2-owner case
+=====================================================================
+
+BEGIN;
+INSERT a second Owner membership+role into "Inventarios Demo" (now 2 active owners);
+DELETE FROM kontrolia_auth.memberships WHERE id = '32e34c0c-...' (the original Owner);
+SELECT count(*) remaining membership_roles rows for that now-deleted membership;
+ROLLBACK;
+
+Result:
+  DELETE 1 (memberships) — no exception.
+  remaining membership_roles for that membership: 0 (cascaded cleanly).
+
+Conclusion: 0026's BEFORE DELETE trigger on memberships evaluates and passes first (2 active
+owners); the subsequent FK-cascade delete into membership_roles fires 0025's BEFORE DELETE
+trigger, which correctly no-ops because by that point `select organization_id from memberships
+where id = old.membership_id` returns no row (the parent was already physically removed by the
+time the cascade fires) — matching 0025's own "membership already gone" guard comment. No
+double-check, no conflict, no spurious block. VERIFIED.
+
+=====================================================================
+Overall conclusions from this run's live testing
+=====================================================================
+- PQ-SEC-003 and PQ-SEC-004: independently re-verified genuinely fixed by migration 0026,
+  including on a multi-role membership (not tested by the prior session).
+- No new conflict found between 0026 and 0025 (membership_roles) or 0024 (audit-log triggers).
+- Cascade-safety guard (org already deleted) re-confirmed correct.
+- One new, narrower gap found and live-exploited: PQ-SEC-005 — the UPDATE trigger has no
+  organization_id-change guard, exploitable only by a caller who is an org-admin of both the
+  source and a target organization simultaneously. Not reachable via any current app API/UI
+  flow; only via direct PostgREST access with a known membership UUID and dual-org privilege.
+- Trigger correctly (and desirably) blocks account-deletion cascades that would orphan an org,
+  though no app feature exercises this path today.
