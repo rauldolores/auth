@@ -1,0 +1,88 @@
+Release-readiness independent review of migrations 0024-0030 and the CLI migrate mechanism
+Date: 2026-08-11
+Method: full read of packages/db/migrations/0024_extend_audit_triggers.sql through
+0030_anchor_authority_to_system_roles.sql, packages/db/src/migrate.ts, packages/cli/src/index.ts,
+.changeset/*.md, packages/db/package.json, packages/cli/package.json, git log.
+
+MIGRATION SAFETY
+- All 7 migrations are contiguous (0024-0030), no gaps.
+- No destructive operations: no DROP COLUMN, DROP TABLE, TRUNCATE, bulk DELETE, or data-mutating
+  UPDATE against existing rows anywhere in 0024-0030. Every statement is CREATE OR REPLACE FUNCTION,
+  CREATE TRIGGER, or DROP TRIGGER IF EXISTS.
+- Fully transactional: no CREATE INDEX CONCURRENTLY, no explicit COMMIT mid-file, no ALTER TABLE ADD
+  COLUMN (so no NOT-NULL-without-default lock risk this round).
+- Idempotency gap (non-blocking, style only): 0024:55, 0025:55, 0026:63,109, 0028:50,68, 0029:106
+  create new triggers with bare `create trigger` instead of `drop trigger if exists` first, unlike
+  the codebase's own established pattern (0019:190, 0024:35, 0030:389). Harmless under the actual
+  filename-tracked runner (each file applies exactly once) — only bites a manual re-paste into the
+  Supabase SQL editor.
+- 0030 redefines is_org_admin/is_org_owner/custom_access_token_hook plus 4 trigger functions via
+  CREATE OR REPLACE FUNCTION; verified parameter names match originals (0009/0011/0020/0021/0007/0016)
+  exactly, so none hit Postgres's "cannot change name of input parameter" error.
+- Cascade-delete paths correctly special-cased in 0025-0030 guards (`not exists (select 1 from
+  organizations where id = ...)`), consistent with memberships/membership_roles FKs being
+  ON DELETE CASCADE (0005_memberships.sql:18) — legitimate org deletion is not blocked.
+
+MIGRATION ORDERING
+- packages/db/src/migrate.ts:18-63 — filename-based tracking via kontrolia_migrations(filename text
+  primary key), remaining .sql files applied in filename-sorted order, each inside its own
+  BEGIN/COMMIT/ROLLBACK transaction, filename recorded only on success.
+- Fresh install (0001-0030 in order) and incremental existing-install upgrade (already has 0001-0023,
+  runs `migrate` and picks up exactly 0024-0030) both correctly supported by this design.
+- 0028 documents its own same-day regression (service-role auth.uid() is NULL, breaking Owner-role
+  grant on invitation accept) which 0029 fixes forward. Since migrate() always applies every pending
+  file through the latest in one run, this window is unreachable through any real CLI path
+  (install/update/migrate) — only reachable by manually cherry-picking migration files out of order,
+  which the tool never does.
+
+ROLLBACK SAFETY
+- No down-migration mechanism exists (no *_down.sql, no `migrate down` command). Forward-fix-only —
+  0029 is a same-day forward fix for a bug 0028 introduced, not a rollback.
+- Each file's DDL runs in its own transaction, so a mid-file failure leaves the DB at "all files
+  through N-1 applied, file N untouched" — never a half-applied migration. migrate() throws with the
+  failing filename; CLI surfaces it and exits non-zero; re-running `migrate` safely resumes from the
+  failed file.
+
+CLI MIGRATE MECHANISM
+- packages/cli/src/index.ts:31-45 (migrate), :112-152 (update), :246-266 (install auto-provision) all
+  funnel into @kontrolia/db's migrate(), which opens a direct raw pg.Client TCP connection using
+  whatever connection string the user pastes into a plain p.text prompt (index.ts:34-37) — not the
+  Supabase Management API. No validation of the string beyond non-empty.
+- FINDING: no confirmation, no dry-run, and no backup prompt anywhere in this path (grepped
+  packages/cli/src for "backup"/"dry-run": zero matches). Goes straight from "connection string
+  entered" to "spinner: applying migrations." Structural gap for a tool that runs against real user
+  production databases — not specific to this release's (non-destructive) content, but a standing
+  risk for any future destructive migration. Classified WARNING/FAIL for this release (migrations
+  shipped today are non-destructive) — tracked as REL-DEPLOY-001 for future hardening.
+- Minor: kontrolia_migrations bookkeeping table created without schema qualifier (migrate.ts:20),
+  lands in default search_path schema (typically public), slightly at odds with the tool's own doc
+  comment that migrations "only ever touch the kontrolia_auth schema."
+
+CHANGESET ACCURACY
+- All 7 migrations map 1:1 to a changeset and a same-day commit, no gaps:
+  0024 -> 4579870 -> extend-audit-triggers.md
+  0025 -> d1bf2cb -> prevent-last-owner-role-removal.md
+  0026 -> b45ab5d -> prevent-last-owner-membership-removal.md
+  0027 -> f44d3eb -> prevent-last-owner-org-reassignment.md
+  0028 -> 0e615d9 -> restrict-owner-grant-and-membership-identity.md
+  0029 -> 717bf03 -> membership-roles-update-guard.md
+  0030 -> 1549077 -> anchor-authority-to-system-roles.md
+- open-browser-tabs-after-install.md (create-kontrolia-auth: patch) is from an earlier commit
+  (8a05162, 2026-08-10), unrelated to today's chain — not a gap.
+- All 7 db changesets correctly say "@kontrolia/db": patch; the browser one correctly says
+  "create-kontrolia-auth": patch.
+- packages/db/package.json version: 2.1.0 (not pre-1.0). packages/cli/package.json version: 2.4.2.
+  Both packages are 2.x, not 0.x as originally assumed in the audit brief.
+- Patch-vs-minor semver observation: 0028-0030 introduce new restrictions that reject previously-
+  permitted (insecure) writes — technically behavior-breaking under strict semver, which could argue
+  for "minor." Shipping security-hardening fixes as "patch" is standard industry convention (same as
+  CVE-fix versioning) — defensible, not a defect. Flagged as a release-notes consideration only.
+
+BLOCKER / FAIL FINDINGS: none. No data-loss risk, no uncontrolled destructive migration, no broken
+critical dependency found in migrations 0024-0030 or in the migration-runner/CLI mechanism.
+
+Non-blocking observations carried into issues.json as WARNING-level RA-DB/REL-DEPLOY items:
+1. 6/7 new migrations lack DROP TRIGGER IF EXISTS guards (style only).
+2. CLI migrate/update/install apply directly to any connection string typed, zero confirmation/
+   dry-run/backup step (structural, forward-looking risk).
+3. kontrolia_migrations bookkeeping table lands outside kontrolia_auth schema.

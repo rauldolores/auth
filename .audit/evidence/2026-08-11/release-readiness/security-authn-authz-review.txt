@@ -1,0 +1,80 @@
+Release-readiness independent security / authentication / authorization spot-check
+Date: 2026-08-11
+
+EXPOSED SECRETS: none found.
+- git ls-files | grep -iE ".env|secret|credential|.pem|.key" returns only .env.example templates and
+  packages/cli/src/utils/secrets.ts (a randomBytes(32) generator helper, no embedded secret).
+- .env / .env.local / .env.*.local confirmed gitignored (.gitignore:6-8); git ls-files shows zero
+  tracked .env/.env.local files anywhere.
+- Untracked local .env.local files on disk contain Supabase's well-known public local-CLI demo JWT
+  (iss: supabase-demo) used by every `supabase start` on 127.0.0.1:54321 — not a real secret.
+- Regex sweep for sk-..., AKIA..., PEM headers, postgres://user:pass@host, Slack tokens: 7 matches,
+  all either CLI UI placeholder strings, docker-compose ${POSTGRES_PASSWORD} interpolation, or a
+  documented local-dev-default connection string explicitly labeled as needing replacement.
+- Conclusion: no real secret committed to git.
+
+ENV VAR / CLIENT EXPOSURE: clean.
+- SUPABASE_SERVICE_ROLE_KEY / server-only SUPABASE_URL used only in apps/auth-server/lib/
+  supabase-admin.ts:9, app/api/oauth-clients/route.ts:71-72, app/api/platform-admins/route.ts:49-50 —
+  all server-side, never NEXT_PUBLIC_-prefixed.
+- Every NEXT_PUBLIC_* var (SUPABASE_URL/ANON_KEY, COOKIE_DOMAIN, AUTH_SERVER_URL, ADMIN_PANEL_URL,
+  GOOGLE/MICROSOFT_LOGIN_ENABLED, OAUTH_CLIENT_ID) confirmed safe to expose client-side by design
+  (anon key + RLS model, public URLs, UI feature flags, PKCE public client_id).
+
+AUTHENTICATION TRACE (email/password): real, traced end-to-end.
+- login/page.tsx -> packages/ui LoginForm -> react-sdk useAuth -> auth-sdk client.ts:78-81 ->
+  supabase.auth.signInWithPassword() (real GoTrue validation, bcrypt-hashed password check
+  server-side).
+- Session issued via cookie-based Supabase session (createBrowserClient, client.ts:56), read by
+  apps/auth-server/middleware.ts and server route handlers.
+- Failure path inherits GoTrue's generic "Invalid login credentials" — no app-level branching that
+  would leak account existence.
+- Password reset explicitly non-enumerating: forgot-password-form.tsx:34 always shows "Si el correo
+  existe, enviamos un enlace..." regardless of outcome.
+- Logout: auth-sdk client.ts:112-115 calls supabase.auth.signOut() with default 'global' scope (no
+  { scope: 'local' } override found anywhere via grep) — revokes the refresh token server-side via
+  GoTrue's /auth/v1/logout, real invalidation not just client-side clearing.
+
+AUTHORIZATION SPOT-CHECK (independent read of route.ts server code, 3 routes):
+1. organization-members/route.ts — GET/PATCH/DELETE all use a scopedClient(token) built with the
+   caller's own bearer token + anon key, so every query runs under RLS as that user (no separate
+   in-route role check; relies entirely on RLS, verified enabled below). Token required, 401 if
+   absent (:77, :196, :237).
+2. platform-admins/route.ts — explicit authorizePlatformAdmin() (:30-40) calls verifyRequest() (real
+   JWT signature verification via jose's jwtVerify against project JWKS,
+   packages/auth-sdk/src/server.ts:68-86), 403 unless claims.is_platform_admin true. Applied before
+   GET :93, POST :122, DELETE :152.
+3. oauth-clients/route.ts — same authorizePlatformAdmin() pattern (:31-41) at GET :85, POST :93,
+   PUT :118; the service-role-backed GoTrue admin API is unreachable without passing this check.
+- verifyRequest() confirmed to do real cryptographic verification, not a stub, by reading the
+  implementation directly.
+- All three routes gate the mutation server-side, independent of client-supplied claims.
+
+RLS ENABLEMENT: complete, none missing.
+- 14 tables created total across migrations 0002-0006, 0016 (organizations, applications,
+  application_organizations, permissions, roles, role_permissions, memberships, membership_roles,
+  user_permissions, sessions_context, invitations, devices, audit_logs, platform_admins).
+- All 14 have a matching `enable row level security` (13 in 0010_rls_policies.sql:1-13,
+  platform_admins in 0016_platform_admins.sql:21). 0015 and 0019 only ALTER TABLE ADD COLUMN, no new
+  tables introduced without RLS.
+
+RATE LIMITING: confirmed still absent (known, already-accepted gap).
+- Zero matches for rate-limit patterns anywhere in apps/ or packages/.
+- QUALITY_REPORT.md already documents this as a carried-forward known gap. Kept as an explicit
+  release-readiness WARNING (REL-SEC item) rather than silently dropped, since brute-force/
+  credential-stuffing protection depends entirely on whatever GoTrue defaults are active for the
+  deployed Supabase project (not verifiable from this repo).
+
+HARDCODED CREDENTIALS: none found.
+- Zero matches for dev-bypass patterns (skip/bypass auth, NODE_ENV==='development' guards around
+  auth) or hardcoded test/admin credentials.
+
+CLASSIFICATION:
+- BLOCKER: none.
+- FAIL: none in this independent scope.
+- WARNING: no application-level rate limiting on login/password-reset/register (REL-SEC-001);
+  organization-members authorization is RLS-only with no in-route defense-in-depth check (noted, not
+  a finding on its own given RLS is verified enabled and correct).
+- NOT_VERIFIABLE: whether GoTrue's own built-in rate limiting is actually configured/active for a
+  given deployed Supabase project (lives in project config, not this repo); runtime email-enumeration
+  behavior of signUp() depends on the deployed project's GOTRUE_MAILER_AUTOCONFIRM setting.

@@ -1,0 +1,286 @@
+{
+  "generatedBy": "kontrolia-release-readiness",
+  "issues": [
+    {
+      "id": "REL-SEC-001",
+      "category": "SECURITY",
+      "description": "No application-level rate limiting anywhere on login, register, or password-reset endpoints. Brute-force/credential-stuffing protection depends entirely on whatever GoTrue defaults are active for the deployed Supabase project, which is not verifiable from this repo. Already a known, explicitly-accepted gap tracked in QUALITY_REPORT.md's carried-forward polish notes; kept here as its own release-readiness item since Phase 2 explicitly deferred it rather than closing it.",
+      "severity": "WARNING",
+      "lastAuditStatus": "WARNING",
+      "status": "OPEN",
+      "lastAudited": "2026-08-11T22:30:00",
+      "evidence": [
+        "grep across apps/ and packages/ for rate-limit patterns: zero matches",
+        "QUALITY_REPORT.md polish notes (accepted gap, unchanged today)"
+      ],
+      "verification": [
+        ".audit/evidence/2026-08-11/release-readiness/security-authn-authz-review.txt"
+      ],
+      "history": [
+        {
+          "date": "2026-08-11T22:30:00",
+          "auditStatus": "WARNING",
+          "severity": "WARNING",
+          "remediationStatus": "OPEN",
+          "note": "Independently confirmed still absent; not a new finding, first time tracked under a REL-* ID."
+        }
+      ]
+    },
+    {
+      "id": "REL-DB-001",
+      "category": "DATABASE",
+      "description": "6 of the 7 new migrations (0024, 0025, 0026, 0028, 0029) create new triggers with a bare `create trigger` instead of `drop trigger if exists` first, unlike the codebase's own established pattern elsewhere in the same files. Harmless under the actual filename-tracked migration runner (each file applies exactly once) — only bites a manual re-paste into the Supabase SQL editor for troubleshooting.",
+      "severity": "WARNING",
+      "lastAuditStatus": "WARNING",
+      "status": "OPEN",
+      "lastAudited": "2026-08-11T22:30:00",
+      "evidence": [
+        "packages/db/migrations/0024_extend_audit_triggers.sql:55",
+        "packages/db/migrations/0025_prevent_last_owner_role_removal.sql:55",
+        "packages/db/migrations/0026_prevent_last_owner_membership_removal.sql:63,109",
+        "packages/db/migrations/0028_restrict_owner_grant_and_membership_identity.sql:50,68",
+        "packages/db/migrations/0029_membership_roles_update_guard.sql:106"
+      ],
+      "verification": [
+        ".audit/evidence/2026-08-11/release-readiness/migration-review.txt"
+      ],
+      "history": [
+        {
+          "date": "2026-08-11T22:30:00",
+          "auditStatus": "WARNING",
+          "severity": "WARNING",
+          "remediationStatus": "OPEN",
+          "note": "Style/consistency gap only, no functional impact under the current runner."
+        }
+      ]
+    },
+    {
+      "id": "REL-DB-002",
+      "category": "DATABASE",
+      "description": "packages/db/src/migrate.ts:20 creates the kontrolia_migrations bookkeeping table without a schema qualifier, so it lands in the connection's default search_path schema (typically `public`) rather than `kontrolia_auth` — slightly at odds with the tool's own doc comment (migrate.ts:10-12) that migrations 'only ever touch the kontrolia_auth schema.'",
+      "severity": "WARNING",
+      "lastAuditStatus": "WARNING",
+      "status": "OPEN",
+      "lastAudited": "2026-08-11T22:30:00",
+      "evidence": [
+        "packages/db/src/migrate.ts:10-12,20"
+      ],
+      "verification": [
+        ".audit/evidence/2026-08-11/release-readiness/migration-review.txt"
+      ],
+      "history": [
+        {
+          "date": "2026-08-11T22:30:00",
+          "auditStatus": "WARNING",
+          "severity": "WARNING",
+          "remediationStatus": "OPEN",
+          "note": "Cosmetic/documentation-consistency gap, no functional risk found."
+        }
+      ]
+    },
+    {
+      "id": "REL-DEPLOY-001",
+      "category": "DEPLOYMENT",
+      "description": "`npx create-kontrolia-auth migrate` (and `update`/`install`'s auto-provision path) applies pending migrations directly against whatever Postgres connection string the user pastes into a plain text prompt, with zero confirmation, dry-run, or backup step (packages/cli/src/index.ts:31-45,112-152,246-266; grepped packages/cli/src for 'backup'/'dry-run': zero matches). Not a defect in this release's content (migrations 0024-0030 are all additive, non-destructive), but a standing structural gap for a real production-facing tool: a mistyped or wrong connection string, or any future destructive migration, has no safety net before it runs against a real user's production database.",
+      "severity": "WARNING",
+      "lastAuditStatus": "WARNING",
+      "status": "OPEN",
+      "lastAudited": "2026-08-11T22:30:00",
+      "evidence": [
+        "packages/cli/src/index.ts:31-45 (migrate command)",
+        "packages/cli/src/index.ts:112-152 (update command)",
+        "packages/cli/src/index.ts:246-266 (install auto-provision)",
+        "packages/db/src/migrate.ts:18-63 (runner)"
+      ],
+      "verification": [
+        ".audit/evidence/2026-08-11/release-readiness/migration-review.txt"
+      ],
+      "history": [
+        {
+          "date": "2026-08-11T22:30:00",
+          "auditStatus": "WARNING",
+          "severity": "WARNING",
+          "remediationStatus": "OPEN",
+          "note": "Not a blocker for this release (no destructive SQL shipped today), but flagged as a real gap given the product's real-world usage pattern (npx create-kontrolia-auth migrate against a user's own production Supabase project). Worth closing before a release that ships a destructive migration."
+        }
+      ]
+    },
+    {
+      "id": "REL-DEPLOY-002",
+      "category": "DEPLOYMENT",
+      "description": "No health-check endpoint exists anywhere in apps/auth-server or apps/admin-panel (grepped for 'health', zero matches; docker-compose.yml only has a healthcheck: block for the db service). Container orchestrators (Docker/Railway/Coolify) cannot verify these apps are actually serving before routing traffic to them.",
+      "severity": "WARNING",
+      "lastAuditStatus": "WARNING",
+      "status": "OPEN",
+      "lastAudited": "2026-08-11T22:30:00",
+      "evidence": [
+        "docker/docker-compose.yml (healthcheck: only on db service)",
+        "Glob **/health* under apps/: zero matches"
+      ],
+      "verification": [
+        ".audit/evidence/2026-08-11/release-readiness/frontend-backend-env-deploy-docs-review.txt"
+      ],
+      "history": [
+        {
+          "date": "2026-08-11T22:30:00",
+          "auditStatus": "WARNING",
+          "severity": "WARNING",
+          "remediationStatus": "OPEN",
+          "note": "Not blocking for manual/Vercel deploys (which use HTTP 200 on any route as a proxy), more relevant for Docker/Railway/Coolify targets the CLI also supports."
+        }
+      ]
+    },
+    {
+      "id": "REL-ENV-001",
+      "category": "ENV",
+      "description": "NEXT_PUBLIC_OAUTH_CLIENT_ID is read at apps/admin-panel/app/dashboard-shell.tsx:238 and app/oauth/callback/page.tsx:35 but is absent from apps/admin-panel/.env.example. It IS documented in docker/.env.example:33-38 and correctly generated by the CLI installer (packages/cli/src/steps/deployment.ts:303-310), so an installer-driven or docker-compose install never hits this gap — only a developer running apps/admin-panel standalone via `pnpm dev` off the per-app .env.example would miss it.",
+      "severity": "WARNING",
+      "lastAuditStatus": "WARNING",
+      "status": "OPEN",
+      "lastAudited": "2026-08-11T22:30:00",
+      "evidence": [
+        "apps/admin-panel/app/dashboard-shell.tsx:238",
+        "apps/admin-panel/app/oauth/callback/page.tsx:35",
+        "apps/admin-panel/.env.example (missing var)",
+        "docker/.env.example:33-38 (has it, as OAUTH_CLIENT_ID)"
+      ],
+      "verification": [
+        ".audit/evidence/2026-08-11/release-readiness/frontend-backend-env-deploy-docs-review.txt"
+      ],
+      "history": [
+        {
+          "date": "2026-08-11T22:30:00",
+          "auditStatus": "WARNING",
+          "severity": "WARNING",
+          "remediationStatus": "OPEN",
+          "note": "Low-impact doc drift; the real installer/docker paths are unaffected."
+        }
+      ]
+    },
+    {
+      "id": "REL-ENV-002",
+      "category": "ENV",
+      "description": "docker/docker-compose.yml:41 defaults GOTRUE_MAILER_AUTOCONFIRM to true (auto-confirm email on signup). The compose file's own comment flags this as dev-convenience-only and says to wire up real SMTP before production, but docker/.env.example never overrides it and nothing enforces it being turned off for a production deploy — a self-hosted install that doesn't explicitly set GOTRUE_MAILER_AUTOCONFIRM=false silently ships with unverified-email signup.",
+      "severity": "WARNING",
+      "lastAuditStatus": "WARNING",
+      "status": "OPEN",
+      "lastAudited": "2026-08-11T22:30:00",
+      "evidence": [
+        "docker/docker-compose.yml:41",
+        "docker/.env.example (no override)"
+      ],
+      "verification": [
+        ".audit/evidence/2026-08-11/release-readiness/frontend-backend-env-deploy-docs-review.txt"
+      ],
+      "history": [
+        {
+          "date": "2026-08-11T22:30:00",
+          "auditStatus": "WARNING",
+          "severity": "WARNING",
+          "remediationStatus": "OPEN",
+          "note": "Self-aware in comments but not enforced by the installer/CLI wizard."
+        }
+      ]
+    },
+    {
+      "id": "REL-BE-001",
+      "category": "BE",
+      "description": "No external call in the backend (GoTrue admin API calls in findUserByEmail, callGotrueAdmin, resolveEmails()'s admin.auth.admin.listUsers() loop) has an explicit timeout/AbortController. A hung or slow GoTrue instance would hang the route handler indefinitely, bounded only by the hosting platform's own request timeout.",
+      "severity": "WARNING",
+      "lastAuditStatus": "WARNING",
+      "status": "OPEN",
+      "lastAudited": "2026-08-11T22:30:00",
+      "evidence": [
+        "apps/auth-server/app/api/platform-admins/route.ts:43-53,65-88",
+        "apps/auth-server/app/api/oauth-clients/route.ts:61-82",
+        "apps/auth-server/app/api/organization-members/route.ts:51-74"
+      ],
+      "verification": [
+        ".audit/evidence/2026-08-11/release-readiness/frontend-backend-env-deploy-docs-review.txt"
+      ],
+      "history": [
+        {
+          "date": "2026-08-11T22:30:00",
+          "auditStatus": "WARNING",
+          "severity": "WARNING",
+          "remediationStatus": "OPEN",
+          "note": "Not blocking at current self-hosted scale; worth a follow-up before scaling to untrusted/high-latency deployments."
+        }
+      ]
+    },
+    {
+      "id": "REL-FE-001",
+      "category": "FE",
+      "description": "apps/admin-panel/app/users/page.tsx's initial member-list load (loadMembers, invoked from useEffect) does not check response.ok for error display — on failure it silently returns with no setError call and no loading indicator while members === null. A real auth/network failure on first page load renders identically to 'org has zero users' and never resolves. Same failure-mode class as the already-tracked PQ-UX-010 (4 other admin-panel pages) — one additional occurrence not in that finding's original scope.",
+      "severity": "WARNING",
+      "lastAuditStatus": "WARNING",
+      "status": "OPEN",
+      "lastAudited": "2026-08-11T22:30:00",
+      "evidence": [
+        "apps/admin-panel/app/users/page.tsx:45-54,85-91"
+      ],
+      "verification": [
+        ".audit/evidence/2026-08-11/release-readiness/frontend-backend-env-deploy-docs-review.txt"
+      ],
+      "history": [
+        {
+          "date": "2026-08-11T22:30:00",
+          "auditStatus": "WARNING",
+          "severity": "WARNING",
+          "remediationStatus": "OPEN",
+          "note": "Related to, but a distinct occurrence from, PQ-UX-010 in Professional Review's tracker (which covers 4 other pages, not this one)."
+        }
+      ]
+    },
+    {
+      "id": "REL-BUILD-001",
+      "category": "BUILD",
+      "description": "packages/react-sdk/src/context.tsx:27 — ESLint react-hooks/exhaustive-deps warning: useMemo has a missing dependency 'config'. Zero lint errors repo-wide; this is the only lint warning found.",
+      "severity": "WARNING",
+      "lastAuditStatus": "WARNING",
+      "status": "OPEN",
+      "lastAudited": "2026-08-11T22:30:00",
+      "evidence": [
+        "packages/react-sdk/src/context.tsx:27"
+      ],
+      "verification": [
+        ".audit/evidence/2026-08-11/release-readiness/lint.txt"
+      ],
+      "history": [
+        {
+          "date": "2026-08-11T22:30:00",
+          "auditStatus": "WARNING",
+          "severity": "WARNING",
+          "remediationStatus": "OPEN",
+          "note": "Non-blocking; fresh `pnpm turbo run lint --force` run, 23/23 tasks, 0 errors, 1 warning."
+        }
+      ]
+    },
+    {
+      "id": "REL-DB-003",
+      "category": "DB",
+      "description": "Migrations 0028-0030 change previously-permitted (but insecure) write behavior to now be rejected (blocking membership.user_id reassignment, requiring an existing Owner to grant Owner, blocking role slug hijacking). Under strict semver this is arguably 'minor' (breaking behavior change for any consumer relying on the old permissive behavior), but all 7 changesets for @kontrolia/db are tagged 'patch'. Shipping security-hardening fixes as patch is standard industry convention (same as CVE-fix versioning) and is defensible, not a defect — flagged as a release-notes consideration, not a blocking issue.",
+      "severity": "WARNING",
+      "lastAuditStatus": "WARNING",
+      "status": "OPEN",
+      "lastAudited": "2026-08-11T22:30:00",
+      "evidence": [
+        ".changeset/anchor-authority-to-system-roles.md",
+        ".changeset/restrict-owner-grant-and-membership-identity.md",
+        "packages/db/package.json:3 (currently 2.1.0)"
+      ],
+      "verification": [
+        ".audit/evidence/2026-08-11/release-readiness/migration-review.txt"
+      ],
+      "history": [
+        {
+          "date": "2026-08-11T22:30:00",
+          "auditStatus": "WARNING",
+          "severity": "WARNING",
+          "remediationStatus": "OPEN",
+          "note": "Judgment call, not a defect. Recorded so the decision to keep it 'patch' is a deliberate one, not an oversight."
+        }
+      ]
+    }
+  ]
+}

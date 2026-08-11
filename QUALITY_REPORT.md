@@ -15,7 +15,7 @@ packages/db, cli, auth-sdk, react-sdk, next-sdk, permissions, shared, ui;
 examples/nextjs, react, express, nestjs)
 
 ## Last Audit
-2026-08-11T21:00:00
+2026-08-11T22:30:00
 
 ## Overall Status
 PARTIAL
@@ -250,22 +250,110 @@ rather than once per module.
 <!-- OWNED BY kontrolia-release-readiness. kontrolia-plan-compliance must
      never write into this section beyond the initial NOT AUDITED seed. -->
 
-NOT AUDITED
+## Release Status
+READY WITH WARNINGS (Release Score: 91/100)
 
-- Release Status: —
-- Blocking Issues: —
-- Critical Issues: —
-- Build: —
-- TypeScript: —
-- Lint: —
-- Tests: —
-- Security: —
-- Database: —
-- Authentication: —
-- Frontend: —
-- Backend: —
-- Performance: —
-- Documentation: —
+## Blocking Issues
+None.
+
+## Critical Issues
+None.
+
+## High Priority Issues
+None. All findings this run are WARNING-level: REL-SEC-001, REL-DB-001, REL-DB-002, REL-DB-003,
+REL-DEPLOY-001, REL-DEPLOY-002, REL-ENV-001, REL-ENV-002, REL-BE-001, REL-FE-001, REL-BUILD-001.
+
+## Build
+PASS — `pnpm turbo run build --force` (0 cache hits, fresh), 16/16 tasks successful, zero
+compilation errors. Evidence: `.audit/evidence/2026-08-11/release-readiness/build.txt`.
+
+## TypeScript
+PASS — `pnpm turbo run typecheck --force` (0 cache hits, fresh), 19/19 tasks successful, zero type
+errors. Evidence: `.audit/evidence/2026-08-11/release-readiness/typecheck.txt`.
+
+## Lint
+PASS — `pnpm turbo run lint --force` (0 cache hits, fresh), 23/23 tasks successful, 0 errors, 1
+non-blocking warning (REL-BUILD-001, `packages/react-sdk/src/context.tsx:27`). Evidence:
+`.audit/evidence/2026-08-11/release-readiness/lint.txt`.
+
+## Tests
+PASS — `pnpm turbo run test --force` (0 cache hits, fresh), 145/145 tests passing across 5 packages
+(permissions 5, auth-sdk 30, next-sdk 8, react-sdk 7, auth-server 95 across 12 API route test files).
+Critical flows (last-owner protection, invitation-accept, platform-admin authorization) independently
+confirmed to have real, distinctly-branched assertions, not padding. Evidence:
+`.audit/evidence/2026-08-11/release-readiness/tests.txt`.
+
+## Security
+No exposed secrets found (independent repo-wide sweep); no server-only secret is `NEXT_PUBLIC_`-
+prefixed; no hardcoded credentials found. Rate limiting confirmed still absent anywhere in the
+codebase (REL-SEC-001, WARNING — a known, already-accepted Phase 2 gap, tracked here under its own
+REL-* ID rather than silently dropped). Full detail:
+`.audit/evidence/2026-08-11/release-readiness/security-authn-authz-review.txt`.
+
+## Database
+All 30 migrations reviewed; RLS confirmed enabled on all 14 tables in `kontrolia_auth`. The 7 new
+migrations (0024-0030) contain zero destructive operations, are fully transactional, and are
+correctly ordered/tracked by `packages/db/src/migrate.ts` for both a fresh install (0001-0030) and
+an incremental existing-install upgrade (`npx create-kontrolia-auth migrate` picking up exactly
+0024-0030). No rollback mechanism exists (forward-fix-only model), but each migration is
+transaction-safe on failure. REL-DB-001 (trigger-guard style inconsistency), REL-DB-002 (bookkeeping
+table schema location), REL-DB-003 (patch-vs-minor semver judgment call) — all WARNING, non-blocking.
+Full detail: `.audit/evidence/2026-08-11/release-readiness/migration-review.txt`.
+
+## Authentication
+PASS — login, session issuance, and logout (real server-side invalidation via GoTrue's default
+`'global'` signOut scope) traced end to end and confirmed real, not a stub. Non-enumerating failure
+paths confirmed for both login and password reset.
+
+## Authorization
+PASS — 3 sensitive routes (`organization-members`, `platform-admins`, `oauth-clients`) independently
+read server-side; all gate mutations either via real JWT-verified platform-admin checks or via
+RLS-scoped, token-authenticated clients (RLS confirmed enabled, see Database above) — never a
+client-side-only check.
+
+## Frontend
+WARNING — REL-FE-001: `apps/admin-panel/app/users/page.tsx`'s initial list load silently shows an
+empty state on fetch failure instead of an error, one additional occurrence of the same failure
+class already tracked as `PQ-UX-010` for 4 other pages. Pagination confirmed real (no unbounded
+lists found) on all endpoints spot-checked.
+
+## Backend
+WARNING — REL-BE-001: no external call to GoTrue's admin API has an explicit timeout, so a hung
+GoTrue instance could hang a route handler indefinitely. Otherwise PASS: errors caught and
+translated everywhere checked, no raw stack traces to the client, structured logging present in
+both apps.
+
+## Performance
+PASS — real, correct range-based pagination confirmed on all list endpoints spot-checked
+(`organization-members`, `platform-admins`, `audit-logs`); no unbounded list found.
+
+## Documentation
+PASS — root `README.md` and the `apps/documentation` getting-started guide both accurately reflect
+current setup, env vars, and deployment steps; no material drift found.
+
+## Environment Configuration
+WARNING — REL-ENV-001 (`NEXT_PUBLIC_OAUTH_CLIENT_ID` undocumented in `apps/admin-panel/.env.example`
+specifically, though correctly documented/generated elsewhere) and REL-ENV-002
+(`GOTRUE_MAILER_AUTOCONFIRM` defaults `true`, flagged only by a comment, not enforced off for prod).
+No hardcoded permissive CORS or `NODE_ENV`-gated dev-only paths found; `.env*` correctly gitignored.
+
+## Deployment
+WARNING — REL-DEPLOY-001 (`migrate`/`update`/`install` apply directly to any typed connection string
+with zero confirmation/dry-run/backup step — a structural gap, not a defect in this release's
+non-destructive migration content) and REL-DEPLOY-002 (no health-check endpoint in either app,
+relevant to Docker/Railway/Coolify targets). Build succeeds fresh; CLI-generated deploy env is
+correct per target, not left at dev defaults.
+
+## Final Recommendation
+Ship. Zero BLOCKERs and zero FAILs in any core category (AUTHENTICATION, AUTHORIZATION, SECURITY,
+DATABASE) were found, and every core category was independently re-verified this run with real
+evidence — not inferred from Phase 1/2's same-day conclusions. The 7 new migrations (0024-0030) are
+safe for both the fresh-install and incremental-upgrade CLI paths: non-destructive, transactional,
+and correctly tracked. The 11 open WARNING-level findings (rate limiting, CLI migrate confirmation
+step, health-check endpoints, one silent-failure admin-panel page, missing fetch timeouts, minor env
+doc/schema/style gaps) are real but none match a release-blocker category — recommend batching them
+into the next release rather than holding this one, with `REL-SEC-001` and `REL-DEPLOY-001` prioritized
+first given their security/production-safety relevance.
 
 ---
 
@@ -332,6 +420,17 @@ NOT AUDITED
 | MEDIUM | PQ-TECH-006 | Weak input validation on organizations POST (no slug format/length constraint) | Professional Review | OPEN |
 | MEDIUM | PQ-TECH-007 | OAuth code-exchange fetch() calls unwrapped in try/catch in auth-sdk | Professional Review | OPEN |
 | MEDIUM | PQ-TECH-008 | applications/sync silently ignores one update call's error | Professional Review | OPEN |
+| MEDIUM | REL-SEC-001 | No application-level rate limiting on login/register/password-reset anywhere in the codebase | Release Readiness | OPEN |
+| LOW | REL-DB-001 | 6 of 7 new migrations (0024-0026, 0028, 0029) create triggers without `drop trigger if exists`, unlike the codebase's own pattern — harmless under the filename-tracked runner | Release Readiness | OPEN |
+| LOW | REL-DB-002 | `kontrolia_migrations` bookkeeping table created without a schema qualifier, lands outside `kontrolia_auth` | Release Readiness | OPEN |
+| LOW | REL-DB-003 | Migrations 0028-0030's security-hardening behavior changes are tagged `patch`, arguably `minor` under strict semver — defensible industry convention, flagged as a deliberate release-notes decision point | Release Readiness | OPEN |
+| MEDIUM | REL-DEPLOY-001 | `npx create-kontrolia-auth migrate`/`update`/`install` apply directly to any typed Postgres connection string with zero confirmation/dry-run/backup step | Release Readiness | OPEN |
+| MEDIUM | REL-DEPLOY-002 | No health-check endpoint anywhere in apps/auth-server or apps/admin-panel; relevant to Docker/Railway/Coolify deploy targets the CLI supports | Release Readiness | OPEN |
+| LOW | REL-ENV-001 | `NEXT_PUBLIC_OAUTH_CLIENT_ID` undocumented in `apps/admin-panel/.env.example` specifically (correctly documented/generated via docker/.env.example and the CLI installer) | Release Readiness | OPEN |
+| MEDIUM | REL-ENV-002 | `GOTRUE_MAILER_AUTOCONFIRM` defaults `true` in docker-compose, flagged only by a comment, not enforced off for production | Release Readiness | OPEN |
+| MEDIUM | REL-BE-001 | No explicit timeout on any external GoTrue admin API call (findUserByEmail, callGotrueAdmin, resolveEmails' listUsers loop) — a hung GoTrue instance could hang a route handler indefinitely | Release Readiness | OPEN |
+| MEDIUM | REL-FE-001 | `apps/admin-panel/app/users/page.tsx`'s initial member-list load silently shows an empty state on fetch failure instead of an error (same class as PQ-UX-010, one additional occurrence) | Release Readiness | OPEN |
+| LOW | REL-BUILD-001 | ESLint warning: `packages/react-sdk/src/context.tsx:27` useMemo missing dependency `config` — 0 errors repo-wide, this is the only warning | Release Readiness | OPEN |
 
 Priority: BLOCKER, CRITICAL, HIGH, MEDIUM, LOW.
 Status: OPEN, IN_PROGRESS, FIXED, VERIFIED, WONT_FIX, BLOCKED.
@@ -358,6 +457,7 @@ moves it to VERIFIED.
 | 2026-08-11T18:00:00 (re-audit after commit 717bf03, sixth same-day run) | kontrolia-professional-review | NOT PRODUCTION READY | — | 1 (PQ-SEC-008 and PQ-TECH-009 both independently re-verified this round, not taken on the fifth round's own testing — genuinely, fully RESOLVED: all three membership_roles UPDATE exploit variants re-exploited fresh and blocked by migration 0029, legitimate flows re-confirmed working, and both halves of the service-role invitation-accept regression confirmed fixed. But directly pursuing the round's brief — hunt any other role/permission table that could achieve equivalent privilege escalation outside memberships/membership_roles entirely — found and live-exploited a NEW CRITICAL, PQ-SEC-009: kontrolia_auth.roles has zero triggers and its own custom-role RLS policies never restrict the slug value a role may hold, while every guard added today trusts roles.slug='owner' as a bare string. A plain Admin can create/hold an ordinary custom role, then relabel its slug to 'owner' via a plain UPDATE on kontrolia_auth.roles — a table none of today's five migrations touch — becoming recognized as Owner outside every guard built today. Live-chained into a full, demonstrated organization takeover (real Owner fully stripped, zero audit trail). PQ-TECH-001 re-confirmed unchanged (still HIGH, zero test files under apps/). Verdict remains NOT PRODUCTION READY: security is explicitly NOT closed this round — a sixth, more severe door was found through honest adversarial verification directly answering the round's own brief, not a repeat sweep. If PQ-SEC-009 is fixed and independently re-verified, PQ-TECH-001 would become the sole remaining item separating this app from a clean Phase 2 PASS — but that is not today's state) |
 | 2026-08-11T19:30:00 (re-audit after commit 1549077, seventh same-day run, security-verification-only scope) | kontrolia-professional-review | PROFESSIONAL BUT NEEDS POLISH | — | 0 (PQ-SEC-009 independently re-exploited fresh this round against migration 0030, not taken on the fix commit's own message — genuinely, fully RESOLVED: the full grant-then-rename chain and direct slug='owner'/'admin'/'member' hijack attempts are all blocked by the new prevent_custom_role_reserved_slug trigger plus the is_system_role-anchored is_org_owner()/is_org_admin(); legitimate system-role bootstrap and ordinary custom-role slugs both re-confirmed still working. Migration 0030's SQL read in full for correctness. One more live-exploit hunt for the same general pattern elsewhere in the schema — applications.owner_organization_id, platform_admins, user_permissions — found all three genuinely clean under live adversarial testing (properly org-isolated non-owning admin for the ownership test, after self-catching and correcting an initial test-data mistake). Zero CRITICAL and zero new HIGH/MEDIUM findings this round. PQ-TECH-001 re-confirmed unchanged and is now the sole open finding of any severity — CRITICAL or HIGH — across the entire seven-round Phase 2 sequence. Verdict rises from NOT PRODUCTION READY to PROFESSIONAL BUT NEEDS POLISH: security is genuinely closed as of this round, subject to the honest caveat that this round did not re-walk UX/UI/accessibility/performance/maintainability, which are carried forward unchanged from round 6 and still contain 24 open MEDIUM findings) |
 | 2026-08-11T21:00:00 (re-audit after commit 07d8ec5, eighth same-day run, narrow closing-verification scope) | kontrolia-professional-review | PROFESSIONAL BUT NEEDS POLISH | — | 0 (PQ-TECH-001 independently VERIFIED RESOLVED this round, not taken on the prior session's own claim of "145/145 pass": read organization-members.test.ts, platform-admins.test.ts, invitations-accept.test.ts, and test-helpers.ts in full and cross-checked every assertion against the real route.ts implementations — mocks sit at the correct real boundary, wouldRemoveLastOwner()'s three branches are each distinctly fixtured with exact status-code/response-body assertions matching route.ts's Spanish error strings verbatim, and the invitations-accept regression test for commit 717bf03 asserts an exact from()-call count rather than a vague "didn't throw" check — genuinely real, meaningfully-branched tests, not padding. Independently re-ran `pnpm turbo run test` fresh: 145/145 pass, auth-server's 95 tests genuinely executed this run (cache miss, not replayed). Re-confirmed apps/admin-panel has zero route.ts/route.tsx anywhere and no app/api directory — PQ-TECH-001's scope was fully addressable by testing auth-server alone. Sanity-checked commit 07d8ec5's full diff: 16 files touched, all test files/vitest.config.ts/package.json's test script and vitest devDependency/pnpm-lock.yaml — zero implementation files modified, confirming the change was genuinely test-only. This is the first round of the entire 8-round Phase 2 sequence with zero open CRITICAL or HIGH findings anywhere. Technical Score revised 66->78, Overall Score 76 (up from 75). Verdict remains PROFESSIONAL BUT NEEDS POLISH under this skill's own rubric only because Overall (76) sits below the 85 threshold required for PRODUCTION QUALITY — driven entirely by 24 still-open, non-blocking MEDIUM findings across UX/accessibility/performance/maintainability, none new this round, none CRITICAL/HIGH. Per the quality gate's own simpler pass rule (zero open HIGH/CRITICAL), Phase 2 now cleanly PASSES for the first time across all 8 rounds run today) |
+| 2026-08-11T22:30:00 | kontrolia-release-readiness | READY WITH WARNINGS | Release Score: 91/100 | 0 blockers, 0 critical (first release-readiness run on this project — full fresh re-verification, not trusting Phase 1/2's same-day results: `pnpm turbo run build/typecheck/lint/test --force` all re-run with 0 cache hits — 16/16 build, 19/19 typecheck, 23/23 lint (1 warning), 145/145 tests all pass. Independent deep-dive on this run's unique Phase 3 scope — migrations 0024-0030 and the CLI's fresh-install/incremental-upgrade paths — found zero destructive operations, correct filename-tracked ordering, full per-file transactional safety, and all 7 changesets accurate and complete. Independent security/authn/authz spot-check found zero exposed secrets, zero client-exposed server secrets, RLS enabled on all 14 kontrolia_auth tables, and real server-side authorization on every route checked. Independent backend/frontend/env/deploy/docs pass found no BLOCKER or FAIL. 11 WARNING-level findings recorded (REL-SEC-001, REL-DB-001/002/003, REL-DEPLOY-001/002, REL-ENV-001/002, REL-BE-001, REL-FE-001, REL-BUILD-001) — none match a release-blocker category. Zero BLOCKERs, zero FAILs in any core category -> READY WITH WARNINGS) |
 
 Append-only. Never delete or edit a previous row — a new audit adds a new
 row, it doesn't replace the old one.
