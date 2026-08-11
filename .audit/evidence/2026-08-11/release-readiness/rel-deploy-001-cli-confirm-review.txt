@@ -1,0 +1,89 @@
+REL-DEPLOY-001 re-verification (second same-day release-readiness run)
+========================================================================
+
+Claim: packages/cli/src/index.ts's `migrate` and `update` commands now
+parse the connection string's host and, if it doesn't look like
+localhost/127.0.0.1/::1/db, show a p.confirm() prompt naming the host
+before proceeding.
+
+Code read: packages/cli/src/index.ts lines 15-26 (connectionHost,
+isLocalHost), 44-71 (runMigrateCommand), 85-186 (runGrantAdminCommand,
+runUpdateCommand).
+
+Positive-path verification: read the diff and the surrounding code.
+runMigrateCommand and runUpdateCommand both now call connectionHost(url)
+and, if !isLocalHost(host), show a p.confirm() naming the host, defaulting
+to false (cancel), before calling migrateWithSpinner. This is real and
+correctly wired for the primary, documented connection-string format
+(`postgres://user:pass@host:port/db` — the placeholder text shown to the
+user in the p.text() prompt itself).
+
+Gap-hunting (per this run's brief: does the host-detection have any
+obvious gap that would silently skip the confirmation?):
+
+Live-tested connectionHost()/isLocalHost() against several real-world
+connection-string shapes with `node -e`:
+
+  postgres://user:pass@prod-db.example.com:5432/mydb
+    -> host: prod-db.example.com, isLocal: false (correctly confirms)
+  postgresql://user:pass@prod-db.example.com:5432/mydb
+    -> host: prod-db.example.com, isLocal: false (correctly confirms)
+  postgres://user:pass@10.0.0.5:5432/mydb
+    -> host: 10.0.0.5, isLocal: false (correctly confirms)
+  host=prod-db.example.com port=5432 dbname=mydb user=x password=y
+    -> host: null, isLocal: TRUE  <-- silently skips confirmation
+  postgres://user:p@ss/word@prod-db.example.com:5432/mydb
+    -> host: "ss" (misparsed due to unescaped @ / in password), isLocal:
+       false -- still confirms, but shows the wrong hostname in the prompt
+
+Finding 1 (new, REL-DEPLOY-004): the libpq keyword/value connection-string
+format (`host=... port=... dbname=... user=... password=...`), a real and
+commonly-used Postgres connection-string format (e.g. what `psql` accepts,
+and what some admin tools/drivers produce by default), fails `new URL()`
+parsing entirely. connectionHost() catches the throw and returns null;
+isLocalHost(null) is defined to return true ("host === null" is the first
+branch) — so an unparseable string is treated as local and the
+confirmation is skipped, applying migrations straight away. This is a
+real, if narrow, gap: it only bites when the pasted string isn't in the
+documented/placeholder URL format, but the CLI accepts arbitrary free text
+via p.text() with no format validation, so nothing stops a user (or a
+script generating one from a different tool) from pasting a keyword/value
+string. The code comment above connectionHost() candidly documents this
+exact fail-open behavior ("Never throws — an unparseable string just skips
+the localhost check and confirms anyway"), so it's a known, accepted
+tradeoff by the author, not a hidden defect — but it is still a real gap
+against the specific threat the fix exists to guard against (an operator
+pasting a production connection string by mistake).
+
+Finding 2 (new, REL-DEPLOY-003): runGrantAdminCommand (index.ts:85-155)
+prompts for a connection string the same way (p.text(), same placeholder)
+and performs an even more privileged operation — it grants platform-admin
+directly via a raw DB write, explicitly documented in its own comment as
+bypassing the app's authorization layer entirely ("same trust model as
+migrate: whoever has the Postgres connection string can already do
+anything in that database"). Unlike migrate/update, grant-admin was NOT
+given the connectionHost()/isLocalHost() confirmation gate at all — grep
+confirms connectionHost/isLocalHost are referenced only at lines 56-57
+(migrate) and 172-173 (update), never inside runGrantAdminCommand. Same
+underlying risk (operator pastes the wrong connection string) with equal
+or greater blast radius, left unaddressed by this commit.
+
+Not treated as a gap: the `install` command's own connection-string path
+(steps/database.ts's askDatabaseStep -> bringUpAndMigrate) was not given
+this gate either, but that command is inherently a first-time setup flow
+where the user is deliberately choosing a fresh target, not re-applying
+against a possibly-already-live database — a materially different risk
+profile from migrate/update/grant-admin, which are re-run later against
+whatever the operator happens to paste in. Consistent with the original
+REL-DEPLOY-001 finding's own scoping (which named migrate/update
+specifically).
+
+Verdict: REL-DEPLOY-001's original scope (migrate/update lack any
+confirmation) is genuinely fixed for the documented URL connection-string
+format -> VERIFIED for that scope. Two new, narrower WARNING-level gaps
+opened from this same investigation: REL-DEPLOY-003 (grant-admin has no
+confirmation gate at all) and REL-DEPLOY-004 (fail-open host parsing for
+non-URL connection-string formats). Neither rises to BLOCKER/FAIL: no
+destructive migration exists in this release's actual migration set
+(confirmed by the DB category below), and grant-admin's action (granting
+an admin role) is reversible.

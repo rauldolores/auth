@@ -4,17 +4,19 @@
     {
       "id": "REL-SEC-001",
       "category": "SECURITY",
-      "description": "No application-level rate limiting anywhere on login, register, or password-reset endpoints. Brute-force/credential-stuffing protection depends entirely on whatever GoTrue defaults are active for the deployed Supabase project, which is not verifiable from this repo. Already a known, explicitly-accepted gap tracked in QUALITY_REPORT.md's carried-forward polish notes; kept here as its own release-readiness item since Phase 2 explicitly deferred it rather than closing it.",
+      "description": "No application-level rate limiting anywhere on login, register, or password-reset endpoints. Brute-force/credential-stuffing protection depends on GoTrue's own built-in per-IP rate limiter, which requires GOTRUE_RATE_LIMIT_HEADER to identify real client IPs behind Kong. As of commit 7080d4e, docker/docker-compose.yml sets GOTRUE_RATE_LIMIT_HEADER=X-Forwarded-For for the auth service — a real, directionally-correct improvement for non-adversarial traffic. However, docker/kong.yml has no ip-restriction plugin and neither compose file nor kong.yml configures KONG_TRUSTED_IPS/real_ip_header, so Kong does not strip/replace a client-supplied X-Forwarded-For before appending its own hop (standard nginx proxy_add_x_forwarded_for behavior: append, not replace). GoTrue reads the leftmost entry of X-Forwarded-For as the rate-limit key (per Supabase's own documented guidance that the header must be set by a trusted proxy). On the Docker self-host deploy target (Kong's proxy port exposed directly to the internet, no intermediate trusted proxy), a client can send its own X-Forwarded-For before ever reaching Kong and vary it per request to defeat per-IP rate limiting entirely. Not a regression (pre-fix, GoTrue had no way to distinguish clients behind Kong at all), but the fix does not fully close the gap against a deliberate attacker as its commit message implies.",
       "severity": "WARNING",
       "lastAuditStatus": "WARNING",
       "status": "OPEN",
-      "lastAudited": "2026-08-11T22:30:00",
+      "lastAudited": "2026-08-11T23:45:00",
       "evidence": [
-        "grep across apps/ and packages/ for rate-limit patterns: zero matches",
-        "QUALITY_REPORT.md polish notes (accepted gap, unchanged today)"
+        "docker/docker-compose.yml (kong service: no KONG_TRUSTED_IPS/real_ip_header; auth service: new GOTRUE_RATE_LIMIT_HEADER: X-Forwarded-For line)",
+        "docker/kong.yml (2 services, only `cors` plugin on each, no ip-restriction/rate-limiting/trusted-proxy config)",
+        "WebSearch: Kong docs on trusted_ips/real_ip_header being required for Kong to treat upstream IP headers as authoritative",
+        "WebSearch: Supabase/GoTrue rate-limit docs stating the rate-limit header 'is expected to be set by a trusted upstream proxy' and is otherwise spoofable"
       ],
       "verification": [
-        ".audit/evidence/2026-08-11/release-readiness/security-authn-authz-review.txt"
+        ".audit/evidence/2026-08-11/release-readiness/rel-sec-001-kong-xff-review.txt"
       ],
       "history": [
         {
@@ -23,6 +25,13 @@
           "severity": "WARNING",
           "remediationStatus": "OPEN",
           "note": "Independently confirmed still absent; not a new finding, first time tracked under a REL-* ID."
+        },
+        {
+          "date": "2026-08-11T23:45:00",
+          "auditStatus": "WARNING",
+          "severity": "WARNING",
+          "remediationStatus": "OPEN",
+          "note": "Commit 7080d4e added GOTRUE_RATE_LIMIT_HEADER=X-Forwarded-For, a real improvement for honest traffic, but independently found (via WebSearch on Kong's and GoTrue's real forwarding/parsing behavior, since neither is vendored in this repo) that Kong's default config in this stack does not sanitize a client-supplied X-Forwarded-For before appending its own hop, and GoTrue trusts the leftmost (client-controlled) entry — so a deliberate attacker on the Docker self-host deploy target can still bypass per-IP rate limiting by spoofing the header. Status stays OPEN, not VERIFIED; the fix is a real partial improvement, not a closure of the finding as its commit message claims."
         }
       ]
     },
@@ -33,7 +42,7 @@
       "severity": "WARNING",
       "lastAuditStatus": "WARNING",
       "status": "OPEN",
-      "lastAudited": "2026-08-11T22:30:00",
+      "lastAudited": "2026-08-11T23:45:00",
       "evidence": [
         "packages/db/migrations/0024_extend_audit_triggers.sql:55",
         "packages/db/migrations/0025_prevent_last_owner_role_removal.sql:55",
@@ -42,7 +51,8 @@
         "packages/db/migrations/0029_membership_roles_update_guard.sql:106"
       ],
       "verification": [
-        ".audit/evidence/2026-08-11/release-readiness/migration-review.txt"
+        ".audit/evidence/2026-08-11/release-readiness/migration-review.txt",
+        ".audit/evidence/2026-08-11/release-readiness/remaining-fixes-and-db-recheck.txt"
       ],
       "history": [
         {
@@ -51,6 +61,13 @@
           "severity": "WARNING",
           "remediationStatus": "OPEN",
           "note": "Style/consistency gap only, no functional impact under the current runner."
+        },
+        {
+          "date": "2026-08-11T23:45:00",
+          "auditStatus": "WARNING",
+          "severity": "WARNING",
+          "remediationStatus": "OPEN",
+          "note": "Re-confirmed unchanged — commit 7080d4e touched zero files under packages/db/. Deliberately deferred (retroactively editing shipped/applied migrations judged riskier than the stylistic gap); re-confirmed this remains the right call, not something a fresh look should escalate."
         }
       ]
     },
@@ -61,12 +78,13 @@
       "severity": "WARNING",
       "lastAuditStatus": "WARNING",
       "status": "OPEN",
-      "lastAudited": "2026-08-11T22:30:00",
+      "lastAudited": "2026-08-11T23:45:00",
       "evidence": [
         "packages/db/src/migrate.ts:10-12,20"
       ],
       "verification": [
-        ".audit/evidence/2026-08-11/release-readiness/migration-review.txt"
+        ".audit/evidence/2026-08-11/release-readiness/migration-review.txt",
+        ".audit/evidence/2026-08-11/release-readiness/remaining-fixes-and-db-recheck.txt"
       ],
       "history": [
         {
@@ -75,25 +93,33 @@
           "severity": "WARNING",
           "remediationStatus": "OPEN",
           "note": "Cosmetic/documentation-consistency gap, no functional risk found."
+        },
+        {
+          "date": "2026-08-11T23:45:00",
+          "auditStatus": "WARNING",
+          "severity": "WARNING",
+          "remediationStatus": "OPEN",
+          "note": "Re-confirmed unchanged — commit 7080d4e touched zero files under packages/db/. Deliberately deferred (moving it now risks breaking existing installations that already have it in place); re-confirmed this remains the right call."
         }
       ]
     },
     {
       "id": "REL-DEPLOY-001",
       "category": "DEPLOYMENT",
-      "description": "`npx create-kontrolia-auth migrate` (and `update`/`install`'s auto-provision path) applies pending migrations directly against whatever Postgres connection string the user pastes into a plain text prompt, with zero confirmation, dry-run, or backup step (packages/cli/src/index.ts:31-45,112-152,246-266; grepped packages/cli/src for 'backup'/'dry-run': zero matches). Not a defect in this release's content (migrations 0024-0030 are all additive, non-destructive), but a standing structural gap for a real production-facing tool: a mistyped or wrong connection string, or any future destructive migration, has no safety net before it runs against a real user's production database.",
+      "description": "`npx create-kontrolia-auth migrate` and `update` used to apply pending migrations directly against whatever Postgres connection string the user pastes into a plain text prompt, with zero confirmation, dry-run, or backup step. As of commit 7080d4e, packages/cli/src/index.ts's runMigrateCommand and runUpdateCommand now parse the connection string's host via connectionHost()/isLocalHost() and, for a URL-format string with a non-local host, show a p.confirm() naming the host before proceeding — genuinely closes the original gap for the documented connection-string format. `install`'s own auto-provision path intentionally was not given this gate (different risk profile: a first-time setup where the user is deliberately choosing a fresh target, not re-applying against a possibly-live database) — consistent with the original finding's own framing. Two new, narrower gaps surfaced by this investigation are tracked separately: REL-DEPLOY-003 (grant-admin has no gate at all) and REL-DEPLOY-004 (the host-parsing fails open — treated as local — for non-URL connection-string formats).",
       "severity": "WARNING",
       "lastAuditStatus": "WARNING",
-      "status": "OPEN",
-      "lastAudited": "2026-08-11T22:30:00",
+      "status": "VERIFIED",
+      "lastAudited": "2026-08-11T23:45:00",
       "evidence": [
-        "packages/cli/src/index.ts:31-45 (migrate command)",
-        "packages/cli/src/index.ts:112-152 (update command)",
-        "packages/cli/src/index.ts:246-266 (install auto-provision)",
-        "packages/db/src/migrate.ts:18-63 (runner)"
+        "packages/cli/src/index.ts:15-26 (connectionHost, isLocalHost)",
+        "packages/cli/src/index.ts:44-71 (runMigrateCommand)",
+        "packages/cli/src/index.ts:158-186 (runUpdateCommand)",
+        "live node -e test of connectionHost()/isLocalHost() against 6 real connection-string shapes"
       ],
       "verification": [
-        ".audit/evidence/2026-08-11/release-readiness/migration-review.txt"
+        ".audit/evidence/2026-08-11/release-readiness/migration-review.txt",
+        ".audit/evidence/2026-08-11/release-readiness/rel-deploy-001-cli-confirm-review.txt"
       ],
       "history": [
         {
@@ -102,23 +128,34 @@
           "severity": "WARNING",
           "remediationStatus": "OPEN",
           "note": "Not a blocker for this release (no destructive SQL shipped today), but flagged as a real gap given the product's real-world usage pattern (npx create-kontrolia-auth migrate against a user's own production Supabase project). Worth closing before a release that ships a destructive migration."
+        },
+        {
+          "date": "2026-08-11T23:45:00",
+          "auditStatus": "PASS",
+          "severity": null,
+          "remediationStatus": "VERIFIED",
+          "note": "Commit 7080d4e's confirmation gate independently re-tested against 6 connection-string shapes (node -e), confirmed genuinely working for the documented postgres:// / postgresql:// URL format on both migrate and update. Original scope (migrate/update lacked any confirmation) VERIFIED closed. Two narrower residual gaps found during this same investigation are tracked as new, separate issues (REL-DEPLOY-003, REL-DEPLOY-004) rather than reopening this one, since the originally-described defect is genuinely fixed."
         }
       ]
     },
     {
       "id": "REL-DEPLOY-002",
       "category": "DEPLOYMENT",
-      "description": "No health-check endpoint exists anywhere in apps/auth-server or apps/admin-panel (grepped for 'health', zero matches; docker-compose.yml only has a healthcheck: block for the db service). Container orchestrators (Docker/Railway/Coolify) cannot verify these apps are actually serving before routing traffic to them.",
+      "description": "apps/auth-server and apps/admin-panel had no health-check endpoint. As of commit 7080d4e, both apps have GET /api/health returning {status:\"ok\"} (200), deliberately dependency-free (no DB call) so a Supabase outage doesn't make an orchestrator kill an otherwise-healthy app.",
       "severity": "WARNING",
       "lastAuditStatus": "WARNING",
-      "status": "OPEN",
-      "lastAudited": "2026-08-11T22:30:00",
+      "status": "VERIFIED",
+      "lastAudited": "2026-08-11T23:45:00",
       "evidence": [
-        "docker/docker-compose.yml (healthcheck: only on db service)",
-        "Glob **/health* under apps/: zero matches"
+        "apps/auth-server/app/api/health/route.ts",
+        "apps/admin-panel/app/api/health/route.ts",
+        "apps/auth-server/middleware.ts:14-16 (matcher excludes /api entirely)",
+        "apps/admin-panel has no middleware.ts source file at all"
       ],
       "verification": [
-        ".audit/evidence/2026-08-11/release-readiness/frontend-backend-env-deploy-docs-review.txt"
+        ".audit/evidence/2026-08-11/release-readiness/frontend-backend-env-deploy-docs-review.txt",
+        ".audit/evidence/2026-08-11/release-readiness/rel-deploy-002-health-endpoint-review.txt",
+        ".audit/evidence/2026-08-11/release-readiness/tests-2.txt (health.test.ts passing, part of 96 auth-server tests)"
       ],
       "history": [
         {
@@ -127,25 +164,80 @@
           "severity": "WARNING",
           "remediationStatus": "OPEN",
           "note": "Not blocking for manual/Vercel deploys (which use HTTP 200 on any route as a proxy), more relevant for Docker/Railway/Coolify targets the CLI also supports."
+        },
+        {
+          "date": "2026-08-11T23:45:00",
+          "auditStatus": "PASS",
+          "severity": null,
+          "remediationStatus": "VERIFIED",
+          "note": "Both routes read and confirmed dependency-free. Specifically checked (per this run's brief) whether Next.js middleware/auth-gating would intercept them despite the matcher exclusion: auth-server's middleware.ts matcher explicitly excludes the whole /api prefix; admin-panel has no middleware.ts source file at all (auth gating is component-side via dashboard-shell.tsx, which never touches API routes). No interception gap in either app. auth-server's health.test.ts genuinely exercises the real GET() handler and passed in this session's fresh test run."
+        }
+      ]
+    },
+    {
+      "id": "REL-DEPLOY-003",
+      "category": "DEPLOYMENT",
+      "description": "`npx create-kontrolia-auth grant-admin <email>` (packages/cli/src/index.ts, runGrantAdminCommand) prompts for a Postgres connection string the same free-text way migrate/update do, and performs an even more privileged operation than either — a raw DB write that grants platform-admin, explicitly documented in the function's own comment as bypassing the app's authorization layer entirely ('same trust model as migrate: whoever has the Postgres connection string can already do anything in that database'). Unlike migrate/update (fixed by commit 7080d4e), grant-admin was not given the connectionHost()/isLocalHost() non-local-host confirmation gate at all — grep confirms connectionHost/isLocalHost are only referenced at the migrate (line 56-57) and update (line 172-173) call sites.",
+      "severity": "WARNING",
+      "lastAuditStatus": "WARNING",
+      "status": "OPEN",
+      "lastAudited": "2026-08-11T23:45:00",
+      "evidence": [
+        "packages/cli/src/index.ts:85-155 (runGrantAdminCommand, no connectionHost/isLocalHost reference anywhere in the function)",
+        "packages/cli/src/index.ts:73-84 (function's own doc comment describing the same trust model as migrate)"
+      ],
+      "verification": [
+        ".audit/evidence/2026-08-11/release-readiness/rel-deploy-001-cli-confirm-review.txt"
+      ],
+      "history": [
+        {
+          "date": "2026-08-11T23:45:00",
+          "auditStatus": "WARNING",
+          "severity": "WARNING",
+          "remediationStatus": "OPEN",
+          "note": "New finding, surfaced while re-verifying REL-DEPLOY-001's fix. Same underlying risk class (operator pastes the wrong connection string) as migrate/update, with equal or greater blast radius, left unaddressed by commit 7080d4e. Not a BLOCKER: granting an admin role is a reversible action, not data loss."
+        }
+      ]
+    },
+    {
+      "id": "REL-DEPLOY-004",
+      "category": "DEPLOYMENT",
+      "description": "packages/cli/src/index.ts's connectionHost() (added by commit 7080d4e) parses the pasted connection string with `new URL()`. Live-tested against the libpq keyword/value connection-string format (`host=... port=... dbname=... user=... password=...`), a real and commonly-used Postgres connection-string shape that `psql` and some tools accept: parsing throws, connectionHost() catches it and returns null, and isLocalHost(null) is defined to return true — so an unparseable string is silently treated as local and the confirmation prompt is skipped entirely, applying migrations straight away. The code's own comment candidly documents this exact fail-open tradeoff ('an unparseable string just skips the localhost check and confirms anyway'), so it's a known, accepted design choice by the author, not a hidden defect — but it does undermine the safety net for any operator who pastes a non-URL-format connection string, which the free-text p.text() prompt does nothing to prevent.",
+      "severity": "WARNING",
+      "lastAuditStatus": "WARNING",
+      "status": "OPEN",
+      "lastAudited": "2026-08-11T23:45:00",
+      "evidence": [
+        "packages/cli/src/index.ts:15-22 (connectionHost, with its own comment acknowledging the fail-open behavior)",
+        "live node -e test: 'host=prod-db.example.com port=5432 dbname=mydb user=x password=y' => host: null, isLocal: true"
+      ],
+      "verification": [
+        ".audit/evidence/2026-08-11/release-readiness/rel-deploy-001-cli-confirm-review.txt"
+      ],
+      "history": [
+        {
+          "date": "2026-08-11T23:45:00",
+          "auditStatus": "WARNING",
+          "severity": "WARNING",
+          "remediationStatus": "OPEN",
+          "note": "New finding, surfaced while re-verifying REL-DEPLOY-001's fix, per this run's specific brief to hunt for a connection-string format the parser would silently mishandle. Not escalated beyond WARNING: the documented/placeholder format (postgres://...) is what the CLI's own UI guides users toward, so this is an edge case, not the common path — but it is a real, previously-undocumented gap in the new safety net."
         }
       ]
     },
     {
       "id": "REL-ENV-001",
       "category": "ENV",
-      "description": "NEXT_PUBLIC_OAUTH_CLIENT_ID is read at apps/admin-panel/app/dashboard-shell.tsx:238 and app/oauth/callback/page.tsx:35 but is absent from apps/admin-panel/.env.example. It IS documented in docker/.env.example:33-38 and correctly generated by the CLI installer (packages/cli/src/steps/deployment.ts:303-310), so an installer-driven or docker-compose install never hits this gap — only a developer running apps/admin-panel standalone via `pnpm dev` off the per-app .env.example would miss it.",
+      "description": "NEXT_PUBLIC_OAUTH_CLIENT_ID is read at apps/admin-panel/app/dashboard-shell.tsx:238 and app/oauth/callback/page.tsx:35 but was absent from apps/admin-panel/.env.example. As of commit 7080d4e, it's now documented there with a substantive explanatory comment (when it's needed, what generates it, where the OAuth callback lives).",
       "severity": "WARNING",
       "lastAuditStatus": "WARNING",
-      "status": "OPEN",
-      "lastAudited": "2026-08-11T22:30:00",
+      "status": "VERIFIED",
+      "lastAudited": "2026-08-11T23:45:00",
       "evidence": [
-        "apps/admin-panel/app/dashboard-shell.tsx:238",
-        "apps/admin-panel/app/oauth/callback/page.tsx:35",
-        "apps/admin-panel/.env.example (missing var)",
-        "docker/.env.example:33-38 (has it, as OAUTH_CLIENT_ID)"
+        "apps/admin-panel/.env.example (NEXT_PUBLIC_OAUTH_CLIENT_ID now present with explanatory comment)"
       ],
       "verification": [
-        ".audit/evidence/2026-08-11/release-readiness/frontend-backend-env-deploy-docs-review.txt"
+        ".audit/evidence/2026-08-11/release-readiness/frontend-backend-env-deploy-docs-review.txt",
+        ".audit/evidence/2026-08-11/release-readiness/remaining-fixes-and-db-recheck.txt"
       ],
       "history": [
         {
@@ -154,23 +246,30 @@
           "severity": "WARNING",
           "remediationStatus": "OPEN",
           "note": "Low-impact doc drift; the real installer/docker paths are unaffected."
+        },
+        {
+          "date": "2026-08-11T23:45:00",
+          "auditStatus": "PASS",
+          "severity": null,
+          "remediationStatus": "VERIFIED",
+          "note": "Diff read directly: real, substantive documentation added, not a bare key. Genuinely closes the gap."
         }
       ]
     },
     {
       "id": "REL-ENV-002",
       "category": "ENV",
-      "description": "docker/docker-compose.yml:41 defaults GOTRUE_MAILER_AUTOCONFIRM to true (auto-confirm email on signup). The compose file's own comment flags this as dev-convenience-only and says to wire up real SMTP before production, but docker/.env.example never overrides it and nothing enforces it being turned off for a production deploy — a self-hosted install that doesn't explicitly set GOTRUE_MAILER_AUTOCONFIRM=false silently ships with unverified-email signup.",
+      "description": "docker/docker-compose.yml:41 defaults GOTRUE_MAILER_AUTOCONFIRM to true (auto-confirm email on signup). As of commit 7080d4e, docker/.env.example's preceding comment was expanded to explain the production security implication (signup with any unowned email, immediate login, zero identity verification) and points to where SMTP config would go.",
       "severity": "WARNING",
       "lastAuditStatus": "WARNING",
-      "status": "OPEN",
-      "lastAudited": "2026-08-11T22:30:00",
+      "status": "VERIFIED",
+      "lastAudited": "2026-08-11T23:45:00",
       "evidence": [
-        "docker/docker-compose.yml:41",
-        "docker/.env.example (no override)"
+        "docker/.env.example:33-40 (expanded comment)"
       ],
       "verification": [
-        ".audit/evidence/2026-08-11/release-readiness/frontend-backend-env-deploy-docs-review.txt"
+        ".audit/evidence/2026-08-11/release-readiness/frontend-backend-env-deploy-docs-review.txt",
+        ".audit/evidence/2026-08-11/release-readiness/remaining-fixes-and-db-recheck.txt"
       ],
       "history": [
         {
@@ -179,24 +278,33 @@
           "severity": "WARNING",
           "remediationStatus": "OPEN",
           "note": "Self-aware in comments but not enforced by the installer/CLI wizard."
+        },
+        {
+          "date": "2026-08-11T23:45:00",
+          "auditStatus": "PASS",
+          "severity": null,
+          "remediationStatus": "VERIFIED",
+          "note": "Diff read directly: comment now explains real production risk and points to SMTP config location. Genuinely closes the documentation gap (still not enforced by the installer, which was never the original ask — the finding was specifically about the comment being insufficiently explanatory)."
         }
       ]
     },
     {
       "id": "REL-BE-001",
       "category": "BE",
-      "description": "No external call in the backend (GoTrue admin API calls in findUserByEmail, callGotrueAdmin, resolveEmails()'s admin.auth.admin.listUsers() loop) has an explicit timeout/AbortController. A hung or slow GoTrue instance would hang the route handler indefinitely, bounded only by the hosting platform's own request timeout.",
+      "description": "No external call in the backend (GoTrue admin API calls in findUserByEmail, callGotrueAdmin, resolveEmails()'s admin.auth.admin.listUsers() loop) has an explicit timeout/AbortController. A hung or slow GoTrue instance would hang the route handler indefinitely, bounded only by the hosting platform's own request timeout. As of commit 7080d4e, findUserByEmail (platform-admins/route.ts) and callGotrueAdmin (oauth-clients/route.ts) — both raw fetch() calls — genuinely gained AbortSignal.timeout(10_000), and findUserByEmail also gained a try/catch it was missing entirely (real, independent fix). However, resolveEmails()'s admin.auth.admin.listUsers() calls in BOTH organization-members/route.ts and platform-admins/route.ts go through the Supabase JS SDK client (createSupabaseAdminClient(), apps/auth-server/lib/supabase-admin.ts) rather than a raw fetch() — that client has no custom fetch/timeout override configured anywhere, so these two call sites (which back the actual Users list and Platform Admins list pages, arguably the highest-traffic admin-panel screens) remain completely unbounded. The commit's claim of covering 'every GoTrue admin API call' is not accurate.",
       "severity": "WARNING",
       "lastAuditStatus": "WARNING",
       "status": "OPEN",
-      "lastAudited": "2026-08-11T22:30:00",
+      "lastAudited": "2026-08-11T23:45:00",
       "evidence": [
-        "apps/auth-server/app/api/platform-admins/route.ts:43-53,65-88",
-        "apps/auth-server/app/api/oauth-clients/route.ts:61-82",
-        "apps/auth-server/app/api/organization-members/route.ts:51-74"
+        "apps/auth-server/app/api/platform-admins/route.ts:43-53 (findUserByEmail, now has timeout+try/catch) and :77-97 (resolveEmails, still unbounded)",
+        "apps/auth-server/app/api/oauth-clients/route.ts:61-82 (callGotrueAdmin, now has timeout)",
+        "apps/auth-server/app/api/organization-members/route.ts:51-74 (resolveEmails, still unbounded)",
+        "apps/auth-server/lib/supabase-admin.ts (createSupabaseAdminClient — no custom fetch/timeout configured)"
       ],
       "verification": [
-        ".audit/evidence/2026-08-11/release-readiness/frontend-backend-env-deploy-docs-review.txt"
+        ".audit/evidence/2026-08-11/release-readiness/frontend-backend-env-deploy-docs-review.txt",
+        ".audit/evidence/2026-08-11/release-readiness/rel-be-001-timeout-review.txt"
       ],
       "history": [
         {
@@ -205,22 +313,30 @@
           "severity": "WARNING",
           "remediationStatus": "OPEN",
           "note": "Not blocking at current self-hosted scale; worth a follow-up before scaling to untrusted/high-latency deployments."
+        },
+        {
+          "date": "2026-08-11T23:45:00",
+          "auditStatus": "WARNING",
+          "severity": "WARNING",
+          "remediationStatus": "OPEN",
+          "note": "Partially fixed, not VERIFIED. Commit 7080d4e's diff read line-by-line: the 2 raw fetch() call sites (findUserByEmail, callGotrueAdmin) genuinely gained AbortSignal.timeout(10s). But resolveEmails()'s SDK-mediated listUsers() calls — explicitly named in this issue's original description — were not touched at all; createSupabaseAdminClient() has no timeout configured. Status stays OPEN with a corrected, narrower description; not the full closure the commit message claims."
         }
       ]
     },
     {
       "id": "REL-FE-001",
       "category": "FE",
-      "description": "apps/admin-panel/app/users/page.tsx's initial member-list load (loadMembers, invoked from useEffect) does not check response.ok for error display — on failure it silently returns with no setError call and no loading indicator while members === null. A real auth/network failure on first page load renders identically to 'org has zero users' and never resolves. Same failure-mode class as the already-tracked PQ-UX-010 (4 other admin-panel pages) — one additional occurrence not in that finding's original scope.",
+      "description": "apps/admin-panel/app/users/page.tsx's initial member-list load (loadMembers, invoked from useEffect) did not check response.ok for error display — on failure it silently returned with no setError call. As of commit 7080d4e, a failed fetch now sets a real error message (from the response body or a fallback string) and clears it on success; the error state is genuinely rendered in the JSX.",
       "severity": "WARNING",
       "lastAuditStatus": "WARNING",
-      "status": "OPEN",
-      "lastAudited": "2026-08-11T22:30:00",
+      "status": "VERIFIED",
+      "lastAudited": "2026-08-11T23:45:00",
       "evidence": [
-        "apps/admin-panel/app/users/page.tsx:45-54,85-91"
+        "apps/admin-panel/app/users/page.tsx:50-55 (setError on failure), :199 ({error && <p>...} rendered)"
       ],
       "verification": [
-        ".audit/evidence/2026-08-11/release-readiness/frontend-backend-env-deploy-docs-review.txt"
+        ".audit/evidence/2026-08-11/release-readiness/frontend-backend-env-deploy-docs-review.txt",
+        ".audit/evidence/2026-08-11/release-readiness/remaining-fixes-and-db-recheck.txt"
       ],
       "history": [
         {
@@ -229,22 +345,30 @@
           "severity": "WARNING",
           "remediationStatus": "OPEN",
           "note": "Related to, but a distinct occurrence from, PQ-UX-010 in Professional Review's tracker (which covers 4 other pages, not this one)."
+        },
+        {
+          "date": "2026-08-11T23:45:00",
+          "auditStatus": "PASS",
+          "severity": null,
+          "remediationStatus": "VERIFIED",
+          "note": "Diff read and confirmed the error state is genuinely wired to the DOM (grep confirms the {error && ...} render), not set-and-forgotten. Genuinely, completely fixed."
         }
       ]
     },
     {
       "id": "REL-BUILD-001",
       "category": "BUILD",
-      "description": "packages/react-sdk/src/context.tsx:27 — ESLint react-hooks/exhaustive-deps warning: useMemo has a missing dependency 'config'. Zero lint errors repo-wide; this is the only lint warning found.",
+      "description": "packages/react-sdk/src/context.tsx:27 — ESLint react-hooks/exhaustive-deps warning: useMemo has a missing dependency 'config'. As of commit 7080d4e, silenced with an eslint-disable-next-line plus a genuine explanatory comment (inline config object literals are a new reference every render; depending on the whole config would recreate the Supabase client and tear down its auth listener every render; only supabaseUrl/supabaseAnonKey determine client identity).",
       "severity": "WARNING",
       "lastAuditStatus": "WARNING",
-      "status": "OPEN",
-      "lastAudited": "2026-08-11T22:30:00",
+      "status": "VERIFIED",
+      "lastAudited": "2026-08-11T23:45:00",
       "evidence": [
-        "packages/react-sdk/src/context.tsx:27"
+        "packages/react-sdk/src/context.tsx:24-31 (eslint-disable-next-line with explanatory comment)"
       ],
       "verification": [
-        ".audit/evidence/2026-08-11/release-readiness/lint.txt"
+        ".audit/evidence/2026-08-11/release-readiness/lint-2.txt (fresh pnpm turbo run lint --force: 23/23 tasks, 0 errors, 0 warnings)",
+        ".audit/evidence/2026-08-11/release-readiness/remaining-fixes-and-db-recheck.txt"
       ],
       "history": [
         {
@@ -253,6 +377,13 @@
           "severity": "WARNING",
           "remediationStatus": "OPEN",
           "note": "Non-blocking; fresh `pnpm turbo run lint --force` run, 23/23 tasks, 0 errors, 1 warning."
+        },
+        {
+          "date": "2026-08-11T23:45:00",
+          "auditStatus": "PASS",
+          "severity": null,
+          "remediationStatus": "VERIFIED",
+          "note": "Independently re-ran `pnpm turbo run lint --force` fresh (0 cache hits): 23/23 tasks, 0 errors, 0 warnings anywhere in the monorepo. The explanation given for the suppression is genuine (checked against how createKontroliaClient() actually determines client identity elsewhere), not a real bug being hidden."
         }
       ]
     },
@@ -263,14 +394,15 @@
       "severity": "WARNING",
       "lastAuditStatus": "WARNING",
       "status": "OPEN",
-      "lastAudited": "2026-08-11T22:30:00",
+      "lastAudited": "2026-08-11T23:45:00",
       "evidence": [
         ".changeset/anchor-authority-to-system-roles.md",
         ".changeset/restrict-owner-grant-and-membership-identity.md",
         "packages/db/package.json:3 (currently 2.1.0)"
       ],
       "verification": [
-        ".audit/evidence/2026-08-11/release-readiness/migration-review.txt"
+        ".audit/evidence/2026-08-11/release-readiness/migration-review.txt",
+        ".audit/evidence/2026-08-11/release-readiness/remaining-fixes-and-db-recheck.txt"
       ],
       "history": [
         {
@@ -279,6 +411,13 @@
           "severity": "WARNING",
           "remediationStatus": "OPEN",
           "note": "Judgment call, not a defect. Recorded so the decision to keep it 'patch' is a deliberate one, not an oversight."
+        },
+        {
+          "date": "2026-08-11T23:45:00",
+          "auditStatus": "WARNING",
+          "severity": "WARNING",
+          "remediationStatus": "OPEN",
+          "note": "Re-confirmed unchanged. This commit's own new changeset (.changeset/migrate-confirm-non-local.md, tagged patch for a CLI safety feature) doesn't touch DB migration semver, but is consistent evidence the same judgment pattern (ship safety-relevant changes as patch) continues deliberately, not by oversight. Correctly still deferred as a human release-notes decision."
         }
       ]
     }

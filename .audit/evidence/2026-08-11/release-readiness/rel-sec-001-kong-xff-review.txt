@@ -1,0 +1,80 @@
+REL-SEC-001 re-verification (second same-day release-readiness run)
+====================================================================
+
+Claim being verified (commit 7080d4e): adding
+GOTRUE_RATE_LIMIT_HEADER: X-Forwarded-For to docker/docker-compose.yml's
+`auth` (GoTrue) service environment "enables GoTrue's own built-in per-IP
+rate limiting to correctly identify real client IPs behind Kong".
+
+Files read:
+- docker/docker-compose.yml (kong service: lines 98-111; auth service env,
+  including the new GOTRUE_RATE_LIMIT_HEADER line and its comment)
+- docker/kong.yml (full file — 23 lines, two services: auth-v1, rest-v1,
+  each with only a `cors` plugin; no ip-restriction/rate-limiting plugin,
+  no `real_ip_header`/`trusted_ips` configuration anywhere)
+
+Kong service config (docker-compose.yml):
+  KONG_DATABASE: "off"
+  KONG_DECLARATIVE_CONFIG: /kong.yml
+  KONG_PROXY_LISTEN: 0.0.0.0:8000
+  ports: "${SUPABASE_PORT:-8000}:8000"
+No KONG_TRUSTED_IPS, no KONG_REAL_IP_HEADER, no KONG_REAL_IP_RECURSIVE set
+anywhere in the compose file or kong.yml.
+
+External research (WebSearch, since this is a runtime-behavior question
+about two external binaries not vendored in this repo):
+
+1. GoTrue/supabase/auth's GOTRUE_RATE_LIMIT_HEADER support: the header's
+   raw value is used as the rate-limit key; by IETF/RFC 7239 convention
+   (and Supabase's own docs framing) the LEFTMOST entry in a
+   comma-separated X-Forwarded-For chain is treated as "the client",
+   consistent with virtually every rate-limiter that reads this header.
+   Supabase's own guidance explicitly warns the header "is expected to be
+   set by a trusted upstream proxy... [and] can not be trusted for rate
+   limiting when supplied directly by the client" — i.e. the burden is on
+   the proxy in front of GoTrue to strip/replace any client-supplied value
+   before appending its own.
+
+2. Kong's default forwarding behavior for X-Forwarded-For to the upstream
+   (not to be confused with Kong's own internal "what is the real client
+   IP for MY OWN plugins" logic, which is the separate
+   trusted_ips/real_ip_header/real_ip_recursive machinery): Kong is built
+   on OpenResty/nginx, and nginx's standard `proxy_add_x_forwarded_for`
+   behavior APPENDS the connecting IP to any X-Forwarded-For value already
+   present in the inbound request rather than replacing it. Kong's own
+   docs frame `trusted_ips` as the mechanism an operator must configure to
+   have Kong treat upstream headers as authoritative — by omission, an
+   *inbound*, client-supplied X-Forwarded-For is not stripped before Kong
+   appends its own hop.
+
+Conclusion: with this stack's actual kong.yml/docker-compose.yml (no
+trusted_ips, no ip-restriction plugin, Kong's proxy port 8000 exposed
+directly to the internet on the Docker self-host deploy target this CLI
+supports), a client can send its own `X-Forwarded-For: <anything>` header
+on the very first hop. Kong will forward
+`X-Forwarded-For: <attacker-value>, <real-client-ip>` to GoTrue. GoTrue
+reads the leftmost (attacker-controlled) entry as the rate-limit key. A
+client that varies the fake leftmost value on every request defeats
+per-IP rate limiting entirely, on this specific deploy target.
+
+This does not make the fix worthless: before this commit, GoTrue had no
+way to see per-client IPs at all behind Kong (every request looked like it
+came from Kong's own container), so honest/non-adversarial traffic is
+now correctly bucketed per-IP where it wasn't before — a real
+improvement. But the commit's framing ("enables GoTrue's own built-in
+per-IP rate limiting to correctly identify real client IPs") overstates
+what was actually achieved: it holds for non-adversarial clients, not
+against a deliberate attacker, on the Docker self-host deploy path.
+
+Verdict: REL-SEC-001 stays OPEN (not VERIFIED), reclassified as a
+partial improvement, not a closed gap. Still WARNING severity, not
+escalated to BLOCKER/FAIL — rate limiting was already an accepted,
+non-blocking gap pre-fix, and this is not a regression, and no other
+BLOCKER category (release-blockers.md) matches "brute-force throttle is
+spoofable" on its own.
+
+Sources consulted (WebSearch):
+- https://developer.konghq.com/kubernetes-ingress-controller/preserve-client-ip/
+- https://discuss.konghq.com/t/how-do-we-add-in-real-ip-header-x-forwarded-for-for-our-gateways/12768
+- https://deepwiki.com/supabase/auth/9.2-rate-limiting
+- https://supabase.com/docs/guides/auth/rate-limits

@@ -1,0 +1,78 @@
+Remaining claimed fixes + REL-DB-* deferred-item re-check
+(second same-day release-readiness run)
+============================================================
+
+REL-FE-001 (apps/admin-panel/app/users/page.tsx) — VERIFIED
+Diff read: loadMembers() now does
+  if (!response.ok) {
+    const data = (await response.json().catch(() => null)) as {error?:string}|null;
+    setError(data?.error ?? "No se pudieron cargar los usuarios.");
+    return;
+  }
+  setError(null);
+grep confirmed `error` state (useState line 39) is genuinely rendered:
+  {error && <p className="k-text-sm k-text-destructive">{error}</p>}  (line 199)
+Not just a state variable set and forgotten — it reaches the DOM. Real,
+complete fix for its stated scope.
+
+REL-ENV-001 (apps/admin-panel/.env.example) — VERIFIED
+NEXT_PUBLIC_OAUTH_CLIENT_ID added with a substantive explanatory comment
+(when it's needed: cross-top-level-domain deployments where
+NEXT_PUBLIC_COOKIE_DOMAIN can't help; points to /oauth/callback and
+dashboard-shell.tsx; notes the CLI auto-registers it during
+install/deploy). Genuinely documents the var, not just adding a bare key.
+
+REL-ENV-002 (docker/.env.example) — VERIFIED
+GOTRUE_MAILER_AUTOCONFIRM's preceding comment expanded from a one-liner
+to a real explanation of the production security implication (signup
+with any unowned email, immediate login, zero identity verification) and
+points to where SMTP config would actually go
+(docker-compose.yml's GOTRUE_SMTP_* vars). Matches the original finding's
+ask exactly.
+
+REL-BUILD-001 (packages/react-sdk/src/context.tsx) — VERIFIED
+eslint-disable-next-line react-hooks/exhaustive-deps added with a real
+explanatory comment (inline config object literals are a new reference
+every render; depending on the whole `config` object would tear down and
+recreate the Supabase client, killing its auth listener, on every
+render — only supabaseUrl/supabaseAnonKey actually determine client
+identity). This is a genuine judgment call, not a suppressed real bug —
+confirmed by reading createKontroliaClient's usage: identity is in fact
+fully determined by those two fields elsewhere in the codebase (auth-sdk
+client construction). Independently re-ran `pnpm turbo run lint --force`
+fresh this session: 23/23 tasks, zero warnings anywhere (grep for
+"warning" in the fresh lint output returns nothing), confirming the
+silencing didn't just move the warning elsewhere and nothing else
+regressed.
+
+REL-DB-001/002/003 — re-checked for drift, none found
+`git show 7080d4e --stat` confirms zero files under packages/db/
+(migrations or otherwise) were touched by this commit — these three
+deferred items could not have changed. Spot-re-read confirms the exact
+same evidence still holds:
+- REL-DB-001: packages/db/migrations/0024_extend_audit_triggers.sql has
+  both a `drop trigger if exists ... ; create trigger audit_membership_change`
+  pair (line 35-36) AND a bare `create trigger audit_invitation_deleted`
+  with no preceding drop (line 55) in the same file — the exact
+  inconsistency previously documented, unchanged.
+  0025_prevent_last_owner_role_removal.sql:55 `create trigger
+  prevent_last_owner_role_removal` also has no preceding drop, unchanged.
+- REL-DB-002: packages/db/src/migrate.ts:20 still
+  `create table if not exists kontrolia_migrations (...)` with no schema
+  qualifier, unchanged.
+- REL-DB-003: no new changeset touches migration-tagged semver framing;
+  the one new changeset this commit added
+  (.changeset/migrate-confirm-non-local.md) is itself tagged `patch` for
+  a CLI UX-safety feature — the same style of judgment call the original
+  REL-DB-003 finding described, applied consistently, not a new instance
+  of the same issue (this changeset is about CLI behavior, not a DB
+  migration, so it doesn't literally belong under REL-DB-003, but is
+  worth noting as evidence the same judgment pattern continues).
+
+All three remain correctly OPEN/deferred, and re-reading the original
+justification (retroactively editing already-shipped, already-applied
+migrations is riskier than the stylistic inconsistency itself; the
+bookkeeping table's location doesn't affect any installed instance's
+correctness, only its schema tidiness; semver framing is an explicit
+human release-notes decision) still holds up under a fresh, skeptical
+look — none of the three should actually block this release.

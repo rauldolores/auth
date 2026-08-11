@@ -15,7 +15,7 @@ packages/db, cli, auth-sdk, react-sdk, next-sdk, permissions, shared, ui;
 examples/nextjs, react, express, nestjs)
 
 ## Last Audit
-2026-08-11T22:30:00
+2026-08-11T23:45:00
 
 ## Overall Status
 PARTIAL
@@ -251,7 +251,7 @@ rather than once per module.
      never write into this section beyond the initial NOT AUDITED seed. -->
 
 ## Release Status
-READY WITH WARNINGS (Release Score: 91/100)
+READY WITH WARNINGS (Release Score: 90/100)
 
 ## Blocking Issues
 None.
@@ -261,99 +261,109 @@ None.
 
 ## High Priority Issues
 None. All findings this run are WARNING-level: REL-SEC-001, REL-DB-001, REL-DB-002, REL-DB-003,
-REL-DEPLOY-001, REL-DEPLOY-002, REL-ENV-001, REL-ENV-002, REL-BE-001, REL-FE-001, REL-BUILD-001.
+REL-BE-001 (all carried forward with revised, more precise descriptions), plus two new findings
+surfaced this run: REL-DEPLOY-003, REL-DEPLOY-004. Six of the 11 findings from the first run today
+(REL-DEPLOY-001's core scope, REL-DEPLOY-002, REL-ENV-001, REL-ENV-002, REL-FE-001, REL-BUILD-001)
+were independently re-verified as genuinely, completely fixed by commit `7080d4e`.
 
 ## Build
 PASS — `pnpm turbo run build --force` (0 cache hits, fresh), 16/16 tasks successful, zero
-compilation errors. Evidence: `.audit/evidence/2026-08-11/release-readiness/build.txt`.
+compilation errors. Evidence: `.audit/evidence/2026-08-11/release-readiness/build-2.txt`.
 
 ## TypeScript
 PASS — `pnpm turbo run typecheck --force` (0 cache hits, fresh), 19/19 tasks successful, zero type
-errors. Evidence: `.audit/evidence/2026-08-11/release-readiness/typecheck.txt`.
+errors. Evidence: `.audit/evidence/2026-08-11/release-readiness/typecheck-2.txt`.
 
 ## Lint
-PASS — `pnpm turbo run lint --force` (0 cache hits, fresh), 23/23 tasks successful, 0 errors, 1
-non-blocking warning (REL-BUILD-001, `packages/react-sdk/src/context.tsx:27`). Evidence:
-`.audit/evidence/2026-08-11/release-readiness/lint.txt`.
+PASS — `pnpm turbo run lint --force` (0 cache hits, fresh), 23/23 tasks successful, 0 errors,
+**0 warnings** (down from 1 — REL-BUILD-001 independently confirmed fixed). Evidence:
+`.audit/evidence/2026-08-11/release-readiness/lint-2.txt`.
 
 ## Tests
-PASS — `pnpm turbo run test --force` (0 cache hits, fresh), 145/145 tests passing across 5 packages
-(permissions 5, auth-sdk 30, next-sdk 8, react-sdk 7, auth-server 95 across 12 API route test files).
-Critical flows (last-owner protection, invitation-accept, platform-admin authorization) independently
-confirmed to have real, distinctly-branched assertions, not padding. Evidence:
-`.audit/evidence/2026-08-11/release-readiness/tests.txt`.
+PASS — `pnpm turbo run test --force` (0 cache hits, fresh), 146/146 tests passing across 5 packages
+(permissions 5, auth-sdk 30, next-sdk 8, react-sdk 7, auth-server 96 — up from 95, the new
+health.test.ts). Independently re-summed from this run's fresh raw output. Evidence:
+`.audit/evidence/2026-08-11/release-readiness/tests-2.txt`.
 
 ## Security
-No exposed secrets found (independent repo-wide sweep); no server-only secret is `NEXT_PUBLIC_`-
-prefixed; no hardcoded credentials found. Rate limiting confirmed still absent anywhere in the
-codebase (REL-SEC-001, WARNING — a known, already-accepted Phase 2 gap, tracked here under its own
-REL-* ID rather than silently dropped). Full detail:
-`.audit/evidence/2026-08-11/release-readiness/security-authn-authz-review.txt`.
+No exposed secrets found. REL-SEC-001 re-investigated in depth per this run's brief (does
+`GOTRUE_RATE_LIMIT_HEADER=X-Forwarded-For` actually work given this stack's Kong config?): the
+fix is real for non-adversarial traffic, but independent research (WebSearch — neither Kong nor
+GoTrue is vendored in this repo) found that `docker/kong.yml` has no ip-restriction plugin and
+neither compose file configures `KONG_TRUSTED_IPS`/`real_ip_header`, so Kong does not sanitize a
+client-supplied `X-Forwarded-For` before appending its own hop (standard nginx
+`proxy_add_x_forwarded_for` behavior), and GoTrue trusts the leftmost, client-controlled entry of
+that header. On the Docker self-host deploy target, a deliberate attacker can still bypass per-IP
+rate limiting by spoofing the header. Stays WARNING/OPEN, not resolved as the commit message
+implies — see `.audit/evidence/2026-08-11/release-readiness/rel-sec-001-kong-xff-review.txt`.
 
 ## Database
-All 30 migrations reviewed; RLS confirmed enabled on all 14 tables in `kontrolia_auth`. The 7 new
-migrations (0024-0030) contain zero destructive operations, are fully transactional, and are
-correctly ordered/tracked by `packages/db/src/migrate.ts` for both a fresh install (0001-0030) and
-an incremental existing-install upgrade (`npx create-kontrolia-auth migrate` picking up exactly
-0024-0030). No rollback mechanism exists (forward-fix-only model), but each migration is
-transaction-safe on failure. REL-DB-001 (trigger-guard style inconsistency), REL-DB-002 (bookkeeping
-table schema location), REL-DB-003 (patch-vs-minor semver judgment call) — all WARNING, non-blocking.
-Full detail: `.audit/evidence/2026-08-11/release-readiness/migration-review.txt`.
+Unchanged since the prior run — commit `7080d4e` touched zero files under `packages/db/`.
+REL-DB-001 (trigger-guard style inconsistency), REL-DB-002 (bookkeeping table schema location),
+REL-DB-003 (patch-vs-minor semver judgment call) all re-confirmed accurate and correctly still
+deferred; a fresh look does not change that judgment. Full detail:
+`.audit/evidence/2026-08-11/release-readiness/remaining-fixes-and-db-recheck.txt`.
 
 ## Authentication
-PASS — login, session issuance, and logout (real server-side invalidation via GoTrue's default
-`'global'` signOut scope) traced end to end and confirmed real, not a stub. Non-enumerating failure
-paths confirmed for both login and password reset.
+Not independently re-walked this round (unchanged since the prior PASS; commit `7080d4e` did not
+touch login/session/logout code paths).
 
 ## Authorization
-PASS — 3 sensitive routes (`organization-members`, `platform-admins`, `oauth-clients`) independently
-read server-side; all gate mutations either via real JWT-verified platform-admin checks or via
-RLS-scoped, token-authenticated clients (RLS confirmed enabled, see Database above) — never a
-client-side-only check.
+Not independently re-walked this round for the same reason. Confirmed by reading the full diffs of
+`organization-members/route.ts`, `platform-admins/route.ts`, and `oauth-clients/route.ts` that this
+commit changed only fetch-call timeout/error-handling, not authorization logic.
 
 ## Frontend
-WARNING — REL-FE-001: `apps/admin-panel/app/users/page.tsx`'s initial list load silently shows an
-empty state on fetch failure instead of an error, one additional occurrence of the same failure
-class already tracked as `PQ-UX-010` for 4 other pages. Pagination confirmed real (no unbounded
-lists found) on all endpoints spot-checked.
+VERIFIED — REL-FE-001: `apps/admin-panel/app/users/page.tsx`'s initial member-list load now sets and
+genuinely renders (`{error && <p>...}`, confirmed in the JSX, not just a forgotten state variable) an
+error message on fetch failure. No new frontend findings this run.
 
 ## Backend
-WARNING — REL-BE-001: no external call to GoTrue's admin API has an explicit timeout, so a hung
-GoTrue instance could hang a route handler indefinitely. Otherwise PASS: errors caught and
-translated everywhere checked, no raw stack traces to the client, structured logging present in
-both apps.
+WARNING — REL-BE-001 only partially fixed, stays OPEN. `findUserByEmail` and `callGotrueAdmin` (raw
+`fetch()` calls) genuinely gained `AbortSignal.timeout(10_000)`, and `findUserByEmail` also gained a
+try/catch it was missing entirely — both real fixes. But `resolveEmails()`'s
+`admin.auth.admin.listUsers()` calls in both `organization-members/route.ts` and
+`platform-admins/route.ts` — likely the highest-traffic admin-panel routes — go through the Supabase
+SDK client (no custom fetch/timeout configured) and remain completely unbounded. The commit's claim
+of covering "every GoTrue admin API call" is not accurate. Full detail:
+`.audit/evidence/2026-08-11/release-readiness/rel-be-001-timeout-review.txt`.
 
 ## Performance
-PASS — real, correct range-based pagination confirmed on all list endpoints spot-checked
-(`organization-members`, `platform-admins`, `audit-logs`); no unbounded list found.
+PASS — unaffected by this commit's diff; pagination previously confirmed real on all spot-checked
+list endpoints.
 
 ## Documentation
-PASS — root `README.md` and the `apps/documentation` getting-started guide both accurately reflect
-current setup, env vars, and deployment steps; no material drift found.
+No material drift found in this commit's diff; the two `.env.example` comment expansions are
+themselves documentation improvements. Not fully re-walked this round.
 
 ## Environment Configuration
-WARNING — REL-ENV-001 (`NEXT_PUBLIC_OAUTH_CLIENT_ID` undocumented in `apps/admin-panel/.env.example`
-specifically, though correctly documented/generated elsewhere) and REL-ENV-002
-(`GOTRUE_MAILER_AUTOCONFIRM` defaults `true`, flagged only by a comment, not enforced off for prod).
-No hardcoded permissive CORS or `NODE_ENV`-gated dev-only paths found; `.env*` correctly gitignored.
+VERIFIED — REL-ENV-001 (`NEXT_PUBLIC_OAUTH_CLIENT_ID` now documented in
+`apps/admin-panel/.env.example` with a substantive explanation) and REL-ENV-002
+(`GOTRUE_MAILER_AUTOCONFIRM`'s comment now explains the real production security implication and
+points to SMTP config). Both diffs read directly and confirmed genuine, not cosmetic.
 
 ## Deployment
-WARNING — REL-DEPLOY-001 (`migrate`/`update`/`install` apply directly to any typed connection string
-with zero confirmation/dry-run/backup step — a structural gap, not a defect in this release's
-non-destructive migration content) and REL-DEPLOY-002 (no health-check endpoint in either app,
-relevant to Docker/Railway/Coolify targets). Build succeeds fresh; CLI-generated deploy env is
-correct per target, not left at dev defaults.
+REL-DEPLOY-001 VERIFIED for its original scope: `migrate`/`update` now genuinely show a confirmation
+prompt naming the host before applying against a non-local, URL-format connection string —
+live-tested against 6 real connection-string shapes. REL-DEPLOY-002 VERIFIED: both apps' `/api/health`
+routes are dependency-free and confirmed not interceptable by either app's middleware/auth-gate
+(specifically checked per this run's brief). Two NEW WARNING findings from this round's deeper
+scrutiny of the same change: **REL-DEPLOY-003** (`grant-admin` — an even more privileged operation
+than migrate/update — was not given the same non-local-host confirmation gate at all) and
+**REL-DEPLOY-004** (the new host parser fails open — treats an unparseable connection string as
+local, skipping confirmation — for the libpq keyword/value connection-string format).
 
 ## Final Recommendation
 Ship. Zero BLOCKERs and zero FAILs in any core category (AUTHENTICATION, AUTHORIZATION, SECURITY,
-DATABASE) were found, and every core category was independently re-verified this run with real
-evidence — not inferred from Phase 1/2's same-day conclusions. The 7 new migrations (0024-0030) are
-safe for both the fresh-install and incremental-upgrade CLI paths: non-destructive, transactional,
-and correctly tracked. The 11 open WARNING-level findings (rate limiting, CLI migrate confirmation
-step, health-check endpoints, one silent-failure admin-panel page, missing fetch timeouts, minor env
-doc/schema/style gaps) are real but none match a release-blocker category — recommend batching them
-into the next release rather than holding this one, with `REL-SEC-001` and `REL-DEPLOY-001` prioritized
-first given their security/production-safety relevance.
+DATABASE) this run either. Of commit `7080d4e`'s 8 claimed fixes, 6 are independently verified as
+genuinely, completely closed; 2 (REL-SEC-001, REL-BE-001) are real but partial improvements — both
+refinements of an already-accepted, non-blocking gap, not regressions or newly-discovered severe
+issues — now tracked with corrected, narrower descriptions instead of closed outright. This same
+closing-verification pass surfaced 2 new WARNING findings (REL-DEPLOY-003, REL-DEPLOY-004), both
+minor and non-blocking. Net: 11 open WARNINGs at the start of today are now 7. Recommend shipping
+this release as-is; prioritize REL-DEPLOY-003 (extend the CLI confirmation gate to `grant-admin`)
+and REL-SEC-001's Kong `trusted_ips`/`real_ip_header` configuration first in the next round, since
+both are the closest of the 7 remaining items to a genuine security/production-safety concern.
 
 ---
 
@@ -420,17 +430,19 @@ first given their security/production-safety relevance.
 | MEDIUM | PQ-TECH-006 | Weak input validation on organizations POST (no slug format/length constraint) | Professional Review | OPEN |
 | MEDIUM | PQ-TECH-007 | OAuth code-exchange fetch() calls unwrapped in try/catch in auth-sdk | Professional Review | OPEN |
 | MEDIUM | PQ-TECH-008 | applications/sync silently ignores one update call's error | Professional Review | OPEN |
-| MEDIUM | REL-SEC-001 | No application-level rate limiting on login/register/password-reset anywhere in the codebase | Release Readiness | OPEN |
-| LOW | REL-DB-001 | 6 of 7 new migrations (0024-0026, 0028, 0029) create triggers without `drop trigger if exists`, unlike the codebase's own pattern — harmless under the filename-tracked runner | Release Readiness | OPEN |
-| LOW | REL-DB-002 | `kontrolia_migrations` bookkeeping table created without a schema qualifier, lands outside `kontrolia_auth` | Release Readiness | OPEN |
-| LOW | REL-DB-003 | Migrations 0028-0030's security-hardening behavior changes are tagged `patch`, arguably `minor` under strict semver — defensible industry convention, flagged as a deliberate release-notes decision point | Release Readiness | OPEN |
-| MEDIUM | REL-DEPLOY-001 | `npx create-kontrolia-auth migrate`/`update`/`install` apply directly to any typed Postgres connection string with zero confirmation/dry-run/backup step | Release Readiness | OPEN |
-| MEDIUM | REL-DEPLOY-002 | No health-check endpoint anywhere in apps/auth-server or apps/admin-panel; relevant to Docker/Railway/Coolify deploy targets the CLI supports | Release Readiness | OPEN |
-| LOW | REL-ENV-001 | `NEXT_PUBLIC_OAUTH_CLIENT_ID` undocumented in `apps/admin-panel/.env.example` specifically (correctly documented/generated via docker/.env.example and the CLI installer) | Release Readiness | OPEN |
-| MEDIUM | REL-ENV-002 | `GOTRUE_MAILER_AUTOCONFIRM` defaults `true` in docker-compose, flagged only by a comment, not enforced off for production | Release Readiness | OPEN |
-| MEDIUM | REL-BE-001 | No explicit timeout on any external GoTrue admin API call (findUserByEmail, callGotrueAdmin, resolveEmails' listUsers loop) — a hung GoTrue instance could hang a route handler indefinitely | Release Readiness | OPEN |
-| MEDIUM | REL-FE-001 | `apps/admin-panel/app/users/page.tsx`'s initial member-list load silently shows an empty state on fetch failure instead of an error (same class as PQ-UX-010, one additional occurrence) | Release Readiness | OPEN |
-| LOW | REL-BUILD-001 | ESLint warning: `packages/react-sdk/src/context.tsx:27` useMemo missing dependency `config` — 0 errors repo-wide, this is the only warning | Release Readiness | OPEN |
+| MEDIUM | REL-SEC-001 | No application-level rate limiting on login/register/password-reset; GoTrue's own per-IP limiter now enabled via `GOTRUE_RATE_LIMIT_HEADER` but bypassable by a deliberate attacker spoofing X-Forwarded-For given this stack's Kong config (no trusted_ips/real_ip_header set) | Release Readiness | OPEN — re-audited 2026-08-11T23:45:00, partial fix only (commit 7080d4e), not VERIFIED |
+| LOW | REL-DB-001 | 6 of 7 new migrations (0024-0026, 0028, 0029) create triggers without `drop trigger if exists`, unlike the codebase's own pattern — harmless under the filename-tracked runner | Release Readiness | OPEN — re-confirmed unchanged 2026-08-11T23:45:00 |
+| LOW | REL-DB-002 | `kontrolia_migrations` bookkeeping table created without a schema qualifier, lands outside `kontrolia_auth` | Release Readiness | OPEN — re-confirmed unchanged 2026-08-11T23:45:00 |
+| LOW | REL-DB-003 | Migrations 0028-0030's security-hardening behavior changes are tagged `patch`, arguably `minor` under strict semver — defensible industry convention, flagged as a deliberate release-notes decision point | Release Readiness | OPEN — re-confirmed unchanged 2026-08-11T23:45:00 |
+| MEDIUM | REL-DEPLOY-001 | `npx create-kontrolia-auth migrate`/`update` apply directly to any typed Postgres connection string with zero confirmation/dry-run/backup step | Release Readiness | VERIFIED (2026-08-11T23:45:00, commit 7080d4e) — migrate/update now show a confirmation prompt naming the host for any non-local URL-format connection string; live-tested against 6 real connection-string shapes |
+| MEDIUM | REL-DEPLOY-002 | No health-check endpoint anywhere in apps/auth-server or apps/admin-panel; relevant to Docker/Railway/Coolify deploy targets the CLI supports | Release Readiness | VERIFIED (2026-08-11T23:45:00, commit 7080d4e) — GET /api/health added to both apps, dependency-free, confirmed not interceptable by either app's middleware/auth-gate |
+| LOW | REL-DEPLOY-003 | `grant-admin` — a more privileged raw-DB-write command than migrate/update — was not given the same non-local-host confirmation gate they just received | Release Readiness | OPEN — new 2026-08-11T23:45:00, found while re-verifying REL-DEPLOY-001's fix |
+| LOW | REL-DEPLOY-004 | The new CLI host-parser (`connectionHost()`) fails open — treats an unparseable connection string as local, skipping confirmation — for the libpq keyword/value connection-string format | Release Readiness | OPEN — new 2026-08-11T23:45:00, found while re-verifying REL-DEPLOY-001's fix |
+| LOW | REL-ENV-001 | `NEXT_PUBLIC_OAUTH_CLIENT_ID` undocumented in `apps/admin-panel/.env.example` specifically (correctly documented/generated via docker/.env.example and the CLI installer) | Release Readiness | VERIFIED (2026-08-11T23:45:00, commit 7080d4e) — now documented with a substantive explanation |
+| MEDIUM | REL-ENV-002 | `GOTRUE_MAILER_AUTOCONFIRM` defaults `true` in docker-compose, flagged only by a comment, not enforced off for production | Release Readiness | VERIFIED (2026-08-11T23:45:00, commit 7080d4e) — comment now explains the real production security implication and points to SMTP config |
+| MEDIUM | REL-BE-001 | No explicit timeout on any external GoTrue admin API call (findUserByEmail, callGotrueAdmin, resolveEmails' listUsers loop) — a hung GoTrue instance could hang a route handler indefinitely | Release Readiness | OPEN — re-audited 2026-08-11T23:45:00, partial fix only (commit 7080d4e fixed findUserByEmail/callGotrueAdmin's raw fetch() calls but not resolveEmails()'s SDK-mediated listUsers() calls), not VERIFIED |
+| MEDIUM | REL-FE-001 | `apps/admin-panel/app/users/page.tsx`'s initial member-list load silently shows an empty state on fetch failure instead of an error (same class as PQ-UX-010, one additional occurrence) | Release Readiness | VERIFIED (2026-08-11T23:45:00, commit 7080d4e) — error state now set and genuinely rendered in the JSX |
+| LOW | REL-BUILD-001 | ESLint warning: `packages/react-sdk/src/context.tsx:27` useMemo missing dependency `config` — 0 errors repo-wide, this is the only warning | Release Readiness | VERIFIED (2026-08-11T23:45:00, commit 7080d4e) — silenced with a genuine explanatory comment; fresh lint run confirms 0 warnings anywhere |
 
 Priority: BLOCKER, CRITICAL, HIGH, MEDIUM, LOW.
 Status: OPEN, IN_PROGRESS, FIXED, VERIFIED, WONT_FIX, BLOCKED.
@@ -458,6 +470,7 @@ moves it to VERIFIED.
 | 2026-08-11T19:30:00 (re-audit after commit 1549077, seventh same-day run, security-verification-only scope) | kontrolia-professional-review | PROFESSIONAL BUT NEEDS POLISH | — | 0 (PQ-SEC-009 independently re-exploited fresh this round against migration 0030, not taken on the fix commit's own message — genuinely, fully RESOLVED: the full grant-then-rename chain and direct slug='owner'/'admin'/'member' hijack attempts are all blocked by the new prevent_custom_role_reserved_slug trigger plus the is_system_role-anchored is_org_owner()/is_org_admin(); legitimate system-role bootstrap and ordinary custom-role slugs both re-confirmed still working. Migration 0030's SQL read in full for correctness. One more live-exploit hunt for the same general pattern elsewhere in the schema — applications.owner_organization_id, platform_admins, user_permissions — found all three genuinely clean under live adversarial testing (properly org-isolated non-owning admin for the ownership test, after self-catching and correcting an initial test-data mistake). Zero CRITICAL and zero new HIGH/MEDIUM findings this round. PQ-TECH-001 re-confirmed unchanged and is now the sole open finding of any severity — CRITICAL or HIGH — across the entire seven-round Phase 2 sequence. Verdict rises from NOT PRODUCTION READY to PROFESSIONAL BUT NEEDS POLISH: security is genuinely closed as of this round, subject to the honest caveat that this round did not re-walk UX/UI/accessibility/performance/maintainability, which are carried forward unchanged from round 6 and still contain 24 open MEDIUM findings) |
 | 2026-08-11T21:00:00 (re-audit after commit 07d8ec5, eighth same-day run, narrow closing-verification scope) | kontrolia-professional-review | PROFESSIONAL BUT NEEDS POLISH | — | 0 (PQ-TECH-001 independently VERIFIED RESOLVED this round, not taken on the prior session's own claim of "145/145 pass": read organization-members.test.ts, platform-admins.test.ts, invitations-accept.test.ts, and test-helpers.ts in full and cross-checked every assertion against the real route.ts implementations — mocks sit at the correct real boundary, wouldRemoveLastOwner()'s three branches are each distinctly fixtured with exact status-code/response-body assertions matching route.ts's Spanish error strings verbatim, and the invitations-accept regression test for commit 717bf03 asserts an exact from()-call count rather than a vague "didn't throw" check — genuinely real, meaningfully-branched tests, not padding. Independently re-ran `pnpm turbo run test` fresh: 145/145 pass, auth-server's 95 tests genuinely executed this run (cache miss, not replayed). Re-confirmed apps/admin-panel has zero route.ts/route.tsx anywhere and no app/api directory — PQ-TECH-001's scope was fully addressable by testing auth-server alone. Sanity-checked commit 07d8ec5's full diff: 16 files touched, all test files/vitest.config.ts/package.json's test script and vitest devDependency/pnpm-lock.yaml — zero implementation files modified, confirming the change was genuinely test-only. This is the first round of the entire 8-round Phase 2 sequence with zero open CRITICAL or HIGH findings anywhere. Technical Score revised 66->78, Overall Score 76 (up from 75). Verdict remains PROFESSIONAL BUT NEEDS POLISH under this skill's own rubric only because Overall (76) sits below the 85 threshold required for PRODUCTION QUALITY — driven entirely by 24 still-open, non-blocking MEDIUM findings across UX/accessibility/performance/maintainability, none new this round, none CRITICAL/HIGH. Per the quality gate's own simpler pass rule (zero open HIGH/CRITICAL), Phase 2 now cleanly PASSES for the first time across all 8 rounds run today) |
 | 2026-08-11T22:30:00 | kontrolia-release-readiness | READY WITH WARNINGS | Release Score: 91/100 | 0 blockers, 0 critical (first release-readiness run on this project — full fresh re-verification, not trusting Phase 1/2's same-day results: `pnpm turbo run build/typecheck/lint/test --force` all re-run with 0 cache hits — 16/16 build, 19/19 typecheck, 23/23 lint (1 warning), 145/145 tests all pass. Independent deep-dive on this run's unique Phase 3 scope — migrations 0024-0030 and the CLI's fresh-install/incremental-upgrade paths — found zero destructive operations, correct filename-tracked ordering, full per-file transactional safety, and all 7 changesets accurate and complete. Independent security/authn/authz spot-check found zero exposed secrets, zero client-exposed server secrets, RLS enabled on all 14 kontrolia_auth tables, and real server-side authorization on every route checked. Independent backend/frontend/env/deploy/docs pass found no BLOCKER or FAIL. 11 WARNING-level findings recorded (REL-SEC-001, REL-DB-001/002/003, REL-DEPLOY-001/002, REL-ENV-001/002, REL-BE-001, REL-FE-001, REL-BUILD-001) — none match a release-blocker category. Zero BLOCKERs, zero FAILs in any core category -> READY WITH WARNINGS) |
+| 2026-08-11T23:45:00 (re-audit after commit 7080d4e, second same-day release-readiness run) | kontrolia-release-readiness | READY WITH WARNINGS | Release Score: 90/100 | 0 blockers, 0 critical (closing verification of commit 7080d4e, which claimed to close 8 of the first run's 11 WARNING findings. Fresh full-monorepo re-verification again, 0 cache hits: 16/16 build, 19/19 typecheck, 23/23 lint with 0 warnings (down from 1), 146/146 tests (up from 145, the new health.test.ts). Independently read every diff in the commit rather than trusting its message. 6 of 8 claimed fixes VERIFIED as genuine and complete: REL-DEPLOY-001's originally-described migrate/update confirmation gap (live-tested against 6 connection-string shapes), REL-DEPLOY-002 health endpoints (confirmed not interceptable by either app's middleware, specifically checked per this run's brief), REL-ENV-001/002 doc expansions, REL-FE-001's error-state fix (confirmed genuinely rendered, not just set), and REL-BUILD-001's lint fix. 2 of 8 (REL-SEC-001, REL-BE-001) found to be real but incomplete fixes, not full closures: REL-SEC-001's GOTRUE_RATE_LIMIT_HEADER addition is a genuine improvement for honest traffic, but independent research via WebSearch on Kong's and GoTrue's actual external behavior (neither is vendored in this repo) found this stack's kong.yml has no ip-restriction plugin and no trusted_ips/real_ip_header configured, so a deliberate attacker can still spoof X-Forwarded-For to defeat per-IP rate limiting on the Docker self-host deploy target; REL-BE-001's AbortSignal.timeout() fix covers only 2 of 4 GoTrue admin API call sites (the 2 raw fetch() calls), missing resolveEmails()'s SDK-mediated listUsers() calls on what are likely the highest-traffic admin-panel routes. Both stay OPEN with corrected, narrower descriptions. This same investigation surfaced 2 new WARNING findings: REL-DEPLOY-003 (grant-admin — more privileged than migrate/update — wasn't given the same confirmation gate) and REL-DEPLOY-004 (the new host-parser fails open, treating unparseable connection strings as local, for the libpq keyword/value format). REL-DB-001/002/003 re-confirmed unchanged and correctly still deferred (commit touched zero files under packages/db/). Net: 11 open WARNINGs -> 7 open WARNINGs. Zero BLOCKERs, zero FAILs in any core category throughout -> READY WITH WARNINGS, recommend ship) |
 
 Append-only. Never delete or edit a previous row — a new audit adds a new
 row, it doesn't replace the old one.

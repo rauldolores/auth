@@ -435,5 +435,31 @@
       "REL-BUILD-001"
     ],
     "note": "First kontrolia-release-readiness run on this project. Fresh full-monorepo verification (build/typecheck/lint/test all re-run from zero cache, not trusting Phase 2's same-day numbers): build 16/16 clean, typecheck 19/19 clean, lint 23/23 with 1 non-blocking warning, tests 145/145 passing. Independent deep-dive on migrations 0024-0030 (this run's unique scope per Phase 3 brief) found no destructive operations, correct filename-tracked ordering supporting both fresh-install (0001-0030) and incremental-upgrade (0024-0030 only) paths, full transactional per-file safety, and all 7 changesets accurate and complete against commits. Independent security/authn/authz spot-check found zero exposed secrets, zero NEXT_PUBLIC_-leaked server secrets, RLS enabled on all 14 tables, and server-side authorization confirmed on 3 spot-checked routes. Independent backend/frontend/env/deploy/docs pass found no BLOCKER or FAIL, only WARNING-level gaps (no rate limiting, no health-check endpoints, no CLI migrate confirmation/backup step, no fetch timeouts, one admin-panel page with a silent load-failure state, minor env-doc drift, migration trigger-guard style inconsistency). Zero BLOCKERs, zero FAILs in any core category (AUTHENTICATION/AUTHORIZATION/SECURITY/DATABASE) -> verdict READY WITH WARNINGS per the skill's own decision table."
+  },
+  {
+    "date": "2026-08-11T23:45:00",
+    "skill": "kontrolia-release-readiness",
+    "auditFile": ".audit/audits/2026-08-11-release-readiness-2.md",
+    "result": "READY WITH WARNINGS",
+    "releaseScore": 90,
+    "blockers": 0,
+    "critical": 0,
+    "high": 0,
+    "issuesInScope": [
+      "REL-SEC-001",
+      "REL-DB-001",
+      "REL-DB-002",
+      "REL-DB-003",
+      "REL-DEPLOY-001",
+      "REL-DEPLOY-002",
+      "REL-DEPLOY-003",
+      "REL-DEPLOY-004",
+      "REL-ENV-001",
+      "REL-ENV-002",
+      "REL-BE-001",
+      "REL-FE-001",
+      "REL-BUILD-001"
+    ],
+    "note": "Second same-day release-readiness run, closing verification of commit 7080d4e, which claimed to close 8 of the 11 WARNING findings from the first run. Fresh full-monorepo re-verification (0 cache hits): build 16/16, typecheck 19/19, lint 23/23 with 0 warnings (down from 1), tests 146/146 (up from 145, the new health.test.ts). Independently read every diff in commit 7080d4e rather than trusting its message. 6 of 8 claimed fixes VERIFIED as genuine and complete (REL-DEPLOY-002 health endpoints, REL-ENV-001/002 doc fixes, REL-FE-001 error-state fix, REL-BUILD-001 lint fix, and REL-DEPLOY-001's originally-described migrate/update confirmation gap). 2 of 8 (REL-SEC-001 rate limiting, REL-BE-001 GoTrue timeouts) found to be real but incomplete: REL-SEC-001's GOTRUE_RATE_LIMIT_HEADER fix does not survive a deliberate X-Forwarded-For spoofing attempt given this stack's actual Kong config (verified via WebSearch on Kong/GoTrue real forwarding behavior, since neither is vendored in-repo); REL-BE-001's AbortSignal.timeout() fix covers 2 of 4 GoTrue admin API call sites, missing the SDK-mediated resolveEmails() calls on the highest-traffic admin pages. Both stay OPEN with corrected, narrower descriptions rather than closed. This same investigation surfaced 2 new WARNING findings (REL-DEPLOY-003: grant-admin lacks the same confirmation gate migrate/update just got; REL-DEPLOY-004: the new host-parser fails open, treating unparseable connection strings as local, for the libpq keyword/value connection-string format). REL-DB-001/002/003 re-confirmed unchanged and correctly still deferred (commit touched zero files under packages/db/). Net: 11 open WARNINGs down to 7 open WARNINGs, zero BLOCKERs/FAILs throughout. Verdict remains READY WITH WARNINGS; recommend ship, with REL-DEPLOY-003 and REL-SEC-001's Kong config prioritized first for the next release."
   }
 ]

@@ -1,0 +1,59 @@
+REL-BE-001 re-verification (second same-day release-readiness run)
+======================================================================
+
+Claim: "AbortSignal.timeout(10_000) added to every fetch call to GoTrue's
+admin API in apps/auth-server/app/api/oauth-clients/route.ts and
+platform-admins/route.ts; the latter's findUserByEmail also gained a
+try/catch it was missing entirely."
+
+Verified true, narrowly:
+- oauth-clients/route.ts's callGotrueAdmin(): raw fetch() to
+  `${SUPABASE_URL}/auth/v1/admin/oauth/clients${path}` now passes
+  `signal: AbortSignal.timeout(GOTRUE_ADMIN_TIMEOUT_MS)` (10_000ms);
+  catch block distinguishes TimeoutError with a clearer message. Real.
+- platform-admins/route.ts's findUserByEmail(): raw fetch() to
+  `${SUPABASE_URL}/auth/v1/admin/users?filter=...` now has the same
+  AbortSignal.timeout, AND is now wrapped in a try/catch it genuinely
+  lacked before (confirmed against the pre-commit version: the fetch call
+  was unguarded, `if (!response.ok) return null` was the only handling —
+  a network failure/DNS error would have thrown uncaught). Real, and this
+  specific fix (the missing try/catch) is a genuine correctness fix
+  independent of the timeout, not just cosmetic.
+
+Gap-hunting (per this run's brief: "every GoTrue admin API call" — is
+that literally true?):
+
+grep for fetch()/admin API calls across apps/auth-server and
+apps/admin-panel found 4 backend route files touching GoTrue's admin
+surface: oauth-clients/route.ts, platform-admins/route.ts,
+organization-members/route.ts, and (again) platform-admins/route.ts's
+own second call site.
+
+organization-members/route.ts:51-74 and platform-admins/route.ts:73-97
+both define a `resolveEmails()` helper that pages through GoTrue's admin
+user list via `admin.auth.admin.listUsers({ page, perPage })` — this goes
+through the Supabase JS SDK's built-in admin client
+(`createSupabaseAdminClient()` in apps/auth-server/lib/supabase-admin.ts,
+just `createClient(url, serviceRoleKey, {...})` with no custom `fetch`
+override), NOT the raw `fetch()` calls this commit patched. Read
+supabase-admin.ts in full: no timeout, no AbortSignal, no custom fetch
+implementation configured anywhere on that client. The SDK's internal
+GoTrueAdminApi does not apply any timeout of its own by default.
+
+Consequence: resolveEmails()'s listUsers() calls in BOTH
+organization-members/route.ts (backs admin-panel's Users list, the exact
+page this run's REL-FE-001 fix touches) and platform-admins/route.ts
+(backs the Platform Admins list) remain completely unbounded. A hung/
+unreachable GoTrue instance would still hang these two route handlers
+indefinitely — the same failure mode REL-BE-001 was raised to close,
+un-closed for what are likely the two most frequently-hit admin-panel
+list pages (both are plain GET list endpoints loaded on every page visit,
+versus findUserByEmail which only runs on the POST-by-email admin-grant
+action and oauth-clients' admin calls which are lower-traffic CRUD).
+
+Verdict: REL-BE-001 stays OPEN (not VERIFIED). The commit's claim of
+"every GoTrue admin API call" is not accurate — 2 raw fetch() call sites
+are genuinely fixed, but 2 SDK-mediated call sites (resolveEmails() in
+organization-members and platform-admins) were missed entirely and remain
+unbounded. Still WARNING severity (a hang, not data loss or an auth
+bypass), but the finding's scope needs to be corrected, not closed.

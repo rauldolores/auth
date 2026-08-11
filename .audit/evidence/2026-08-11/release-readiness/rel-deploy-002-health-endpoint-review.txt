@@ -1,0 +1,49 @@
+REL-DEPLOY-002 re-verification (second same-day release-readiness run)
+========================================================================
+
+Claim: GET /api/health added to both apps/auth-server and
+apps/admin-panel, returning {status:"ok"} (200), dependency-free (no DB
+check).
+
+Code read, both routes identical:
+  export async function GET() {
+    return NextResponse.json({ status: "ok" });
+  }
+No Supabase/DB call, no other dependency — genuinely a pure liveness
+check, matches the claim and the stated rationale (a Supabase outage
+shouldn't make an orchestrator kill an otherwise-healthy app process).
+
+Gap-hunting (per this run's brief: would Next.js's own middleware/auth
+gate intercept these despite the matcher exclusion?):
+
+apps/auth-server/middleware.ts:
+  export const config = { matcher: ["/((?!_next/static|_next/image|favicon.ico|api).*)"] };
+  The negative lookahead explicitly excludes the entire `/api` prefix —
+  `/api/health` is categorically outside this middleware's matcher, so
+  createAuthMiddleware() never runs for it. Confirmed by reading the
+  matcher regex directly, not inferred.
+
+apps/admin-panel: `find apps/admin-panel -maxdepth 1 -iname "middleware*"`
+returns nothing — there is no middleware.ts source file in admin-panel at
+all (only stale .next/ build artifacts from a prior build referencing a
+middleware manifest, which is normal Next.js output even for a
+middleware-less app — Next always emits a middleware-manifest.json,
+empty or not). admin-panel's auth gating happens client/component-side
+via dashboard-shell.tsx (confirmed by grep for AuthGuard/requireAuth
+usage — the only match in admin-panel is dashboard-shell.tsx), which
+wraps the React tree, not API route handlers — route handlers under
+app/api/ are never touched by it. So admin-panel's /api/health is not
+interceptable by any auth gate that exists in this app.
+
+Automated verification: apps/auth-server/app/api/__tests__/health.test.ts
+(added by this commit) imports the real route module and calls GET()
+directly, asserting status 200 and the exact JSON body — this test ran
+fresh in this session's independent `pnpm turbo run test --force` and
+passed (part of the 96 auth-server tests, up from 95 pre-commit).
+admin-panel has no equivalent test file for its health route (identical
+3-line handler, copy-pasted) — a minor test-coverage-parity gap, not
+worth its own finding given the route's triviality and that the exact
+same code is already tested via auth-server's copy.
+
+Verdict: REL-DEPLOY-002 VERIFIED. No middleware-interception gap in
+either app; both routes are genuinely dependency-free.

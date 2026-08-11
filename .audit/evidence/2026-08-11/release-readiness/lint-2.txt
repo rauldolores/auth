@@ -1,0 +1,126 @@
+• turbo 2.10.8
+
+   • Packages in scope: @kontrolia/admin-panel, @kontrolia/auth, @kontrolia/auth-server, @kontrolia/config, @kontrolia/db, @kontrolia/documentation, @kontrolia/example-express, @kontrolia/example-nestjs, @kontrolia/example-nextjs, @kontrolia/example-react, @kontrolia/next, @kontrolia/permissions, @kontrolia/playground, @kontrolia/react, @kontrolia/shared, @kontrolia/ui, create-kontrolia-auth
+   • Running lint in 17 packages
+   • Remote caching disabled
+
+@kontrolia/db:build: cache bypass, force executing d8a97993d76a36b0
+@kontrolia/documentation:lint: cache bypass, force executing fbd1d30a019a3fe4
+@kontrolia/shared:build: cache bypass, force executing 9496b73c06b8c8d0
+@kontrolia/shared:lint: cache bypass, force executing a0a1a69432d47494
+@kontrolia/db:lint: cache bypass, force executing 4108c58dce935cca
+@kontrolia/db:build: 
+@kontrolia/db:build: > @kontrolia/db@2.1.0 build C:\Codigo\KONTROLIA\auth\packages\db
+@kontrolia/db:build: > tsc -p tsconfig.json
+@kontrolia/db:build: 
+@kontrolia/documentation:lint: 
+@kontrolia/documentation:lint: > @kontrolia/documentation@0.1.0 lint C:\Codigo\KONTROLIA\auth\apps\documentation
+@kontrolia/documentation:lint: > eslint .
+@kontrolia/documentation:lint: 
+@kontrolia/shared:build: 
+@kontrolia/shared:build: > @kontrolia/shared@1.1.0 build C:\Codigo\KONTROLIA\auth\packages\shared
+@kontrolia/shared:build: > tsc -p tsconfig.json
+@kontrolia/shared:build: 
+@kontrolia/shared:lint: 
+@kontrolia/shared:lint: > @kontrolia/shared@1.1.0 lint C:\Codigo\KONTROLIA\auth\packages\shared
+@kontrolia/shared:lint: > eslint .
+@kontrolia/shared:lint: 
+@kontrolia/db:lint: 
+@kontrolia/db:lint: > @kontrolia/db@2.1.0 lint C:\Codigo\KONTROLIA\auth\packages\db
+@kontrolia/db:lint: > eslint .
+@kontrolia/db:lint: 
+@kontrolia/permissions:lint: cache bypass, force executing 7dae319a6044d7a7
+@kontrolia/permissions:build: cache bypass, force executing 8164f408e402e222
+create-kontrolia-auth:lint: cache bypass, force executing e4f1e934b4c12c81
+@kontrolia/permissions:lint: 
+@kontrolia/permissions:lint: > @kontrolia/permissions@1.0.1 lint C:\Codigo\KONTROLIA\auth\packages\permissions
+@kontrolia/permissions:lint: > eslint .
+@kontrolia/permissions:lint: 
+@kontrolia/permissions:build: 
+@kontrolia/permissions:build: > @kontrolia/permissions@1.0.1 build C:\Codigo\KONTROLIA\auth\packages\permissions
+@kontrolia/permissions:build: > tsc -p tsconfig.json
+@kontrolia/permissions:build: 
+create-kontrolia-auth:lint: 
+create-kontrolia-auth:lint: > create-kontrolia-auth@2.4.2 lint C:\Codigo\KONTROLIA\auth\packages\cli
+create-kontrolia-auth:lint: > eslint .
+create-kontrolia-auth:lint: 
+@kontrolia/auth:lint: cache bypass, force executing 10a612ae94515064
+@kontrolia/auth:build: cache bypass, force executing 89f8f82d0284907b
+@kontrolia/auth:lint: 
+@kontrolia/auth:lint: > @kontrolia/auth@2.0.0 lint C:\Codigo\KONTROLIA\auth\packages\auth-sdk
+@kontrolia/auth:lint: > eslint .
+@kontrolia/auth:lint: 
+@kontrolia/auth:build: 
+@kontrolia/auth:build: > @kontrolia/auth@2.0.0 build C:\Codigo\KONTROLIA\auth\packages\auth-sdk
+@kontrolia/auth:build: > tsc -p tsconfig.json
+@kontrolia/auth:build: 
+@kontrolia/next:build: cache bypass, force executing fd9deb7ab0a6ef5a
+@kontrolia/example-nestjs:lint: cache bypass, force executing 14aabf9b0f466466
+@kontrolia/example-express:lint: cache bypass, force executing 4663c708a99fce8c
+@kontrolia/react:lint: cache bypass, force executing b08ce0d7212a889d
+@kontrolia/next:lint: cache bypass, force executing 42be0c535a3bac42
+@kontrolia/react:build: cache bypass, force executing 007d1a217cd86835
+@kontrolia/next:build: 
+@kontrolia/next:build: > @kontrolia/next@1.1.2 build C:\Codigo\KONTROLIA\auth\packages\next-sdk
+@kontrolia/next:build: > tsc -p tsconfig.json
+@kontrolia/next:build: 
+@kontrolia/example-nestjs:lint: 
+@kontrolia/example-nestjs:lint: > @kontrolia/example-nestjs@0.1.0 lint C:\Codigo\KONTROLIA\auth\examples\nestjs
+@kontrolia/example-nestjs:lint: > eslint .
+@kontrolia/example-nestjs:lint: 
+@kontrolia/example-express:lint: 
+@kontrolia/example-express:lint: > @kontrolia/example-express@0.1.0 lint C:\Codigo\KONTROLIA\auth\examples\express
+@kontrolia/example-express:lint: > eslint .
+@kontrolia/example-express:lint: 
+@kontrolia/react:lint: 
+@kontrolia/react:lint: > @kontrolia/react@1.2.1 lint C:\Codigo\KONTROLIA\auth\packages\react-sdk
+@kontrolia/react:lint: > eslint .
+@kontrolia/react:lint: 
+@kontrolia/next:lint: 
+@kontrolia/next:lint: > @kontrolia/next@1.1.2 lint C:\Codigo\KONTROLIA\auth\packages\next-sdk
+@kontrolia/next:lint: > eslint .
+@kontrolia/next:lint: 
+@kontrolia/react:build: 
+@kontrolia/react:build: > @kontrolia/react@1.2.1 build C:\Codigo\KONTROLIA\auth\packages\react-sdk
+@kontrolia/react:build: > tsc -p tsconfig.json
+@kontrolia/react:build: 
+@kontrolia/ui:build: cache bypass, force executing 60cc20af4c47fdf5
+@kontrolia/example-react:lint: cache bypass, force executing 4f5349fe66b1f701
+@kontrolia/ui:lint: cache bypass, force executing a8190bb7fd3dbc09
+@kontrolia/playground:lint: cache bypass, force executing 38cf9bac85ade2fb
+@kontrolia/example-nextjs:lint: cache bypass, force executing 6f3ef8bff12fd5c3
+@kontrolia/ui:build: 
+@kontrolia/ui:build: > @kontrolia/ui@1.0.3 build C:\Codigo\KONTROLIA\auth\packages\ui
+@kontrolia/ui:build: > tsc -p tsconfig.json
+@kontrolia/ui:build: 
+@kontrolia/example-react:lint: 
+@kontrolia/example-react:lint: > @kontrolia/example-react@0.1.0 lint C:\Codigo\KONTROLIA\auth\examples\react
+@kontrolia/example-react:lint: > eslint .
+@kontrolia/example-react:lint: 
+@kontrolia/ui:lint: 
+@kontrolia/ui:lint: > @kontrolia/ui@1.0.3 lint C:\Codigo\KONTROLIA\auth\packages\ui
+@kontrolia/ui:lint: > eslint .
+@kontrolia/ui:lint: 
+@kontrolia/playground:lint: 
+@kontrolia/playground:lint: > @kontrolia/playground@0.1.0 lint C:\Codigo\KONTROLIA\auth\apps\playground
+@kontrolia/playground:lint: > eslint .
+@kontrolia/playground:lint: 
+@kontrolia/example-nextjs:lint: 
+@kontrolia/example-nextjs:lint: > @kontrolia/example-nextjs@0.1.0 lint C:\Codigo\KONTROLIA\auth\examples\nextjs
+@kontrolia/example-nextjs:lint: > eslint .
+@kontrolia/example-nextjs:lint: 
+@kontrolia/admin-panel:lint: cache bypass, force executing 9bdd164e230679cb
+@kontrolia/auth-server:lint: cache bypass, force executing 0c06132a35fcf2d8
+@kontrolia/admin-panel:lint: 
+@kontrolia/admin-panel:lint: > @kontrolia/admin-panel@0.1.0 lint C:\Codigo\KONTROLIA\auth\apps\admin-panel
+@kontrolia/admin-panel:lint: > eslint .
+@kontrolia/admin-panel:lint: 
+@kontrolia/auth-server:lint: 
+@kontrolia/auth-server:lint: > @kontrolia/auth-server@0.1.0 lint C:\Codigo\KONTROLIA\auth\apps\auth-server
+@kontrolia/auth-server:lint: > eslint .
+@kontrolia/auth-server:lint: 
+
+ Tasks:    23 successful, 23 total
+Cached:    0 cached, 23 total
+  Time:    41.666s 
+
