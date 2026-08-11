@@ -13,6 +13,7 @@ interface OrganizationRow {
 
 export default function OrganizationsPage() {
   const [organizations, setOrganizations] = useState<OrganizationRow[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const supabase = createKontroliaSchemaClient();
@@ -20,7 +21,13 @@ export default function OrganizationsPage() {
       .from("organizations")
       .select("id, name, slug, created_at")
       .order("created_at", { ascending: false })
-      .then(({ data }) => setOrganizations(data));
+      .then(({ data, error: fetchError }) => {
+        if (fetchError) {
+          setError(fetchError.message);
+          return;
+        }
+        setOrganizations(data);
+      });
   }, []);
 
   return (
@@ -29,7 +36,9 @@ export default function OrganizationsPage() {
         <h1 className="k-text-2xl k-font-bold">Organizaciones</h1>
         <p className="k-text-sm k-text-muted-foreground">Todas las organizaciones a las que perteneces.</p>
       </div>
+      {error && <p className="k-text-sm k-text-destructive">No se pudieron cargar las organizaciones: {error}</p>}
       <Card className="k-p-0">
+        <div className="k-overflow-x-auto">
         <table className="k-w-full k-text-sm">
           <thead>
             <tr className="k-border-b k-border-border k-text-left k-text-xs k-uppercase k-tracking-wide k-text-muted-foreground">
@@ -48,6 +57,7 @@ export default function OrganizationsPage() {
             ))}
           </tbody>
         </table>
+        </div>
         {organizations?.length === 0 && <p className="k-px-5 k-py-6 k-text-sm k-text-muted-foreground">Sin organizaciones todavía.</p>}
       </Card>
     </div>

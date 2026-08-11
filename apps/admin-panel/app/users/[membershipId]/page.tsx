@@ -44,15 +44,16 @@ export default function UserDetailPage() {
 
   async function loadMember(orgId: string) {
     const token = await getToken();
-    const response = await fetch(`${AUTH_SERVER_URL}/api/organization-members?organizationId=${orgId}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const response = await fetch(
+      `${AUTH_SERVER_URL}/api/organization-members?organizationId=${orgId}&membershipId=${membershipId}`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
     if (!response.ok) {
       setMember(null);
       return;
     }
     const data = (await response.json()) as { members: MemberRow[] };
-    setMember(data.members.find((m) => m.membershipId === membershipId) ?? null);
+    setMember(data.members[0] ?? null);
   }
 
   async function loadAppRoles(orgId: string) {
@@ -117,6 +118,7 @@ export default function UserDetailPage() {
 
   async function handleRemove() {
     if (!organization || !member) return;
+    if (!window.confirm(`¿Quitar a ${member.email} de ${organization.name}? Perderá acceso a la organización.`)) return;
     setError(null);
     setPending(true);
     try {

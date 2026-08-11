@@ -1,0 +1,22 @@
+Destructive-action confirmation audit — kontrolia-professional-review, 2026-08-10T23:30:00
+
+Every destructive/hard-to-reverse action found across apps/auth-server and apps/admin-panel,
+and whether it requires confirmation before firing:
+
+| Action                          | File:Line                                                     | Confirmation? |
+|----------------------------------|---------------------------------------------------------------|----------------|
+| Suspend member                  | admin-panel/app/users/page.tsx:109                            | YES (window.confirm, fixed in plan-compliance round 3) |
+| Suspend member (detail page)    | admin-panel/app/users/[membershipId]/page.tsx:92               | YES (same fix) |
+| Delete organization              | auth-server/app/page.tsx:135-224                               | YES (type-the-org-name-to-confirm — best pattern in the app, worth reusing elsewhere) |
+| Remove member                    | admin-panel/app/users/page.tsx & users/[membershipId]/page.tsx (handleRemoveMember, lines 135-165 / 139-169) | NO — PQ-UX-001 |
+| Revoke platform-admin            | admin-panel/app/platform-admins/page.tsx:64                    | NO — PQ-UX-002 |
+| Revoke invitation                | admin-panel/app/invitations/page.tsx:108                       | NO — PQ-UX-003 |
+| Disable application               | admin-panel/app/applications/page.tsx:87                       | NO — PQ-UX-004 |
+| Remove MFA factor                | auth-server/app/security/page.tsx:95                           | NO — PQ-UX-005 |
+| Revoke device                     | auth-server/app/devices/page.tsx:37                             | NO — PQ-UX-006 |
+
+Conclusion: the plan-compliance audit's confirmation fix (commit 4579870) closed exactly one of
+nine destructive actions across the two apps. Six of the remaining eight still fire immediately
+with zero confirmation step (see PQ-UX-001 through PQ-UX-006 in .audit/review/issues.json).
+Delete-organization is the one other action that was already done correctly, and is the
+recommended template (type-to-confirm for the highest-blast-radius action, plain confirm for the rest).

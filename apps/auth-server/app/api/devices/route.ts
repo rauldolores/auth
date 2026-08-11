@@ -1,4 +1,5 @@
 import { decodeAccessToken } from "@kontrolia/auth";
+import { logError } from "@/lib/logger";
 import { createRouteHandlerSupabaseClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
 
@@ -19,7 +20,10 @@ export async function GET() {
     .select("session_id, label, ip, last_seen_at, created_at")
     .order("last_seen_at", { ascending: false });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    logError("GET /api/devices", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 
   return NextResponse.json({ devices: data, currentSessionId });
 }

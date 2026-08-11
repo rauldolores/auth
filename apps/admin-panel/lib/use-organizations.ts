@@ -13,16 +13,24 @@ import { createKontroliaSchemaClient } from "./supabase-browser";
 export function useOrganizations(isAuthenticated: boolean) {
   const [organizations, setOrganizations] = useState<OrgOption[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     if (!isAuthenticated) {
       setOrganizations([]);
+      setError(null);
       setIsLoading(false);
       return;
     }
     setIsLoading(true);
     const supabase = createKontroliaSchemaClient();
-    const { data } = await supabase.from("organizations").select("id, name").order("name");
+    const { data, error: fetchError } = await supabase.from("organizations").select("id, name").order("name");
+    if (fetchError) {
+      setError(fetchError.message);
+      setIsLoading(false);
+      return;
+    }
+    setError(null);
     setOrganizations(data ?? []);
     setIsLoading(false);
   }, [isAuthenticated]);
@@ -31,5 +39,5 @@ export function useOrganizations(isAuthenticated: boolean) {
     void reload();
   }, [reload]);
 
-  return { organizations, isLoading, reload };
+  return { organizations, isLoading, error, reload };
 }

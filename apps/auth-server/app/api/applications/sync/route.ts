@@ -1,5 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 import { hashApplicationApiKey } from "@kontrolia/db";
+import { logError } from "@/lib/logger";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { NextResponse } from "next/server";
 
@@ -60,7 +61,10 @@ export async function POST(request: Request) {
     .eq("slug", body.slug)
     .maybeSingle<{ id: string; api_key_hash: string | null }>();
 
-  if (lookupError) return NextResponse.json({ error: lookupError.message }, { status: 500 });
+  if (lookupError) {
+    logError("POST /api/applications/sync", lookupError, { slug: body.slug });
+    return NextResponse.json({ error: lookupError.message }, { status: 500 });
+  }
   if (!application) return NextResponse.json({ error: "Aplicación no encontrada" }, { status: 404 });
   if (!application.api_key_hash) {
     return NextResponse.json(
@@ -103,7 +107,10 @@ export async function POST(request: Request) {
         },
         { onConflict: "key" },
       );
-    if (upsertError) return NextResponse.json({ error: upsertError.message }, { status: 500 });
+    if (upsertError) {
+      logError("POST /api/applications/sync", upsertError, { slug: body.slug, permissionKey: key });
+      return NextResponse.json({ error: upsertError.message }, { status: 500 });
+    }
     permissionKeys.push(key);
   }
 

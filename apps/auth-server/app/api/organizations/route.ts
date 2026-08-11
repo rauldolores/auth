@@ -1,3 +1,4 @@
+import { logError } from "@/lib/logger";
 import { createRouteHandlerSupabaseClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
 
@@ -27,7 +28,10 @@ export async function GET() {
     .eq("status", "active")
     .returns<MembershipOrgRow[]>();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    logError("GET /api/organizations", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 
   return NextResponse.json({ organizations: data.map((row: MembershipOrgRow) => row.organization) });
 }
@@ -64,7 +68,10 @@ export async function POST(request: Request) {
     .eq("slug", body.slug)
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    logError("POST /api/organizations", error, { slug: body.slug });
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 
   return NextResponse.json({ organization: data }, { status: 201 });
 }

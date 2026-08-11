@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { logError } from "@/lib/logger";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { NextResponse } from "next/server";
 
@@ -39,14 +40,50 @@ function scopedClient(token: string) {
   });
 }
 
+const MEMBERS_PAGE_SIZE = 100;
+
+/**
+ * GoTrue's admin API has no "get users by id list" endpoint — the closest
+ * thing to a batch fetch is paging through listUsers() once and building a
+ * lookup map, instead of one getUserById() round-trip per member (which is
+ * what this used to do, N concurrent admin-API calls for N members).
+ */
+async function resolveEmails(
+  admin: ReturnType<typeof createSupabaseAdminClient>,
+  userIds: string[],
+): Promise<Map<string, string>> {
+  const emailById = new Map<string, string>();
+  const remaining = new Set(userIds);
+  const perPage = 200;
+  let page = 1;
+
+  while (remaining.size > 0) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage });
+    if (error || !data || data.users.length === 0) break;
+    for (const user of data.users) {
+      if (remaining.has(user.id)) {
+        emailById.set(user.id, user.email ?? "(desconocido)");
+        remaining.delete(user.id);
+      }
+    }
+    if (data.users.length < perPage) break;
+    page += 1;
+  }
+
+  return emailById;
+}
+
 export async function GET(request: Request) {
   const token = extractBearerToken(request);
   if (!token) return NextResponse.json({ error: "No autenticado" }, { status: 401, headers: corsHeaders() });
 
-  const organizationId = new URL(request.url).searchParams.get("organizationId");
+  const url = new URL(request.url);
+  const organizationId = url.searchParams.get("organizationId");
   if (!organizationId) {
     return NextResponse.json({ error: "organizationId es requerido" }, { status: 400, headers: corsHeaders() });
   }
+  const membershipId = url.searchParams.get("membershipId");
+  const offset = Number(url.searchParams.get("offset") ?? "0") || 0;
 
   interface RoleInfo {
     id: string;
@@ -66,34 +103,45 @@ export async function GET(request: Request) {
   // RLS on the caller's own token is the access check — this only ever
   // returns rows for an org the caller already belongs to.
   const caller = scopedClient(token);
-  const { data: memberships, error } = await caller
+  let query = caller
     .schema("kontrolia_auth")
     .from("memberships")
     .select(
       "id, user_id, status, created_at, membership_roles(role:roles(id, name, slug, application_id, application:applications(name)))",
     )
     .eq("organization_id", organizationId)
-    .returns<MembershipWithRoles[]>();
+    .order("created_at", { ascending: false });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500, headers: corsHeaders() });
+  // A single membershipId lookup (the user-detail page) skips pagination
+  // entirely rather than paying the cost of fetching a whole page to find
+  // one row.
+  query = membershipId
+    ? query.eq("id", membershipId)
+    : query.range(offset, offset + MEMBERS_PAGE_SIZE - 1);
+
+  const { data: memberships, error } = await query.returns<MembershipWithRoles[]>();
+
+  if (error) {
+    logError("GET /api/organization-members", error, { organizationId });
+    return NextResponse.json({ error: error.message }, { status: 500, headers: corsHeaders() });
+  }
 
   const admin = createSupabaseAdminClient();
-  const members = await Promise.all(
-    (memberships ?? []).map(async (row) => {
-      const { data: user } = await admin.auth.admin.getUserById(row.user_id);
-      const roles = row.membership_roles.map((mr) => mr.role).filter((role): role is RoleInfo => role !== null);
-      return {
-        membershipId: row.id,
-        userId: row.user_id,
-        email: user.user?.email ?? "(desconocido)",
-        status: row.status,
-        createdAt: row.created_at,
-        roles,
-      };
-    }),
-  );
+  const emailById = await resolveEmails(admin, (memberships ?? []).map((row) => row.user_id));
+  const members = (memberships ?? []).map((row) => {
+    const roles = row.membership_roles.map((mr) => mr.role).filter((role): role is RoleInfo => role !== null);
+    return {
+      membershipId: row.id,
+      userId: row.user_id,
+      email: emailById.get(row.user_id) ?? "(desconocido)",
+      status: row.status,
+      createdAt: row.created_at,
+      roles,
+    };
+  });
 
-  return NextResponse.json({ members }, { headers: corsHeaders() });
+  const hasMore = !membershipId && members.length === MEMBERS_PAGE_SIZE;
+  return NextResponse.json({ members, hasMore }, { headers: corsHeaders() });
 }
 
 type ScopedClient = ReturnType<typeof scopedClient>;
@@ -176,7 +224,10 @@ export async function PATCH(request: Request) {
     .from("memberships")
     .update({ status: body.status })
     .eq("id", membershipId);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500, headers: corsHeaders() });
+  if (error) {
+    logError("PATCH /api/organization-members", error, { membershipId });
+    return NextResponse.json({ error: error.message }, { status: 500, headers: corsHeaders() });
+  }
 
   return new NextResponse(null, { status: 204, headers: corsHeaders() });
 }
@@ -204,7 +255,10 @@ export async function DELETE(request: Request) {
   }
 
   const { error } = await caller.schema("kontrolia_auth").from("memberships").delete().eq("id", membershipId);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500, headers: corsHeaders() });
+  if (error) {
+    logError("DELETE /api/organization-members", error, { membershipId });
+    return NextResponse.json({ error: error.message }, { status: 500, headers: corsHeaders() });
+  }
 
   return new NextResponse(null, { status: 204, headers: corsHeaders() });
 }

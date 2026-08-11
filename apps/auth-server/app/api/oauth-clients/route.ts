@@ -1,4 +1,5 @@
 import { verifyRequest } from "@kontrolia/auth/server";
+import { logError } from "@/lib/logger";
 import { NextResponse } from "next/server";
 
 /**
@@ -75,6 +76,7 @@ async function callGotrueAdmin(path: string, init?: RequestInit): Promise<{ stat
     const data = await response.json().catch(() => ({}));
     return { status: response.status, body: response.ok ? data : normalizeGotrueError(data) };
   } catch (error) {
+    logError("oauth-clients:callGotrueAdmin", error, { path });
     return { status: 502, body: { error: `No se pudo contactar a Supabase: ${(error as Error).message}` } };
   }
 }

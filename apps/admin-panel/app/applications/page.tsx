@@ -84,8 +84,15 @@ export default function ApplicationsPage() {
     }
   }
 
-  async function handleDisable(applicationId: string) {
+  async function handleDisable(applicationId: string, applicationName: string) {
     if (!organization) return;
+    if (
+      !window.confirm(
+        `¿Deshabilitar "${applicationName}" para ${organization.name}? Quien inicie sesión con esa app dejará de poder acceder.`,
+      )
+    ) {
+      return;
+    }
     setError(null);
     setPendingId(applicationId);
     try {
@@ -146,6 +153,7 @@ export default function ApplicationsPage() {
       <div>
         <h2 className="k-mb-2 k-text-sm k-font-semibold">Habilitadas</h2>
         <Card className="k-p-0">
+          <div className="k-overflow-x-auto">
           <table className="k-w-full k-text-sm">
             <thead>
               <tr className="k-border-b k-border-border k-text-left k-text-xs k-uppercase k-tracking-wide k-text-muted-foreground">
@@ -225,7 +233,7 @@ export default function ApplicationsPage() {
                       <button
                         type="button"
                         disabled={pendingId === app.id}
-                        onClick={() => void handleDisable(app.id)}
+                        onClick={() => void handleDisable(app.id, app.name)}
                         className="k-text-sm k-text-destructive hover:k-underline disabled:k-opacity-60"
                       >
                         Deshabilitar
@@ -236,6 +244,7 @@ export default function ApplicationsPage() {
               ))}
             </tbody>
           </table>
+          </div>
           {enabled?.length === 0 && (
             <p className="k-px-5 k-py-6 k-text-sm k-text-muted-foreground">Sin aplicaciones habilitadas para esta organización.</p>
           )}
@@ -246,6 +255,7 @@ export default function ApplicationsPage() {
         <div>
           <h2 className="k-mb-2 k-text-sm k-font-semibold">Disponibles para habilitar</h2>
           <Card className="k-p-0">
+            <div className="k-overflow-x-auto">
             <table className="k-w-full k-text-sm">
               <thead>
                 <tr className="k-border-b k-border-border k-text-left k-text-xs k-uppercase k-tracking-wide k-text-muted-foreground">
@@ -279,6 +289,7 @@ export default function ApplicationsPage() {
                 ))}
               </tbody>
             </table>
+            </div>
           </Card>
         </div>
       )}

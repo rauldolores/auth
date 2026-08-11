@@ -19,29 +19,57 @@ const ACTION_LABELS: Record<string, string> = {
   "organization.created": "Organización creada",
   "membership.created": "Miembro agregado",
   "membership.removed": "Miembro eliminado",
+  "membership.status_changed": "Estado de miembro cambiado",
   "invitation.created": "Invitación enviada",
   "invitation.accepted": "Invitación aceptada",
+  "invitation.revoked": "Invitación revocada",
+  "invitation.resent": "Invitación reenviada",
   "role.assigned": "Rol asignado",
   "role.unassigned": "Rol removido",
   "device.revoked": "Sesión revocada",
 };
 
+const PAGE_SIZE = 50;
+
 export default function AuditLogsPage() {
   const { organization } = useAuth();
   const [logs, setLogs] = useState<AuditLogRow[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
-  useEffect(() => {
+  async function loadPage(offset: number) {
     if (!organization) return;
     const supabase = createKontroliaSchemaClient();
-    supabase
+    const { data, error: fetchError } = await supabase
       .from("audit_logs")
       .select("id, actor_user_id, action, target_type, target_id, metadata, created_at")
       .eq("organization_id", organization.id)
       .order("created_at", { ascending: false })
-      .limit(200)
-      .returns<AuditLogRow[]>()
-      .then(({ data }) => setLogs(data ?? []));
+      .range(offset, offset + PAGE_SIZE - 1)
+      .returns<AuditLogRow[]>();
+
+    if (fetchError) {
+      setError(fetchError.message);
+      return;
+    }
+    setError(null);
+    const page = data ?? [];
+    setLogs((current) => (offset === 0 ? page : [...current, ...page]));
+    setHasMore(page.length === PAGE_SIZE);
+  }
+
+  useEffect(() => {
+    setLogs([]);
+    void loadPage(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organization?.id]);
+
+  async function handleLoadMore() {
+    setLoadingMore(true);
+    await loadPage(logs.length);
+    setLoadingMore(false);
+  }
 
   if (!organization) {
     return <p className="k-text-sm k-text-muted-foreground">Selecciona una organización primero.</p>;
@@ -53,7 +81,9 @@ export default function AuditLogsPage() {
         <h1 className="k-text-2xl k-font-bold">Audit log</h1>
         <p className="k-text-sm k-text-muted-foreground">Actividad reciente en {organization.name}.</p>
       </div>
+      {error && <p className="k-text-sm k-text-destructive">No se pudo cargar el audit log: {error}</p>}
       <Card className="k-p-0">
+        <div className="k-overflow-x-auto">
         <table className="k-w-full k-text-sm">
           <thead>
             <tr className="k-border-b k-border-border k-text-left k-text-xs k-uppercase k-tracking-wide k-text-muted-foreground">
@@ -78,7 +108,22 @@ export default function AuditLogsPage() {
             ))}
           </tbody>
         </table>
-        {logs.length === 0 && <p className="k-px-5 k-py-6 k-text-sm k-text-muted-foreground">Sin actividad registrada todavía.</p>}
+        </div>
+        {logs.length === 0 && !error && (
+          <p className="k-px-5 k-py-6 k-text-sm k-text-muted-foreground">Sin actividad registrada todavía.</p>
+        )}
+        {hasMore && (
+          <div className="k-border-t k-border-border k-p-3 k-text-center">
+            <button
+              type="button"
+              disabled={loadingMore}
+              onClick={() => void handleLoadMore()}
+              className="k-text-sm k-text-muted-foreground hover:k-underline disabled:k-opacity-60"
+            >
+              {loadingMore ? "Cargando..." : "Cargar más"}
+            </button>
+          </div>
+        )}
       </Card>
     </div>
   );

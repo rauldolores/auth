@@ -1,4 +1,5 @@
 import { decodeAccessToken } from "@kontrolia/auth";
+import { logError } from "@/lib/logger";
 import { createRouteHandlerSupabaseClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
 
@@ -57,6 +58,9 @@ export async function POST(request: Request) {
       { onConflict: "session_id" },
     );
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    logError("POST /api/devices/touch", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
   return NextResponse.json({ ok: true });
 }

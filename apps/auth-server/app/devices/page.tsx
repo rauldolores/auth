@@ -34,7 +34,8 @@ export default function DevicesPage() {
     void load();
   }, []);
 
-  async function revoke(sessionId: string) {
+  async function revoke(sessionId: string, label: string) {
+    if (!window.confirm(`¿Cerrar la sesión de "${label}"? Esa sesión perderá el acceso de inmediato.`)) return;
     setRevokingId(sessionId);
     setError(null);
     try {
@@ -82,7 +83,7 @@ export default function DevicesPage() {
                 {!isCurrent && (
                   <button
                     type="button"
-                    onClick={() => void revoke(device.session_id)}
+                    onClick={() => void revoke(device.session_id, device.label)}
                     disabled={revokingId === device.session_id}
                     className="k-rounded-md k-border k-border-border k-px-3 k-py-1.5 k-text-sm hover:k-bg-muted disabled:k-opacity-60"
                   >

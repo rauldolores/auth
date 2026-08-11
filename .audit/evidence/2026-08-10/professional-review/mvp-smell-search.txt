@@ -1,0 +1,48 @@
+MVP smells checklist — grep sweep run during kontrolia-professional-review, 2026-08-10T23:30:00
+Excludes: node_modules, dist, .next, .turbo
+
+--- TODO|FIXME|XXX|HACK ---
+apps/auth-server/app/api/invitations/route.ts:33:  // TODO(v1.5): send the invitation email via the configured provider.
+(only hit repo-wide; already disclosed and tracked as REQ-006 scope decision in QUALITY_REPORT.md's Plan Compliance section)
+
+--- lorem ipsum | coming soon | placeholder text | dummy data | mock data | fake data ---
+(no hits anywhere in apps/, packages/, examples/)
+
+--- console.log (outside dev-only/CLI/example-boot-log paths) ---
+packages/db/src/migrate.ts:48       — gated behind `if (verbose)`, intentional CLI output
+packages/db/src/cli.ts:15           — intentional CLI success message
+examples/nestjs/src/main.ts:10      — intentional "server listening" boot log, example app
+examples/express/src/index.ts:32    — intentional "server listening" boot log, example app
+apps/documentation/app/docs/guides/application-registration/page.tsx:55 — inside a documentation code-sample string, not executed app code
+(zero hits in apps/auth-server, apps/admin-panel API/route code, or any of the six SDK packages)
+
+--- empty catch blocks: catch\s*\([^)]*\)\s*\{\}  ---
+(no hits repo-wide)
+
+--- : any\b | as any\b  ---
+(no hits in any .ts/.tsx across apps/ or packages/*/src)
+
+--- Tailwind responsive breakpoint variants: sm:|md:|lg:  ---
+(zero hits across apps/auth-server, apps/admin-panel, packages/ui — see PQ-UI-001)
+
+--- window.confirm( ---
+apps/admin-panel/app/users/page.tsx:109              — suspend-member (fixed by plan-compliance round 3, commit 4579870)
+apps/admin-panel/app/users/[membershipId]/page.tsx:92 — suspend-member (same fix)
+(exactly two hits — confirms the confirmation pattern was applied to suspend only, not to remove-member/revoke-invitation/
+revoke-platform-admin/disable-application/remove-MFA-factor/revoke-device — see PQ-UX-001 through PQ-UX-006)
+
+--- err instanceof Error ? err.message : ... (duplication check) ---
+31 occurrences across apps/admin-panel/app/{applications,invitations,users,users/[membershipId],roles,roles/[roleId],audit-logs}/page.tsx
+and further apps/auth-server/app pages — see PQ-MAINT-003
+
+--- test files: *.test.* / *.spec.* ---
+packages/permissions/src/__tests__/match.test.ts   (only hit — 5 real assertions: exact match, mismatch, single-segment
+                                                     wildcard, deep wildcard, length-mismatch edge case)
+(zero test files anywhere else in the monorepo — apps/auth-server, apps/admin-panel, packages/db, packages/auth-sdk,
+packages/react-sdk, packages/next-sdk, packages/cli, packages/ui all have none — see PQ-TECH-001)
+
+--- console.error|log|warn in apps/auth-server or apps/admin-panel API/route code ---
+(zero hits — no server-side logging/error-tracking of any kind — see PQ-TECH-002)
+
+--- Sentry|Datadog|Bugsnag|Rollbar|OpenTelemetry ---
+(zero hits repo-wide)

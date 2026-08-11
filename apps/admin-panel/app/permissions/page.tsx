@@ -53,6 +53,7 @@ export default function PermissionsPage() {
         <div key={group.id} className="k-flex k-flex-col k-gap-2">
           <h2 className="k-text-sm k-font-semibold">{group.name}</h2>
           <Card className="k-p-0">
+            <div className="k-overflow-x-auto">
             <table className="k-w-full k-text-sm">
               <thead>
                 <tr className="k-border-b k-border-border k-text-left k-text-xs k-uppercase k-tracking-wide k-text-muted-foreground">
@@ -73,6 +74,7 @@ export default function PermissionsPage() {
                 ))}
               </tbody>
             </table>
+            </div>
           </Card>
         </div>
       ))}

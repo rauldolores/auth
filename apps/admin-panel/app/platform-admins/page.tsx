@@ -19,6 +19,7 @@ export default function PlatformAdminsPage() {
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [revokingId, setRevokingId] = useState<string | null>(null);
 
   async function loadAdmins() {
     const token = await getToken();
@@ -61,11 +62,13 @@ export default function PlatformAdminsPage() {
     }
   }
 
-  async function handleRevoke(userId: string) {
+  async function handleRevoke(admin: PlatformAdminRow) {
+    if (!window.confirm(`¿Quitar el rol de platform admin a ${admin.email}?`)) return;
     setError(null);
+    setRevokingId(admin.userId);
     try {
       const token = await getToken();
-      const response = await fetch(`${AUTH_SERVER_URL}/api/platform-admins?userId=${userId}`, {
+      const response = await fetch(`${AUTH_SERVER_URL}/api/platform-admins?userId=${admin.userId}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -76,6 +79,8 @@ export default function PlatformAdminsPage() {
       await loadAdmins();
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo quitar.");
+    } finally {
+      setRevokingId(null);
     }
   }
 
@@ -128,6 +133,7 @@ export default function PlatformAdminsPage() {
       </Card>
 
       <Card className="k-p-0">
+        <div className="k-overflow-x-auto">
         <table className="k-w-full k-text-sm">
           <thead>
             <tr className="k-border-b k-border-border k-text-left k-text-xs k-uppercase k-tracking-wide k-text-muted-foreground">
@@ -146,8 +152,9 @@ export default function PlatformAdminsPage() {
                 <td className="k-px-5 k-py-3 k-text-right">
                   <button
                     type="button"
-                    onClick={() => void handleRevoke(row.userId)}
-                    className="k-text-sm k-text-destructive hover:k-underline"
+                    disabled={revokingId === row.userId}
+                    onClick={() => void handleRevoke(row)}
+                    className="k-text-sm k-text-destructive hover:k-underline disabled:k-opacity-60"
                   >
                     Quitar
                   </button>
@@ -156,6 +163,7 @@ export default function PlatformAdminsPage() {
             ))}
           </tbody>
         </table>
+        </div>
       </Card>
     </div>
   );

@@ -206,6 +206,7 @@ export default function RolesPage() {
       <div className="k-flex k-flex-col k-gap-2">
         <h2 className="k-text-sm k-font-semibold">General</h2>
         <Card className="k-p-0">
+          <div className="k-overflow-x-auto">
           <table className="k-w-full k-text-sm">
             <thead>
               <tr className="k-border-b k-border-border k-text-left k-text-xs k-uppercase k-tracking-wide k-text-muted-foreground">
@@ -216,6 +217,7 @@ export default function RolesPage() {
             </thead>
             <tbody>{generalRoles.map(roleRow)}</tbody>
           </table>
+          </div>
         </Card>
       </div>
 
@@ -223,6 +225,7 @@ export default function RolesPage() {
         <div key={group.applicationId} className="k-flex k-flex-col k-gap-2">
           <h2 className="k-text-sm k-font-semibold">{group.applicationName}</h2>
           <Card className="k-p-0">
+            <div className="k-overflow-x-auto">
             <table className="k-w-full k-text-sm">
               <thead>
                 <tr className="k-border-b k-border-border k-text-left k-text-xs k-uppercase k-tracking-wide k-text-muted-foreground">
@@ -233,6 +236,7 @@ export default function RolesPage() {
               </thead>
               <tbody>{group.roles.map(roleRow)}</tbody>
             </table>
+            </div>
           </Card>
         </div>
       ))}

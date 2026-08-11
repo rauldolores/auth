@@ -114,6 +114,22 @@ function IconStar({ className }: IconProps) {
   );
 }
 
+function IconMenu({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" className={className} aria-hidden="true">
+      <path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconClose({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" className={className} aria-hidden="true">
+      <path d="M3 3l10 10M13 3 3 13" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 interface NavItem {
   href: string;
   label: string;
@@ -163,10 +179,17 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     isPlatformAdmin,
     hasRole,
   } = useAuth();
-  const { organizations, isLoading: orgsLoading, reload } = useOrganizations(isAuthenticated);
+  const { organizations, isLoading: orgsLoading, error: orgsError, reload } = useOrganizations(isAuthenticated);
   const pathname = usePathname();
   const [platformAdmin, setPlatformAdmin] = useState(false);
   const [platformAdminChecked, setPlatformAdminChecked] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  // Collapse the mobile nav overlay whenever the route changes — otherwise a
+  // link tap would leave the overlay covering the newly-navigated page.
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [pathname]);
 
   // Only visible to platform admins — registering an OAuth client affects
   // every organization, not just the active one. The page itself checks
@@ -268,18 +291,39 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         <p className="k-p-8 k-text-sm k-text-muted-foreground">Cargando...</p>
       ) : (
         <div className="k-flex k-min-h-screen k-bg-background">
+          {canAccessAdmin && mobileNavOpen && (
+            <div
+              className="k-fixed k-inset-0 k-z-30 k-bg-black/50 md:k-hidden"
+              onClick={() => setMobileNavOpen(false)}
+              aria-hidden="true"
+            />
+          )}
           {canAccessAdmin && (
-            <aside className="k-flex k-w-[220px] k-shrink-0 k-flex-col k-bg-sidebar k-p-3">
-              <div className="k-mb-6 k-flex k-items-center k-gap-2.5 k-px-2 k-pt-2">
-                <div className="k-flex k-h-8 k-w-8 k-shrink-0 k-items-center k-justify-center k-rounded-lg k-bg-gradient-to-br k-from-primary k-to-[#4c2a8c] k-text-sm k-font-extrabold k-text-white">
-                  K
+            <aside
+              className={`k-fixed k-inset-y-0 k-left-0 k-z-40 k-w-[220px] k-shrink-0 k-flex-col k-bg-sidebar k-p-3 md:k-static md:k-flex ${
+                mobileNavOpen ? "k-flex" : "k-hidden"
+              }`}
+            >
+              <div className="k-mb-6 k-flex k-items-center k-justify-between k-gap-2.5 k-px-2 k-pt-2">
+                <div className="k-flex k-items-center k-gap-2.5">
+                  <div className="k-flex k-h-8 k-w-8 k-shrink-0 k-items-center k-justify-center k-rounded-lg k-bg-gradient-to-br k-from-primary k-to-[#4c2a8c] k-text-sm k-font-extrabold k-text-white">
+                    K
+                  </div>
+                  <div className="k-leading-tight">
+                    <p className="k-text-sm k-font-extrabold k-text-sidebar-foreground">KontrolIA Auth</p>
+                    <p className="k-text-[10px] k-font-semibold k-uppercase k-tracking-wide k-text-sidebar-muted">
+                      Auth &amp; Access Platform
+                    </p>
+                  </div>
                 </div>
-                <div className="k-leading-tight">
-                  <p className="k-text-sm k-font-extrabold k-text-sidebar-foreground">KontrolIA Auth</p>
-                  <p className="k-text-[10px] k-font-semibold k-uppercase k-tracking-wide k-text-sidebar-muted">
-                    Auth &amp; Access Platform
-                  </p>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setMobileNavOpen(false)}
+                  className="k-rounded-md k-p-1.5 k-text-sidebar-foreground/80 hover:k-bg-white/5 md:k-hidden"
+                  aria-label="Cerrar menú"
+                >
+                  <IconClose className="k-h-4 k-w-4" />
+                </button>
               </div>
 
               <nav className="k-flex k-flex-1 k-flex-col k-gap-4 k-overflow-y-auto">
@@ -315,17 +359,29 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             </aside>
           )}
 
-          <div className="k-flex k-flex-1 k-flex-col">
-            <header className="k-flex k-items-center k-justify-between k-border-b k-border-border k-bg-card k-px-6 k-py-3">
-              {!orgsLoading && organizations.length > 0 ? (
-                <OrgSwitcher organizations={organizations} onSwitched={() => void reload()} />
-              ) : (
-                <span />
-              )}
+          <div className="k-flex k-min-w-0 k-flex-1 k-flex-col">
+            <header className="k-flex k-items-center k-justify-between k-gap-3 k-border-b k-border-border k-bg-card k-px-4 k-py-3 md:k-px-6">
+              <div className="k-flex k-items-center k-gap-3">
+                {canAccessAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => setMobileNavOpen(true)}
+                    className="k-rounded-md k-p-1.5 k-text-foreground hover:k-bg-muted md:k-hidden"
+                    aria-label="Abrir menú"
+                  >
+                    <IconMenu className="k-h-5 k-w-5" />
+                  </button>
+                )}
+                {!orgsLoading && organizations.length > 0 ? (
+                  <OrgSwitcher organizations={organizations} onSwitched={() => void reload()} />
+                ) : (
+                  <span />
+                )}
+              </div>
               <UserMenu />
             </header>
             {canAccessAdmin ? (
-              <main className="k-flex-1 k-p-8">
+              <main className="k-flex-1 k-p-4 md:k-p-8">
                 {organization && (
                   <p className="k-mb-5 k-text-xs k-font-semibold k-uppercase k-tracking-wide k-text-muted-foreground">
                     {organization.name}
@@ -335,11 +391,13 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               </main>
             ) : (
               <ForbiddenScreen
-                title="Sin acceso al panel"
+                title={orgsError ? "No se pudieron cargar tus organizaciones" : "Sin acceso al panel"}
                 description={
-                  organizations.length === 0
-                    ? "No perteneces a ninguna organización todavía."
-                    : `Tu rol en "${organization?.name ?? "esta organización"}" no da acceso al panel de administración — solo Owner y Admin pueden entrar. Si perteneces a otra organización donde sí tienes ese rol, cámbiate arriba.`
+                  orgsError
+                    ? `Hubo un problema al cargar tus organizaciones: ${orgsError}. Intenta recargar la página.`
+                    : organizations.length === 0
+                      ? "No perteneces a ninguna organización todavía."
+                      : `Tu rol en "${organization?.name ?? "esta organización"}" no da acceso al panel de administración — solo Owner y Admin pueden entrar. Si perteneces a otra organización donde sí tienes ese rol, cámbiate arriba.`
                 }
               />
             )}

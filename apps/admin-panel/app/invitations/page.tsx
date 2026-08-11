@@ -22,6 +22,7 @@ interface InvitationRow {
 }
 
 const AUTH_SERVER_URL = process.env.NEXT_PUBLIC_AUTH_SERVER_URL;
+const INVITATIONS_PAGE_SIZE = 50;
 
 function invitationLink(token: string): string {
   return `${AUTH_SERVER_URL}/invitations/accept?token=${token}`;
@@ -48,10 +49,11 @@ export default function InvitationsPage() {
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [lastInviteLink, setLastInviteLink] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
-  async function loadData(orgId: string) {
+  async function loadRoles(orgId: string) {
     const supabase = createKontroliaSchemaClient();
-
     const { data: roleRows } = await supabase
       .from("roles")
       .select("id, name, application:applications(name)")
@@ -60,14 +62,31 @@ export default function InvitationsPage() {
       .returns<RoleOption[]>();
     setRoles(roleRows ?? []);
     if (roleRows?.length && !roleId) setRoleId(roleRows[0]!.id);
+  }
 
+  async function loadInvitations(orgId: string, offset = 0, append = false) {
+    const supabase = createKontroliaSchemaClient();
     const { data: invitationRows } = await supabase
       .from("invitations")
       .select("id, email, token, created_at, expires_at, accepted_at, role:roles(name)")
       .eq("organization_id", orgId)
       .order("created_at", { ascending: false })
+      .range(offset, offset + INVITATIONS_PAGE_SIZE - 1)
       .returns<InvitationRow[]>();
-    setInvitations(invitationRows ?? []);
+    const page = invitationRows ?? [];
+    setInvitations((current) => (append ? [...current, ...page] : page));
+    setHasMore(page.length === INVITATIONS_PAGE_SIZE);
+  }
+
+  async function loadData(orgId: string) {
+    await Promise.all([loadRoles(orgId), loadInvitations(orgId)]);
+  }
+
+  async function handleLoadMore() {
+    if (!organization) return;
+    setLoadingMore(true);
+    await loadInvitations(organization.id, invitations.length, true);
+    setLoadingMore(false);
   }
 
   useEffect(() => {
@@ -107,6 +126,7 @@ export default function InvitationsPage() {
 
   async function handleRevoke(row: InvitationRow) {
     if (!organization) return;
+    if (!window.confirm(`¿Revocar la invitación a ${row.email}? El enlace dejará de funcionar.`)) return;
     setError(null);
     setPendingId(row.id);
     try {
@@ -220,6 +240,7 @@ export default function InvitationsPage() {
       )}
 
       <Card className="k-p-0">
+        <div className="k-overflow-x-auto">
         <table className="k-w-full k-text-sm">
           <thead>
             <tr className="k-border-b k-border-border k-text-left k-text-xs k-uppercase k-tracking-wide k-text-muted-foreground">
@@ -279,7 +300,20 @@ export default function InvitationsPage() {
             })}
           </tbody>
         </table>
+        </div>
         {invitations.length === 0 && <p className="k-px-5 k-py-6 k-text-sm k-text-muted-foreground">Sin invitaciones todavía.</p>}
+        {hasMore && (
+          <div className="k-border-t k-border-border k-p-3 k-text-center">
+            <button
+              type="button"
+              disabled={loadingMore}
+              onClick={() => void handleLoadMore()}
+              className="k-text-sm k-text-muted-foreground hover:k-underline disabled:k-opacity-60"
+            >
+              {loadingMore ? "Cargando..." : "Cargar más"}
+            </button>
+          </div>
+        )}
       </Card>
     </div>
   );

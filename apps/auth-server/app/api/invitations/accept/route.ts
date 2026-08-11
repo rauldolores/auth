@@ -1,3 +1,4 @@
+import { logError } from "@/lib/logger";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { createRouteHandlerSupabaseClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
@@ -97,7 +98,10 @@ export async function POST(request: Request) {
       .select("id")
       .single();
 
-    if (membershipError) return NextResponse.json({ error: membershipError.message }, { status: 500 });
+    if (membershipError) {
+      logError("POST /api/invitations/accept", membershipError, { organizationId: invitation.organization_id });
+      return NextResponse.json({ error: membershipError.message }, { status: 500 });
+    }
     membershipId = newMembership.id as string;
   }
 

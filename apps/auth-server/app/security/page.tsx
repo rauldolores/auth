@@ -58,6 +58,7 @@ export default function SecurityPage() {
   }
 
   async function removeFactor(factorId: string) {
+    if (!window.confirm("¿Eliminar este factor de verificación en dos pasos? Tu cuenta quedará menos protegida.")) return;
     setError(null);
     try {
       await unenrollMfa(factorId);

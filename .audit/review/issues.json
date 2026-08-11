@@ -1,0 +1,824 @@
+{
+  "generatedBy": "kontrolia-professional-review",
+  "issues": [
+    {
+      "id": "PQ-UX-001",
+      "category": "UX",
+      "description": "Remove-member action fires the delete mutation immediately on click — no confirmation dialog, unlike the (already-fixed) suspend-member flow on the same pages.",
+      "severity": "CRITICAL",
+      "lastAuditStatus": "CRITICAL",
+      "status": "OPEN",
+      "lastAudited": "2026-08-10T23:30:00",
+      "evidence": [
+        "apps/admin-panel/app/users/page.tsx:135-165 — handleRemoveMember has no confirm() or dialog before the DELETE call",
+        "apps/admin-panel/app/users/[membershipId]/page.tsx:139-169 — same handler, same gap"
+      ],
+      "verification": [
+        "Static code trace: onClick handler calls the removal fetch/mutation directly, no window.confirm/dialog wrapper found on either code path"
+      ],
+      "history": [
+        {
+          "date": "2026-08-10T23:30:00",
+          "auditStatus": "CRITICAL",
+          "remediationStatus": "OPEN",
+          "note": "One misclick removes a member from the organization with zero confirmation step, on the same page where suspend was already fixed to require one."
+        }
+      ]
+    },
+    {
+      "id": "PQ-UX-002",
+      "category": "UX",
+      "description": "Revoke-platform-admin action fires immediately on click with no confirmation dialog and no pending/in-flight state guard against double-submission.",
+      "severity": "CRITICAL",
+      "lastAuditStatus": "CRITICAL",
+      "status": "OPEN",
+      "lastAudited": "2026-08-10T23:30:00",
+      "evidence": [
+        "apps/admin-panel/app/platform-admins/page.tsx:64 — revoke handler invoked directly from onClick, no confirm step, no disabled-while-pending guard"
+      ],
+      "verification": [
+        "Static code trace of the revoke button's onClick handler"
+      ],
+      "history": [
+        {
+          "date": "2026-08-10T23:30:00",
+          "auditStatus": "CRITICAL",
+          "remediationStatus": "OPEN",
+          "note": "Revoking platform-admin status is a high-blast-radius action (removes a user's ability to manage the whole platform) with zero confirmation."
+        }
+      ]
+    },
+    {
+      "id": "PQ-UX-003",
+      "category": "UX",
+      "description": "Revoke-invitation action fires immediately on click with no confirmation dialog.",
+      "severity": "CRITICAL",
+      "lastAuditStatus": "CRITICAL",
+      "status": "OPEN",
+      "lastAudited": "2026-08-10T23:30:00",
+      "evidence": [
+        "apps/admin-panel/app/invitations/page.tsx:108 — revoke handler invoked directly from onClick, no confirm step"
+      ],
+      "verification": [
+        "Static code trace of the revoke button's onClick handler"
+      ],
+      "history": [
+        {
+          "date": "2026-08-10T23:30:00",
+          "auditStatus": "CRITICAL",
+          "remediationStatus": "OPEN",
+          "note": "Revoking a pending invitation with no confirmation risks accidentally cutting off a legitimate pending invite."
+        }
+      ]
+    },
+    {
+      "id": "PQ-UX-004",
+      "category": "UX",
+      "description": "Disable-application action fires immediately on click with no confirmation dialog.",
+      "severity": "CRITICAL",
+      "lastAuditStatus": "CRITICAL",
+      "status": "OPEN",
+      "lastAudited": "2026-08-10T23:30:00",
+      "evidence": [
+        "apps/admin-panel/app/applications/page.tsx:87 — disable handler invoked directly from onClick, no confirm step"
+      ],
+      "verification": [
+        "Static code trace of the disable button's onClick handler"
+      ],
+      "history": [
+        {
+          "date": "2026-08-10T23:30:00",
+          "auditStatus": "CRITICAL",
+          "remediationStatus": "OPEN",
+          "note": "Disabling a registered application affects every user/org relying on it for OAuth login; fires with zero confirmation."
+        }
+      ]
+    },
+    {
+      "id": "PQ-UX-005",
+      "category": "UX",
+      "description": "Remove-MFA-factor action fires immediately on click with no confirmation dialog.",
+      "severity": "CRITICAL",
+      "lastAuditStatus": "CRITICAL",
+      "status": "OPEN",
+      "lastAudited": "2026-08-10T23:30:00",
+      "evidence": [
+        "apps/auth-server/app/security/page.tsx:95 — remove-factor handler invoked directly from onClick, no confirm step"
+      ],
+      "verification": [
+        "Static code trace of the remove-factor button's onClick handler"
+      ],
+      "history": [
+        {
+          "date": "2026-08-10T23:30:00",
+          "auditStatus": "CRITICAL",
+          "remediationStatus": "OPEN",
+          "note": "Removing a user's own MFA factor weakens their account security with a single accidental click and no confirmation."
+        }
+      ]
+    },
+    {
+      "id": "PQ-UX-006",
+      "category": "UX",
+      "description": "Revoke-device action fires immediately on click with no confirmation dialog.",
+      "severity": "CRITICAL",
+      "lastAuditStatus": "CRITICAL",
+      "status": "OPEN",
+      "lastAudited": "2026-08-10T23:30:00",
+      "evidence": [
+        "apps/auth-server/app/devices/page.tsx:37 — revoke handler invoked directly from onClick, no confirm step"
+      ],
+      "verification": [
+        "Static code trace of the revoke-device button's onClick handler"
+      ],
+      "history": [
+        {
+          "date": "2026-08-10T23:30:00",
+          "auditStatus": "CRITICAL",
+          "remediationStatus": "OPEN",
+          "note": "Revoking a device/session immediately signs it out; low data-loss risk but still a one-click irreversible-in-the-moment action with zero confirmation, consistent with the app's broader confirmation pattern gap."
+        }
+      ]
+    },
+    {
+      "id": "PQ-SEC-001",
+      "category": "SECURITY",
+      "description": "The last-active-Owner lockout protection added for member suspend/remove is enforced only in the Next.js API route layer (organization-members PATCH/DELETE) and is missing entirely from the DB/RLS layer that governs kontrolia_auth.membership_roles — an org Admin can DELETE the sole Owner's role-assignment row directly via PostgREST/Supabase and strip Owner authority with no last-owner check at all.",
+      "severity": "CRITICAL",
+      "lastAuditStatus": "CRITICAL",
+      "status": "OPEN",
+      "lastAudited": "2026-08-10T23:30:00",
+      "evidence": [
+        "packages/db/migrations/0010_rls_policies.sql:78-81 — \"org admins manage membership roles\" policy is a bare is_org_admin() check with no last-owner guard",
+        "packages/db/migrations/0009_helper_functions.sql:19-36 — is_org_admin() returns true for slug 'owner' OR 'admin', so a non-Owner Admin passes this policy",
+        "apps/auth-server/app/api/organization-members/route.ts:107-144 — wouldRemoveLastOwner() exists and is called from PATCH (line 165) and DELETE (line 198) on memberships only, never referenced from any membership_roles code path",
+        "packages/db/migrations/0013_audit_log_triggers.sql:89-116 — role.unassigned audit trigger confirms DELETE on membership_roles is an expected, reachable, normal operation, not a theoretical edge case"
+      ],
+      "verification": [
+        "Read the RLS policy text directly and confirmed no last-owner-count subquery or trigger exists anywhere in the migrations for membership_roles",
+        "Confirmed the admin-panel UI itself only ever edits app-scoped roles (apps/admin-panel/app/users/page.tsx:139-165 filters .not(\"application_id\",\"is\",null)) so the gap is only reachable via a direct authenticated API call, not through the shipped UI — still a real gap since the endpoint itself has no server-side guard"
+      ],
+      "history": [
+        {
+          "date": "2026-08-10T23:30:00",
+          "auditStatus": "CRITICAL",
+          "remediationStatus": "OPEN",
+          "note": "Same bug class as the plan-compliance CRITICAL fixed today in commit 4579870 (suspend-to-zero-active-Owners lockout) but through a different, DB-level door that fix never covered. An Admin (not just an Owner) can strip the sole Owner's org-wide role and reproduce the exact lockout scenario the earlier fix was meant to close."
+        }
+      ]
+    },
+    {
+      "id": "PQ-UX-007",
+      "category": "UX",
+      "description": "Several list fetches never check the Supabase query's error before rendering, so a genuine backend failure (network error, RLS denial, downed DB) renders identically to \"this list is genuinely empty\" — the user has no way to tell the difference.",
+      "severity": "HIGH",
+      "lastAuditStatus": "HIGH",
+      "status": "OPEN",
+      "lastAudited": "2026-08-10T23:30:00",
+      "evidence": [
+        "apps/admin-panel/app/organizations/page.tsx:17 — fetch result's error field is never inspected",
+        "apps/admin-panel/lib/use-organizations.ts:25 — same gap, shared by both apps' org-switcher data source",
+        "apps/admin-panel/app/audit-logs/page.tsx:36 — same gap"
+      ],
+      "verification": [
+        "Read each fetch call site and confirmed only the data field is destructured/used; the error field returned alongside it is discarded"
+      ],
+      "history": [
+        {
+          "date": "2026-08-10T23:30:00",
+          "auditStatus": "HIGH",
+          "remediationStatus": "OPEN",
+          "note": "A real outage would look like an empty org list to every admin, with no error indication anywhere to prompt investigation."
+        }
+      ]
+    },
+    {
+      "id": "PQ-UI-001",
+      "category": "UI",
+      "description": "No responsive design exists anywhere in the product — zero Tailwind sm:/md:/lg: breakpoint usages in apps/auth-server, apps/admin-panel, or packages/ui. The admin-panel sidebar is a fixed 220px width with no collapse behavior, and none of the 8+ data tables (users, roles, invitations, applications, oauth-clients, platform-admins, organizations, audit-logs, permissions) has an overflow-x-auto wrapper, so they clip/overflow on mobile and tablet viewports with no way to scroll to see cut-off columns.",
+      "severity": "HIGH",
+      "lastAuditStatus": "HIGH",
+      "status": "OPEN",
+      "lastAudited": "2026-08-10T23:30:00",
+      "evidence": [
+        "repo-wide grep for `sm:|md:|lg:` Tailwind variants across apps/auth-server, apps/admin-panel, packages/ui returned zero hits",
+        "apps/admin-panel/app/dashboard-shell.tsx:272 — sidebar uses a fixed k-w-[220px] class with no responsive variant or collapse toggle",
+        "packages/ui/src/components/card.tsx — no overflow-x-auto wrapper; every admin-panel table (e.g. apps/admin-panel/app/users/page.tsx:185-193) sits directly inside a Card with no scroll container"
+      ],
+      "verification": [
+        "Grep across the three UI-owning locations for every responsive-utility prefix Tailwind supports",
+        "Read Card component source and multiple table-rendering call sites to confirm no scroll wrapper exists anywhere"
+      ],
+      "history": [
+        {
+          "date": "2026-08-10T23:30:00",
+          "auditStatus": "HIGH",
+          "remediationStatus": "OPEN",
+          "note": "Neither app adapts to mobile or tablet viewports at all — this is a back-office tool, but a professional admin panel is still routinely opened on a tablet or phone for a quick check."
+        }
+      ]
+    },
+    {
+      "id": "PQ-A11Y-001",
+      "category": "ACCESSIBILITY",
+      "description": "The MFA-challenge 6-digit code entry (a primary, blocking step in login) renders six separate <input> elements with no <label>, no aria-label, and no fieldset/legend grouping them or tying them to the instruction text above.",
+      "severity": "HIGH",
+      "lastAuditStatus": "HIGH",
+      "status": "OPEN",
+      "lastAudited": "2026-08-10T23:30:00",
+      "evidence": [
+        "apps/auth-server/app/mfa-challenge/page.tsx:118-139 — six <input> elements, none labeled, no fieldset/legend"
+      ],
+      "verification": [
+        "Read the full mfa-challenge page component source"
+      ],
+      "history": [
+        {
+          "date": "2026-08-10T23:30:00",
+          "auditStatus": "HIGH",
+          "remediationStatus": "OPEN",
+          "note": "A screen-reader user tabbing through hears six unnamed 'edit text' fields with no indication of purpose or digit position, on the one screen that gates access to the entire app for MFA-enrolled users."
+        }
+      ]
+    },
+    {
+      "id": "PQ-PERF-001",
+      "category": "PERFORMANCE",
+      "description": "Every list endpoint except audit-logs is completely unbounded — no pagination, cursor, or limit of any kind. organization-members, invitations, applications/permissions, roles, and organizations all fetch the entire table on every load. audit-logs is the only capped list (.limit(200)) but has no pagination UI, cursor, or filter, so history beyond 200 rows becomes permanently invisible with no indication more exists.",
+      "severity": "HIGH",
+      "lastAuditStatus": "HIGH",
+      "status": "OPEN",
+      "lastAudited": "2026-08-10T23:30:00",
+      "evidence": [
+        "apps/auth-server/app/api/organization-members/route.ts:69-76 — no .limit()/.range()",
+        "apps/admin-panel/app/invitations/page.tsx:64-70 — no limit",
+        "apps/admin-panel/app/applications/page.tsx:31-50 — no limit",
+        "apps/admin-panel/app/roles/page.tsx:53-84 — no limit",
+        "apps/admin-panel/app/audit-logs/page.tsx:41 — the one .limit(200) in the whole codebase, with no cursor/load-more"
+      ],
+      "verification": [
+        "Read each list-fetching call site directly to confirm absence of .limit()/.range()"
+      ],
+      "history": [
+        {
+          "date": "2026-08-10T23:30:00",
+          "auditStatus": "HIGH",
+          "remediationStatus": "OPEN",
+          "note": "Architecture assumes small/demo data volumes throughout; any org that grows past a few hundred members/invitations/audit events will visibly degrade with no pagination fallback anywhere."
+        }
+      ]
+    },
+    {
+      "id": "PQ-PERF-002",
+      "category": "PERFORMANCE",
+      "description": "organization-members and platform-admins list endpoints resolve each row's email via a separate GoTrue admin API call inside a Promise.all loop instead of one batched lookup — a true N+1 pattern duplicated in two files.",
+      "severity": "HIGH",
+      "lastAuditStatus": "HIGH",
+      "status": "OPEN",
+      "lastAudited": "2026-08-10T23:30:00",
+      "evidence": [
+        "apps/auth-server/app/api/organization-members/route.ts:80-94 — Promise.all(...admin.auth.admin.getUserById(row.user_id)...) per membership row",
+        "apps/auth-server/app/api/platform-admins/route.ts:66-71 — identical pattern"
+      ],
+      "verification": [
+        "Read both route handlers in full and confirmed each membership/admin row triggers its own admin API round-trip"
+      ],
+      "history": [
+        {
+          "date": "2026-08-10T23:30:00",
+          "auditStatus": "HIGH",
+          "remediationStatus": "OPEN",
+          "note": "For an organization with hundreds of members, loading the Users page fires hundreds of GoTrue admin-API calls; this also risks hitting GoTrue admin rate limits, not just being slow."
+        }
+      ]
+    },
+    {
+      "id": "PQ-PERF-003",
+      "category": "PERFORMANCE",
+      "description": "The single-member detail page fetches the entire organization's member list (inheriting the full PQ-PERF-002 N+1 cost) and then does a client-side .find() to locate the one row it needs — there is no server endpoint or filter to fetch a single membership directly.",
+      "severity": "HIGH",
+      "lastAuditStatus": "HIGH",
+      "status": "OPEN",
+      "lastAudited": "2026-08-10T23:30:00",
+      "evidence": [
+        "apps/admin-panel/app/users/[membershipId]/page.tsx:45-56 — fetches /api/organization-members?organizationId=... (no membershipId filter) then data.members.find(...)"
+      ],
+      "verification": [
+        "Read the detail page's data-fetching code and confirmed no membershipId-scoped query exists anywhere in the API"
+      ],
+      "history": [
+        {
+          "date": "2026-08-10T23:30:00",
+          "auditStatus": "HIGH",
+          "remediationStatus": "OPEN",
+          "note": "Visiting one user's detail page costs exactly as much as loading the full list page, and gets more expensive as the org grows — a scaling assumption baked into the architecture."
+        }
+      ]
+    },
+    {
+      "id": "PQ-TECH-001",
+      "category": "TECHNICAL",
+      "description": "No automated test coverage exists anywhere in the monorepo for security-critical logic, except packages/permissions/src/__tests__/match.test.ts. Zero tests for JWT verification (packages/auth-sdk/src/server.ts, jwt.ts), PKCE (pkce.ts), OAuth code exchange (client.ts), the Next.js middleware auth-gate (packages/next-sdk/src/middleware.ts), the React auth context/guard state machine (packages/react-sdk/src/context.tsx, guards.tsx), or any API route handler in apps/auth-server or apps/admin-panel.",
+      "severity": "HIGH",
+      "lastAuditStatus": "HIGH",
+      "status": "OPEN",
+      "lastAudited": "2026-08-10T23:30:00",
+      "evidence": [
+        "Repo-wide search for *.test.*/*.spec.* returns exactly one file: packages/permissions/src/__tests__/match.test.ts",
+        "package.json scripts across apps/auth-server, apps/admin-panel, packages/db, packages/auth-sdk, packages/react-sdk, packages/next-sdk contain no \"test\" script that exercises anything"
+      ],
+      "verification": [
+        "Enumerated test files across all in-scope packages and apps; cross-checked each package.json's scripts block"
+      ],
+      "history": [
+        {
+          "date": "2026-08-10T23:30:00",
+          "auditStatus": "HIGH",
+          "remediationStatus": "OPEN",
+          "note": "The exact logic a third-party integrator is trusting blind (JWT/PKCE/OAuth) and the exact logic that already produced two real bugs today (last-owner lockout, missing audit triggers) has zero regression protection."
+        }
+      ]
+    },
+    {
+      "id": "PQ-TECH-002",
+      "category": "TECHNICAL",
+      "description": "No server-side logging or error-tracking exists anywhere in the backend. Every route catches its own errors and turns them into a JSON response for the caller, but nothing is ever written to a server log or an error-tracking service (grep for Sentry/Datadog/Bugsnag/Rollbar/OpenTelemetry across the whole repo returns nothing; no instrumentation.ts/global-error.tsx/error.tsx in either app).",
+      "severity": "HIGH",
+      "lastAuditStatus": "HIGH",
+      "status": "OPEN",
+      "lastAudited": "2026-08-10T23:30:00",
+      "evidence": [
+        "grep -rln \"console.(error|log|warn)\" across apps/auth-server and apps/admin-panel API/route code returns zero matches",
+        "No instrumentation.ts, global-error.tsx, or error.tsx found under either app",
+        "No error-tracking SDK dependency found in any package.json in apps/"
+      ],
+      "verification": [
+        "Repo-wide grep for logging calls and error-tracking package names/imports"
+      ],
+      "history": [
+        {
+          "date": "2026-08-10T23:30:00",
+          "auditStatus": "HIGH",
+          "remediationStatus": "OPEN",
+          "note": "If GoTrue, Postgres, or a downstream call fails in production, there is no way to know it happened unless the affected user reports it — no alerting, no trace retained anywhere."
+        }
+      ]
+    },
+    {
+      "id": "PQ-SEC-002",
+      "category": "SECURITY",
+      "description": "The platform-admins DELETE (revoke) route's \"don't remove the last platform admin\" check is a plain SELECT COUNT(*) followed by a separate DELETE, not an atomic check — two concurrent revoke requests when count===2 can both read count=2, both pass the <=1 guard, and both succeed, leaving zero platform admins.",
+      "severity": "MEDIUM",
+      "lastAuditStatus": "MEDIUM",
+      "status": "OPEN",
+      "lastAudited": "2026-08-10T23:30:00",
+      "evidence": [
+        "apps/auth-server/app/api/platform-admins/route.ts:110-120 — COUNT then DELETE as two separate, non-atomic statements"
+      ],
+      "verification": [
+        "Read the DELETE handler in full and confirmed the count-check and the delete are two separate round-trips with no transaction/row-lock between them"
+      ],
+      "history": [
+        {
+          "date": "2026-08-10T23:30:00",
+          "auditStatus": "MEDIUM",
+          "remediationStatus": "OPEN",
+          "note": "Low likelihood (requires two admins concurrently revoking down to the same last-two boundary) but the outcome — zero platform admins, no recovery path except direct DB access — is severe, and it's the exact same TOCTOU pattern the org-owner fix was meant to close, just not propagated here."
+        }
+      ]
+    },
+    {
+      "id": "PQ-UX-008",
+      "category": "UX",
+      "description": "Raw Postgres/PostgREST error text reaches the UI in multiple places instead of a translated, user-facing message.",
+      "severity": "MEDIUM",
+      "lastAuditStatus": "MEDIUM",
+      "status": "OPEN",
+      "lastAudited": "2026-08-10T23:30:00",
+      "evidence": [
+        "apps/admin-panel/app/roles/page.tsx:108 — Supabase error.message rendered directly",
+        "apps/auth-server/app/api/organization-members/route.ts:78 — 500 response body includes error.message verbatim"
+      ],
+      "verification": [
+        "Read both call sites and confirmed the raw driver/PostgREST error string is passed through unmodified to the response/UI"
+      ],
+      "history": [
+        {
+          "date": "2026-08-10T23:30:00",
+          "auditStatus": "MEDIUM",
+          "remediationStatus": "OPEN",
+          "note": "Not a full stack trace, but internal DB error text is not written for end users and can leak schema/implementation details."
+        }
+      ]
+    },
+    {
+      "id": "PQ-UX-009",
+      "category": "UX",
+      "description": "There is no UI to revoke or delete a registered OAuth client — the oauth-clients screen only supports create and edit, with no way to decommission a client once it's no longer needed.",
+      "severity": "MEDIUM",
+      "lastAuditStatus": "MEDIUM",
+      "status": "OPEN",
+      "lastAudited": "2026-08-10T23:30:00",
+      "evidence": [
+        "apps/admin-panel/app/oauth-clients/page.tsx — full read confirms only create/edit actions exist, no revoke/delete"
+      ],
+      "verification": [
+        "Read the full oauth-clients page component"
+      ],
+      "history": [
+        {
+          "date": "2026-08-10T23:30:00",
+          "auditStatus": "MEDIUM",
+          "remediationStatus": "OPEN",
+          "note": "A feature-completeness gap rather than a broken flow — flagged since a professional admin tool for managing OAuth clients is expected to support decommissioning them."
+        }
+      ]
+    },
+    {
+      "id": "PQ-A11Y-002",
+      "category": "ACCESSIBILITY",
+      "description": "Multiple form inputs across both apps rely on placeholder text only, or have no label at all, inconsistent with the correctly-labeled pattern used on the majority of forms in the same apps.",
+      "severity": "MEDIUM",
+      "lastAuditStatus": "MEDIUM",
+      "status": "OPEN",
+      "lastAudited": "2026-08-10T23:30:00",
+      "evidence": [
+        "apps/auth-server/app/page.tsx:327-333 — create-organization name input, placeholder only",
+        "apps/auth-server/app/page.tsx:176-182 — rename-organization input, no placeholder and no label",
+        "apps/auth-server/app/page.tsx:205-210 — delete-confirmation type-to-confirm input (a destructive-action safeguard itself), unlabeled",
+        "apps/auth-server/app/security/page.tsx:124-131 — TOTP enrollment code input, placeholder only",
+        "apps/admin-panel/app/applications/page.tsx:172-179 — application homepage URL edit input, placeholder only"
+      ],
+      "verification": [
+        "Read each listed component and confirmed no <label htmlFor> / matching id pair exists for these specific inputs, while comparable inputs elsewhere in the same files/apps are correctly labeled"
+      ],
+      "history": [
+        {
+          "date": "2026-08-10T23:30:00",
+          "auditStatus": "MEDIUM",
+          "remediationStatus": "OPEN",
+          "note": "Placeholder text disappears once the user starts typing and is not a substitute for an accessible label; the inconsistency (most forms in the same apps do this correctly) suggests it was missed rather than a deliberate choice."
+        }
+      ]
+    },
+    {
+      "id": "PQ-A11Y-003",
+      "category": "ACCESSIBILITY",
+      "description": "The UserMenu dropdown (mounted in the header of every page in both apps) has no aria-haspopup/aria-expanded on its trigger, no role=\"menu\"/role=\"menuitem\" on its contents, and no Escape-to-close or click-outside-to-close handling.",
+      "severity": "MEDIUM",
+      "lastAuditStatus": "MEDIUM",
+      "status": "OPEN",
+      "lastAudited": "2026-08-10T23:30:00",
+      "evidence": [
+        "packages/ui/src/components/user-menu.tsx:24-47 — trigger button and menu div both lack ARIA state/roles; no keydown or outside-click handler present"
+      ],
+      "verification": [
+        "Read the full UserMenu component source"
+      ],
+      "history": [
+        {
+          "date": "2026-08-10T23:30:00",
+          "auditStatus": "MEDIUM",
+          "remediationStatus": "OPEN",
+          "note": "Mounted on every page of both apps (apps/admin-panel/app/dashboard-shell.tsx:325, apps/auth-server/app/page.tsx:38), so this is a systemic, not isolated, gap."
+        }
+      ]
+    },
+    {
+      "id": "PQ-A11Y-004",
+      "category": "ACCESSIBILITY",
+      "description": "The admin-panel sidebar's current-page indicator is conveyed by background/text color alone with no aria-current=\"page\", so a screen-reader user navigating the sidebar cannot tell which section they're already on.",
+      "severity": "MEDIUM",
+      "lastAuditStatus": "MEDIUM",
+      "status": "OPEN",
+      "lastAudited": "2026-08-10T23:30:00",
+      "evidence": [
+        "apps/admin-panel/app/dashboard-shell.tsx:296-309 — active link styled via k-bg-sidebar-active/text-white classes only, no aria-current"
+      ],
+      "verification": [
+        "Read the sidebar navigation rendering code"
+      ],
+      "history": [
+        {
+          "date": "2026-08-10T23:30:00",
+          "auditStatus": "MEDIUM",
+          "remediationStatus": "OPEN",
+          "note": "Present on every page of the admin panel, the primary tool for org/platform admins."
+        }
+      ]
+    },
+    {
+      "id": "PQ-A11Y-005",
+      "category": "ACCESSIBILITY",
+      "description": "No live-region treatment exists anywhere for inline error/success messages, and no toast/notification component exists in the shared UI package at all — every error message across both apps is a plain <p> with no role=\"alert\"/aria-live, appearing and disappearing silently.",
+      "severity": "MEDIUM",
+      "lastAuditStatus": "MEDIUM",
+      "status": "OPEN",
+      "lastAudited": "2026-08-10T23:30:00",
+      "evidence": [
+        "packages/ui/src/index.ts — no toast/notification component exported at all",
+        "packages/ui/src/components/login-form.tsx:77, register-form.tsx:84, forgot-password-form.tsx:52 — plain <p> error text, no aria-live/role",
+        "apps/auth-server/app/mfa-challenge/page.tsx:140, oauth/consent/page.tsx:105; apps/admin-panel/app/users/page.tsx:182, oauth-clients/page.tsx:182, roles/[roleId]/page.tsx:172, applications/page.tsx:144, invitations/page.tsx:203, platform-admins/page.tsx:127, devices/page.tsx:65, security/page.tsx:107 — same pattern repeated across both apps"
+      ],
+      "verification": [
+        "Read packages/ui/src/index.ts's export list and 10+ representative error-rendering call sites across both apps"
+      ],
+      "history": [
+        {
+          "date": "2026-08-10T23:30:00",
+          "auditStatus": "MEDIUM",
+          "remediationStatus": "OPEN",
+          "note": "A screen-reader user who submits a form (including login and MFA) and gets an error is not told anything changed and must manually re-explore the page to discover why — this is systemic, not confined to one screen."
+        }
+      ]
+    },
+    {
+      "id": "PQ-PERF-004",
+      "category": "PERFORMANCE",
+      "description": "No skeleton/loading-placeholder UI component exists in packages/ui, and most list pages render an empty table with no loading indicator at all while the fetch is in flight.",
+      "severity": "MEDIUM",
+      "lastAuditStatus": "MEDIUM",
+      "status": "OPEN",
+      "lastAudited": "2026-08-10T23:30:00",
+      "evidence": [
+        "packages/ui/src/components/ — no Skeleton/Spinner component present",
+        "apps/admin-panel/app/users/page.tsx:36-51, invitations/page.tsx:42-71, applications/page.tsx:20-38, roles/page.tsx:42-53 — no loading indicator during fetch",
+        "apps/admin-panel/app/permissions/page.tsx — no loading indicator at all, blank screen until fetch resolves"
+      ],
+      "verification": [
+        "Listed packages/ui/src/components/ directory contents; read the initial-render branch of each listed page component"
+      ],
+      "history": [
+        {
+          "date": "2026-08-10T23:30:00",
+          "auditStatus": "MEDIUM",
+          "remediationStatus": "OPEN",
+          "note": "platform-admins/page.tsx does show a 'Cargando...' text loading state, confirming this is an inconsistency rather than a deliberate product decision to omit loading feedback."
+        }
+      ]
+    },
+    {
+      "id": "PQ-PERF-005",
+      "category": "PERFORMANCE",
+      "description": "AuthProvider's React context value is a fresh object literal on every render instead of memoized, so any re-render of AuthProvider invalidates every useAuth() consumer app-wide regardless of whether user/organization/roles actually changed.",
+      "severity": "MEDIUM",
+      "lastAuditStatus": "MEDIUM",
+      "status": "OPEN",
+      "lastAudited": "2026-08-10T23:30:00",
+      "evidence": [
+        "packages/react-sdk/src/context.tsx:77 — const value: KontroliaAuthState = { ...state, client, checker }; passed directly to Provider value, not wrapped in useMemo"
+      ],
+      "verification": [
+        "Read context.tsx in full and confirmed checker is memoized (lines 72-75) but the final value object is not"
+      ],
+      "history": [
+        {
+          "date": "2026-08-10T23:30:00",
+          "auditStatus": "MEDIUM",
+          "remediationStatus": "OPEN",
+          "note": "AuthProvider wraps the entire app tree in every consumer application, so this re-render cost is paid by every app built on the SDK, not just this monorepo's own apps."
+        }
+      ]
+    },
+    {
+      "id": "PQ-MAINT-001",
+      "category": "MAINTAINABILITY",
+      "description": "An identical corsHeaders() function (differing only in the allowed-methods string) is copy-pasted across three separate API route files instead of living in one shared helper.",
+      "severity": "MEDIUM",
+      "lastAuditStatus": "MEDIUM",
+      "status": "OPEN",
+      "lastAudited": "2026-08-10T23:30:00",
+      "evidence": [
+        "apps/auth-server/app/api/organization-members/route.ts:15-24",
+        "apps/auth-server/app/api/platform-admins/route.ts:14-23",
+        "apps/auth-server/app/api/oauth-clients/route.ts:14-23"
+      ],
+      "verification": [
+        "Diffed the three function bodies — identical except the methods string"
+      ],
+      "history": [
+        {
+          "date": "2026-08-10T23:30:00",
+          "auditStatus": "MEDIUM",
+          "remediationStatus": "OPEN",
+          "note": "A future CORS-policy change (e.g. adding a header) would need to be made in three places and could easily be missed in one."
+        }
+      ]
+    },
+    {
+      "id": "PQ-MAINT-002",
+      "category": "MAINTAINABILITY",
+      "description": "The same platform-admin authorization check (verifyRequest + is_platform_admin) is reimplemented twice with subtly different return shapes instead of a single shared helper.",
+      "severity": "MEDIUM",
+      "lastAuditStatus": "MEDIUM",
+      "status": "OPEN",
+      "lastAudited": "2026-08-10T23:30:00",
+      "evidence": [
+        "apps/auth-server/app/api/platform-admins/route.ts:29-39 — returns {userId} | NextResponse",
+        "apps/auth-server/app/api/oauth-clients/route.ts:30-40 — returns NextResponse | null for the same check"
+      ],
+      "verification": [
+        "Read both authorization helper functions and compared their logic and return types"
+      ],
+      "history": [
+        {
+          "date": "2026-08-10T23:30:00",
+          "auditStatus": "MEDIUM",
+          "remediationStatus": "OPEN",
+          "note": "Divergent return shapes for the same conceptual check increase the chance a future third call site implements the check slightly wrong."
+        }
+      ]
+    },
+    {
+      "id": "PQ-MAINT-003",
+      "category": "MAINTAINABILITY",
+      "description": "The `err instanceof Error ? err.message : \"...\"` error-message-extraction pattern is duplicated 31 times across 7+ page files with no shared helper, and packages/shared has no getErrorMessage() equivalent despite the obviously repeated shape.",
+      "severity": "MEDIUM",
+      "lastAuditStatus": "MEDIUM",
+      "status": "OPEN",
+      "lastAudited": "2026-08-10T23:30:00",
+      "evidence": [
+        "grep -c 'err instanceof Error ? err.message :' across apps/admin-panel and apps/auth-server confirms 31 occurrences across applications/page.tsx, invitations/page.tsx, users/page.tsx, users/[membershipId]/page.tsx, roles/page.tsx, roles/[roleId]/page.tsx, audit-logs/page.tsx, and more",
+        "packages/shared/src/ contains only types.ts and permission-key.ts — no error-handling helper"
+      ],
+      "verification": [
+        "Ran the grep count and listed packages/shared/src contents to confirm no shared helper exists"
+      ],
+      "history": [
+        {
+          "date": "2026-08-10T23:30:00",
+          "auditStatus": "MEDIUM",
+          "remediationStatus": "OPEN",
+          "note": "Low complexity per instance, but the sheer repetition (31x) is a clear signal a small shared utility was never extracted."
+        }
+      ]
+    },
+    {
+      "id": "PQ-MAINT-004",
+      "category": "MAINTAINABILITY",
+      "description": "apps/admin-panel and apps/auth-server each maintain their own near-identical useOrganizations hook (same signature, same useState/useCallback/useEffect scaffolding), differing only in the underlying fetch call, instead of sharing the common plumbing via a factory in packages/react-sdk.",
+      "severity": "MEDIUM",
+      "lastAuditStatus": "MEDIUM",
+      "status": "OPEN",
+      "lastAudited": "2026-08-10T23:30:00",
+      "evidence": [
+        "apps/admin-panel/lib/use-organizations.ts (35 lines)",
+        "apps/auth-server/lib/use-organizations.ts (36 lines)"
+      ],
+      "verification": [
+        "Read both files in full and confirmed ~90% of each is identical boilerplate, differing only in the data-fetching call"
+      ],
+      "history": [
+        {
+          "date": "2026-08-10T23:30:00",
+          "auditStatus": "MEDIUM",
+          "remediationStatus": "OPEN",
+          "note": "Comments in each file explain why the data source differs, but the surrounding hook plumbing is a clear extraction candidate."
+        }
+      ]
+    },
+    {
+      "id": "PQ-TECH-003",
+      "category": "TECHNICAL",
+      "description": "The invitations table has no uniqueness constraint on (organization_id, email) — an admin can create unlimited duplicate pending invitations for the same email in the same org, each with its own valid token.",
+      "severity": "MEDIUM",
+      "lastAuditStatus": "MEDIUM",
+      "status": "OPEN",
+      "lastAudited": "2026-08-10T23:30:00",
+      "evidence": [
+        "packages/db/migrations/0006_invitations_devices_audit.sql:1-14 — indexes on organization_id and email individually, no unique constraint on the pair",
+        "apps/auth-server/app/api/invitations/route.ts:16-35 and apps/admin-panel/app/invitations/page.tsx:86-90 — both insert with no duplicate check"
+      ],
+      "verification": [
+        "Read the migration's schema definition and both insertion call sites"
+      ],
+      "history": [
+        {
+          "date": "2026-08-10T23:30:00",
+          "auditStatus": "MEDIUM",
+          "remediationStatus": "OPEN",
+          "note": "A minor but real data-integrity/UX gap — with N pending invite rows for the same person, it's unclear which link is 'the' current one."
+        }
+      ]
+    },
+    {
+      "id": "PQ-TECH-004",
+      "category": "TECHNICAL",
+      "description": "Two structurally different, inconsistent mutation paths exist for the same kind of data: organization-members and platform-admins are proxied through Next.js API routes that add real business-rule validation, while invitations and app-scoped role assignment go straight from the browser to Supabase via the anon-key client, relying entirely on RLS with zero application-level validation (no email-format check, no duplicate-invite check, no business rule layer at all).",
+      "severity": "MEDIUM",
+      "lastAuditStatus": "MEDIUM",
+      "status": "OPEN",
+      "lastAudited": "2026-08-10T23:30:00",
+      "evidence": [
+        "apps/admin-panel/app/invitations/page.tsx:53-144 — direct Supabase insert/update/delete from the browser",
+        "apps/admin-panel/app/users/page.tsx:139-165, users/[membershipId]/page.tsx:139-169 — direct Supabase membership_roles mutation from the browser",
+        "contrast with apps/auth-server/app/api/organization-members/route.ts and platform-admins/route.ts, which route through server-side business-rule checks"
+      ],
+      "verification": [
+        "Traced both mutation styles across the four listed files"
+      ],
+      "history": [
+        {
+          "date": "2026-08-10T23:30:00",
+          "auditStatus": "MEDIUM",
+          "remediationStatus": "OPEN",
+          "note": "This is the architectural root cause of PQ-SEC-001 — the RLS-only path has no equivalent of wouldRemoveLastOwner because there's no application layer for it to live in. A reviewer can't reason about 'where is X enforced' without checking two entirely different mechanisms per screen."
+        }
+      ]
+    },
+    {
+      "id": "PQ-TECH-005",
+      "category": "TECHNICAL",
+      "description": "No index exists on memberships.status (or a composite covering organization_id/user_id + status), despite is_org_member/is_org_admin filtering on status='active' inside every single RLS policy check across the schema, plus several direct application queries filtering on it too.",
+      "severity": "MEDIUM",
+      "lastAuditStatus": "MEDIUM",
+      "status": "OPEN",
+      "lastAudited": "2026-08-10T23:30:00",
+      "evidence": [
+        "packages/db/migrations/0005_memberships.sql:14-15 — indexes only user_id and organization_id",
+        "packages/db/migrations/0009_helper_functions.sql:11-16,26-35 — is_org_member/is_org_admin both filter organization_id, user_id, and status='active' together, and run on effectively every authorized request"
+      ],
+      "verification": [
+        "Read the memberships table's index definitions and the two RLS helper functions that gate nearly every table in the schema"
+      ],
+      "history": [
+        {
+          "date": "2026-08-10T23:30:00",
+          "auditStatus": "MEDIUM",
+          "remediationStatus": "OPEN",
+          "note": "A composite index like (organization_id, status) or (user_id, status) would materially help since this predicate runs on nearly every authorized request in the system."
+        }
+      ]
+    },
+    {
+      "id": "PQ-TECH-006",
+      "category": "TECHNICAL",
+      "description": "The organizations POST route only checks for falsy name/slug — no trim, no length cap, no charset restriction on slug (which likely appears in URLs elsewhere in the ecosystem) before insert. The DB only enforces uniqueness, not format.",
+      "severity": "MEDIUM",
+      "lastAuditStatus": "MEDIUM",
+      "status": "OPEN",
+      "lastAudited": "2026-08-10T23:30:00",
+      "evidence": [
+        "apps/auth-server/app/api/organizations/route.ts:39-41 — only `!body.name || !body.slug` is checked",
+        "packages/db/migrations/0002_organizations.sql:4 — unique constraint only, no format/length constraint"
+      ],
+      "verification": [
+        "Read the route's validation code and the table's column constraints"
+      ],
+      "history": [
+        {
+          "date": "2026-08-10T23:30:00",
+          "auditStatus": "MEDIUM",
+          "remediationStatus": "OPEN",
+          "note": "Unicode, emoji, leading/trailing whitespace, or an arbitrarily long string would all be accepted as an org slug."
+        }
+      ]
+    },
+    {
+      "id": "PQ-TECH-007",
+      "category": "TECHNICAL",
+      "description": "exchangeOAuthServerCode() and its sibling OAuth-server calls in the auth-sdk client don't wrap their fetch() call in try/catch, so a network failure mid-exchange surfaces as a raw, unhelpful TypeError instead of the SDK's own descriptive error shape (which the adjacent !response.ok branch does produce).",
+      "severity": "MEDIUM",
+      "lastAuditStatus": "MEDIUM",
+      "status": "OPEN",
+      "lastAudited": "2026-08-10T23:30:00",
+      "evidence": [
+        "packages/auth-sdk/src/client.ts:282-293 — fetch() call has no surrounding try/catch; the !response.ok branch two lines later does produce a good error message, but a network-level failure never reaches it"
+      ],
+      "verification": [
+        "Read exchangeOAuthServerCode() in full"
+      ],
+      "history": [
+        {
+          "date": "2026-08-10T23:30:00",
+          "auditStatus": "MEDIUM",
+          "remediationStatus": "OPEN",
+          "note": "This is public SDK code every consuming app relies on for its OAuth callback handler — an unhandled TypeError here is a worse developer experience than the SDK's own error-handling standard elsewhere in the same file."
+        }
+      ]
+    },
+    {
+      "id": "PQ-TECH-008",
+      "category": "TECHNICAL",
+      "description": "The applications/sync route silently ignores the result of one specific update call — if it fails, the route still returns 200 with the application's old values still in place and no indication anything went wrong.",
+      "severity": "MEDIUM",
+      "lastAuditStatus": "MEDIUM",
+      "status": "OPEN",
+      "lastAudited": "2026-08-10T23:30:00",
+      "evidence": [
+        "apps/auth-server/app/api/applications/sync/route.ts:78-87 — admin.schema(...).update(...) result's error is not checked, unlike the surrounding upserts in the same route"
+      ],
+      "verification": [
+        "Read the full sync route handler and compared this call's error handling to the surrounding calls"
+      ],
+      "history": [
+        {
+          "date": "2026-08-10T23:30:00",
+          "auditStatus": "MEDIUM",
+          "remediationStatus": "OPEN",
+          "note": "A failed rename/environment-change during app sync would appear to succeed to the caller while the DB silently keeps the stale values."
+        }
+      ]
+    }
+  ]
+}

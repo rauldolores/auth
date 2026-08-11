@@ -38,16 +38,26 @@ export default function UsersPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const canManage = hasRole(["owner", "admin"]);
 
-  async function loadMembers(orgId: string) {
+  async function loadMembers(orgId: string, offset = 0, append = false) {
     const token = await getToken();
-    const response = await fetch(`${AUTH_SERVER_URL}/api/organization-members?organizationId=${orgId}`, {
+    const response = await fetch(`${AUTH_SERVER_URL}/api/organization-members?organizationId=${orgId}&offset=${offset}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!response.ok) return;
-    const data = (await response.json()) as { members: MemberRow[] };
-    setMembers(data.members);
+    const data = (await response.json()) as { members: MemberRow[]; hasMore: boolean };
+    setMembers((current) => (append ? [...(current ?? []), ...data.members] : data.members));
+    setHasMore(data.hasMore);
+  }
+
+  async function handleLoadMore() {
+    if (!organization) return;
+    setLoadingMore(true);
+    await loadMembers(organization.id, (members ?? []).length, true);
+    setLoadingMore(false);
   }
 
   async function loadAppRoles(orgId: string) {
@@ -80,8 +90,10 @@ export default function UsersPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organization?.id]);
 
-  async function handleRemoveMember(membershipId: string) {
+  async function handleRemoveMember(member: MemberRow) {
     if (!organization) return;
+    if (!window.confirm(`¿Quitar a ${member.email} de ${organization.name}? Perderá acceso a la organización.`)) return;
+    const membershipId = member.membershipId;
     setError(null);
     setPendingId(membershipId);
     try {
@@ -182,6 +194,7 @@ export default function UsersPage() {
       {error && <p className="k-text-sm k-text-destructive">{error}</p>}
 
       <Card className="k-p-0">
+        <div className="k-overflow-x-auto">
         <table className="k-w-full k-text-sm">
           <thead>
             <tr className="k-border-b k-border-border k-text-left k-text-xs k-uppercase k-tracking-wide k-text-muted-foreground">
@@ -256,7 +269,7 @@ export default function UsersPage() {
                         <button
                           type="button"
                           disabled={pendingId === member.membershipId}
-                          onClick={() => void handleRemoveMember(member.membershipId)}
+                          onClick={() => void handleRemoveMember(member)}
                           className="k-text-sm k-text-destructive hover:k-underline disabled:k-opacity-60"
                         >
                           Quitar
@@ -298,7 +311,20 @@ export default function UsersPage() {
             })}
           </tbody>
         </table>
+        </div>
         {members?.length === 0 && <p className="k-px-5 k-py-6 k-text-sm k-text-muted-foreground">Sin usuarios todavía.</p>}
+        {hasMore && (
+          <div className="k-border-t k-border-border k-p-3 k-text-center">
+            <button
+              type="button"
+              disabled={loadingMore}
+              onClick={() => void handleLoadMore()}
+              className="k-text-sm k-text-muted-foreground hover:k-underline disabled:k-opacity-60"
+            >
+              {loadingMore ? "Cargando..." : "Cargar más"}
+            </button>
+          </div>
+        )}
       </Card>
     </div>
   );

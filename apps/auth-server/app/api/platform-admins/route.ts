@@ -1,4 +1,5 @@
 import { verifyRequest } from "@kontrolia/auth/server";
+import { logError } from "@/lib/logger";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { NextResponse } from "next/server";
 
@@ -55,20 +56,54 @@ async function findUserByEmail(email: string): Promise<{ id: string; email: stri
   return data.users.find((user) => user.email?.toLowerCase() === email.toLowerCase()) ?? null;
 }
 
+/**
+ * GoTrue's admin API has no "get users by id list" endpoint — the closest
+ * thing to a batch fetch is paging through listUsers() once and building a
+ * lookup map, instead of one getUserById() round-trip per row (which is
+ * what this used to do, N concurrent admin-API calls for N platform admins).
+ */
+async function resolveEmails(
+  admin: ReturnType<typeof createSupabaseAdminClient>,
+  userIds: string[],
+): Promise<Map<string, string>> {
+  const emailById = new Map<string, string>();
+  const remaining = new Set(userIds);
+  const perPage = 200;
+  let page = 1;
+
+  while (remaining.size > 0) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage });
+    if (error || !data || data.users.length === 0) break;
+    for (const user of data.users) {
+      if (remaining.has(user.id)) {
+        emailById.set(user.id, user.email ?? "(desconocido)");
+        remaining.delete(user.id);
+      }
+    }
+    if (data.users.length < perPage) break;
+    page += 1;
+  }
+
+  return emailById;
+}
+
 export async function GET(request: Request) {
   const authResult = await authorizePlatformAdmin(request);
   if (authResult instanceof NextResponse) return authResult;
 
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin.schema("kontrolia_auth").from("platform_admins").select("user_id, granted_at");
-  if (error) return NextResponse.json({ error: error.message }, { status: 500, headers: corsHeaders() });
+  if (error) {
+    logError("GET /api/platform-admins", error);
+    return NextResponse.json({ error: error.message }, { status: 500, headers: corsHeaders() });
+  }
 
-  const admins = await Promise.all(
-    (data ?? []).map(async (row) => {
-      const { data: user } = await admin.auth.admin.getUserById(row.user_id as string);
-      return { userId: row.user_id, email: user.user?.email ?? "(desconocido)", grantedAt: row.granted_at };
-    }),
-  );
+  const emailById = await resolveEmails(admin, (data ?? []).map((row) => row.user_id as string));
+  const admins = (data ?? []).map((row) => ({
+    userId: row.user_id,
+    email: emailById.get(row.user_id as string) ?? "(desconocido)",
+    grantedAt: row.granted_at,
+  }));
 
   return NextResponse.json({ admins }, { headers: corsHeaders() });
 }
@@ -95,7 +130,10 @@ export async function POST(request: Request) {
     .schema("kontrolia_auth")
     .from("platform_admins")
     .upsert({ user_id: user.id, granted_by: authResult.userId }, { onConflict: "user_id" });
-  if (error) return NextResponse.json({ error: error.message }, { status: 500, headers: corsHeaders() });
+  if (error) {
+    logError("POST /api/platform-admins", error, { userId: user.id });
+    return NextResponse.json({ error: error.message }, { status: 500, headers: corsHeaders() });
+  }
 
   return NextResponse.json({ userId: user.id, email: user.email }, { status: 201, headers: corsHeaders() });
 }
@@ -120,7 +158,10 @@ export async function DELETE(request: Request) {
   }
 
   const { error } = await admin.schema("kontrolia_auth").from("platform_admins").delete().eq("user_id", userId);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500, headers: corsHeaders() });
+  if (error) {
+    logError("DELETE /api/platform-admins", error, { userId });
+    return NextResponse.json({ error: error.message }, { status: 500, headers: corsHeaders() });
+  }
 
   return new NextResponse(null, { status: 204, headers: corsHeaders() });
 }

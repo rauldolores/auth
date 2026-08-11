@@ -1,3 +1,4 @@
+import { logError } from "@/lib/logger";
 import { createRouteHandlerSupabaseClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
 
@@ -52,7 +53,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     .eq("status", "active")
     .maybeSingle<MembershipRow>();
 
-  if (membershipError) return NextResponse.json({ error: membershipError.message }, { status: 500 });
+  if (membershipError) {
+    logError("GET /api/organizations/[id]/applications", membershipError, { organizationId });
+    return NextResponse.json({ error: membershipError.message }, { status: 500 });
+  }
   if (!membership) return NextResponse.json({ applications: [] });
 
   const roles = membership.membership_roles.map((mr) => mr.roles).filter((role): role is RoleRow => role !== null);
@@ -65,7 +69,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     .eq("organization_id", organizationId)
     .returns<EnabledAppRow[]>();
 
-  if (enabledError) return NextResponse.json({ error: enabledError.message }, { status: 500 });
+  if (enabledError) {
+    logError("GET /api/organizations/[id]/applications", enabledError, { organizationId });
+    return NextResponse.json({ error: enabledError.message }, { status: 500 });
+  }
 
   const applications = enabledRows
     .map((row) => row.applications)

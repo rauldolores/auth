@@ -118,7 +118,8 @@ function MfaChallengeInner() {
   return (
     <AuthShell title="Verificación en dos pasos" subtitle="Ingresa el código de tu app autenticadora.">
       <form onSubmit={handleSubmit} className="k-flex k-flex-col k-gap-5">
-        <div className="k-flex k-justify-between k-gap-2">
+        <fieldset className="k-flex k-justify-between k-gap-2">
+          <legend className="k-sr-only">Código de verificación de 6 dígitos</legend>
           {digits.map((digit, index) => (
             <input
               key={index}
@@ -133,10 +134,11 @@ function MfaChallengeInner() {
               onKeyDown={(e) => handleKeyDown(index, e)}
               onPaste={handlePaste}
               autoFocus={index === 0}
+              aria-label={`Dígito ${index + 1} de ${CODE_LENGTH}`}
               className="k-h-12 k-w-full k-rounded-lg k-border k-border-border k-bg-background k-text-center k-text-lg k-font-semibold"
             />
           ))}
-        </div>
+        </fieldset>
         {error && <p className="k-text-sm k-text-destructive">{error}</p>}
         <button
           type="submit"

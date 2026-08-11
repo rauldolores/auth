@@ -188,6 +188,7 @@ export default function OAuthClientsPage() {
       </Card>
 
       <Card className="k-p-0">
+        <div className="k-overflow-x-auto">
         <table className="k-w-full k-text-sm">
           <thead>
             <tr className="k-border-b k-border-border k-text-left k-text-xs k-uppercase k-tracking-wide k-text-muted-foreground">
@@ -262,6 +263,7 @@ export default function OAuthClientsPage() {
             )}
           </tbody>
         </table>
+        </div>
         {clients?.length === 0 && (
           <p className="k-px-5 k-py-6 k-text-sm k-text-muted-foreground">Sin clientes OAuth registrados.</p>
         )}
