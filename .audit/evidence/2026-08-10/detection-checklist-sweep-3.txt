@@ -1,0 +1,36 @@
+Commands run (third audit of 2026-08-10, scoped to files changed by commit 4579870):
+
+$ grep -n -iE "TODO|FIXME|XXX|HACK" apps/auth-server/app/api/organization-members/route.ts apps/admin-panel/app/invitations/page.tsx apps/admin-panel/app/users/page.tsx "apps/admin-panel/app/users/[membershipId]/page.tsx" apps/admin-panel/lib/supabase-browser.ts packages/cli/src/utils/open-browser.ts packages/db/migrations/0024_extend_audit_triggers.sql
+(no matches)
+
+$ grep -n "catch\s*([^)]*)\s*{\s*}" apps/auth-server/app/api/organization-members/route.ts apps/admin-panel/app/invitations/page.tsx apps/admin-panel/app/users/page.tsx "apps/admin-panel/app/users/[membershipId]/page.tsx" packages/cli/src/utils/open-browser.ts
+(no empty catch blocks — open-browser.ts's try/catch retains its pre-existing "Best-effort only" comment; the new code path uses child.on('error', () => {}) instead, which is the intended fix, not a swallowed error masking a bug)
+
+$ grep -rn "resend|Resend" --include="*.ts" --include="*.tsx" apps/ packages/ examples/
+Only apps/admin-panel/app/invitations/page.tsx (definition + button wiring) — no other caller still
+depends on the old (non-rotating) resend behavior.
+
+$ grep -rn "wouldRemoveLastOwner" apps/ packages/
+Only apps/auth-server/app/api/organization-members/route.ts — one shared definition, two call sites
+(PATCH-to-suspended and DELETE), matching the "shared guard" design intent stated in the function's
+own doc comment. No stale duplicate implementation left anywhere else.
+
+Manual trace (static, no live DB access from this session — see note in report):
+- migration 0024 create-or-replace of kontrolia_auth.log_membership_change(): UPDATE branch fires
+  only when old.status is distinct from new.status; DELETE branch retains 0023's
+  "if exists (select 1 from organizations where id = old.organization_id)" org-delete-cascade guard,
+  unmodified.
+- migration 0024 log_invitation_deleted(): new AFTER DELETE trigger on kontrolia_auth.invitations,
+  follows the same org-delete-cascade guard pattern as 0023's membership/role triggers (invitations.
+  organization_id has ON DELETE CASCADE per migration 0006, so this guard is load-bearing, not
+  decorative — confirmed the FK exists).
+- migration 0024 log_invitation_accepted(): create-or-replace only (no trigger recreate needed) —
+  the existing AFTER UPDATE trigger from 0013/0020 already fires on every invitations UPDATE,
+  including the resend path's expires_at/token change, so the new elsif branch is reachable via the
+  pre-existing trigger without any DDL change to the trigger itself.
+- Minor inconsistency (not a functional bug, given packages/db/src/migrate.ts tracks applied
+  migrations by filename in a `kontrolia_migrations` table and each file runs at most once): the new
+  `audit_invitation_deleted` trigger is created with a plain `create trigger`, unlike
+  `audit_membership_change` which is preceded by `drop trigger if exists`. Cosmetic-only under the
+  current migration runner design; would only matter if migrations were ever manually re-applied
+  outside that runner.

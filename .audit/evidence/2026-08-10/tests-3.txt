@@ -1,0 +1,66 @@
+pnpm run test
+
+> kontrolia-auth@0.1.0 test C:\Codigo\KONTROLIA\auth
+> turbo run test
+
+• turbo 2.10.8
+
+   • Packages in scope: @kontrolia/admin-panel, @kontrolia/auth, @kontrolia/auth-server, @kontrolia/config, @kontrolia/db, @kontrolia/documentation, @kontrolia/example-express, @kontrolia/example-nestjs, @kontrolia/example-nextjs, @kontrolia/example-react, @kontrolia/next, @kontrolia/permissions, @kontrolia/playground, @kontrolia/react, @kontrolia/shared, @kontrolia/ui, create-kontrolia-auth
+   • Running test in 17 packages
+   • Remote caching disabled
+
+@kontrolia/shared:build: cache hit, replaying logs 9496b73c06b8c8d0
+@kontrolia/shared:build: 
+@kontrolia/shared:build: > @kontrolia/shared@1.1.0 build C:\Codigo\KONTROLIA\auth\packages\shared
+@kontrolia/shared:build: > tsc -p tsconfig.json
+@kontrolia/shared:build: 
+@kontrolia/db:build: cache hit, replaying logs 2ab0c464d7dca141
+@kontrolia/db:build: 
+@kontrolia/db:build: > @kontrolia/db@2.1.0 build C:\Codigo\KONTROLIA\auth\packages\db
+@kontrolia/db:build: > tsc -p tsconfig.json
+@kontrolia/db:build: 
+@kontrolia/permissions:build: cache hit, replaying logs 8e28ca141347202d
+@kontrolia/permissions:build: 
+@kontrolia/permissions:build: > @kontrolia/permissions@1.0.1 build C:\Codigo\KONTROLIA\auth\packages\permissions
+@kontrolia/permissions:build: > tsc -p tsconfig.json
+@kontrolia/permissions:build: 
+@kontrolia/permissions:test: cache hit, replaying logs e876dff8ac4e7244
+@kontrolia/permissions:test: 
+@kontrolia/permissions:test: > @kontrolia/permissions@1.0.1 test C:\Codigo\KONTROLIA\auth\packages\permissions
+@kontrolia/permissions:test: > vitest run
+@kontrolia/permissions:test: 
+@kontrolia/permissions:test: 
+@kontrolia/permissions:test: [1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mC:/Codigo/KONTROLIA/auth/packages/permissions[39m
+@kontrolia/permissions:test: 
+@kontrolia/permissions:test:  [32m✓[39m src/__tests__/match.test.ts [2m([22m[2m5 tests[22m[2m)[22m[90m 5[2mms[22m[39m
+@kontrolia/permissions:test: 
+@kontrolia/permissions:test: [2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+@kontrolia/permissions:test: [2m      Tests [22m [1m[32m5 passed[39m[22m[90m (5)[39m
+@kontrolia/permissions:test: [2m   Start at [22m 18:24:38
+@kontrolia/permissions:test: [2m   Duration [22m 3.19s[2m (transform 1.18s, setup 0ms, collect 1.18s, tests 5ms, environment 0ms, prepare 833ms)[22m
+@kontrolia/permissions:test: 
+@kontrolia/auth:build: cache hit, replaying logs 8f461cfe3128b5f9
+@kontrolia/auth:build: 
+@kontrolia/auth:build: > @kontrolia/auth@2.0.0 build C:\Codigo\KONTROLIA\auth\packages\auth-sdk
+@kontrolia/auth:build: > tsc -p tsconfig.json
+@kontrolia/auth:build: 
+@kontrolia/next:build: cache hit, replaying logs 01316fa2a8b0635b
+@kontrolia/next:build: 
+@kontrolia/next:build: > @kontrolia/next@1.1.2 build C:\Codigo\KONTROLIA\auth\packages\next-sdk
+@kontrolia/next:build: > tsc -p tsconfig.json
+@kontrolia/next:build: 
+@kontrolia/react:build: cache hit, replaying logs f995436c0c2abb74
+@kontrolia/react:build: 
+@kontrolia/react:build: > @kontrolia/react@1.2.1 build C:\Codigo\KONTROLIA\auth\packages\react-sdk
+@kontrolia/react:build: > tsc -p tsconfig.json
+@kontrolia/react:build: 
+@kontrolia/ui:build: cache hit, replaying logs 3d8609472550c987
+@kontrolia/ui:build: 
+@kontrolia/ui:build: > @kontrolia/ui@1.0.3 build C:\Codigo\KONTROLIA\auth\packages\ui
+@kontrolia/ui:build: > tsc -p tsconfig.json
+@kontrolia/ui:build: 
+
+ Tasks:    8 successful, 8 total
+Cached:    8 cached, 8 total
+  Time:    92ms >>> FULL TURBO
+

@@ -39,5 +39,26 @@
       "REQ-033","REQ-034","REQ-035","REQ-036","REQ-037","REQ-038","REQ-039","REQ-040",
       "REQ-041","REQ-042"
     ]
+  },
+  {
+    "date": "2026-08-10T22:15:00",
+    "skill": "kontrolia-plan-compliance",
+    "auditFile": ".audit/audits/2026-08-10-plan-compliance-3.md",
+    "result": "PASS",
+    "compliance": 100,
+    "pass": 42,
+    "partial": 0,
+    "fail": 0,
+    "blocked": 0,
+    "notVerifiable": 0,
+    "note": "Re-audit after commit 4579870 (fix for all four PARTIAL findings from the second 2026-08-10 audit: REQ-006 token rotation + audit gap, REQ-008 trigger coverage gap, REQ-017 last-owner suspend lockout, REQ-034 unhandled spawn error). All four fixes independently re-verified as real and complete via fresh code inspection and manual tracing (not taken on the developer's claim alone). No new regression found in the other 38 requirements or elsewhere in the fix commit's diff. First 100%-compliance result across the three audits run today.",
+    "requirementsInScope": [
+      "REQ-001","REQ-002","REQ-003","REQ-004","REQ-005","REQ-006","REQ-007","REQ-008",
+      "REQ-009","REQ-010","REQ-011","REQ-012","REQ-013","REQ-014","REQ-015","REQ-016",
+      "REQ-017","REQ-018","REQ-019","REQ-020","REQ-021","REQ-022","REQ-023","REQ-024",
+      "REQ-025","REQ-026","REQ-027","REQ-028","REQ-029","REQ-030","REQ-031","REQ-032",
+      "REQ-033","REQ-034","REQ-035","REQ-036","REQ-037","REQ-038","REQ-039","REQ-040",
+      "REQ-041","REQ-042"
+    ]
   }
 ]

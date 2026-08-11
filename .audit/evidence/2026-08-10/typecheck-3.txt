@@ -1,0 +1,111 @@
+pnpm run typecheck
+
+> kontrolia-auth@0.1.0 typecheck C:\Codigo\KONTROLIA\auth
+> turbo run typecheck
+
+• turbo 2.10.8
+
+   • Packages in scope: @kontrolia/admin-panel, @kontrolia/auth, @kontrolia/auth-server, @kontrolia/config, @kontrolia/db, @kontrolia/documentation, @kontrolia/example-express, @kontrolia/example-nestjs, @kontrolia/example-nextjs, @kontrolia/example-react, @kontrolia/next, @kontrolia/permissions, @kontrolia/playground, @kontrolia/react, @kontrolia/shared, @kontrolia/ui, create-kontrolia-auth
+   • Running typecheck in 17 packages
+   • Remote caching disabled
+
+@kontrolia/shared:build: cache hit, replaying logs 9496b73c06b8c8d0
+@kontrolia/db:typecheck: cache miss, executing 22c5fbf4463571f1
+@kontrolia/shared:build: 
+@kontrolia/shared:build: > @kontrolia/shared@1.1.0 build C:\Codigo\KONTROLIA\auth\packages\shared
+@kontrolia/shared:build: > tsc -p tsconfig.json
+@kontrolia/shared:build: 
+@kontrolia/shared:typecheck: cache hit, replaying logs 336854cf1340f8ea
+@kontrolia/shared:typecheck: 
+@kontrolia/shared:typecheck: > @kontrolia/shared@1.1.0 typecheck C:\Codigo\KONTROLIA\auth\packages\shared
+@kontrolia/shared:typecheck: > tsc -p tsconfig.json --noEmit
+@kontrolia/shared:typecheck: 
+@kontrolia/db:build: cache hit, replaying logs 2ab0c464d7dca141
+@kontrolia/permissions:build: cache hit, replaying logs 8e28ca141347202d
+@kontrolia/documentation:typecheck: cache hit, replaying logs 2d1284a602b0083e
+@kontrolia/db:build: 
+@kontrolia/db:build: > @kontrolia/db@2.1.0 build C:\Codigo\KONTROLIA\auth\packages\db
+@kontrolia/db:build: > tsc -p tsconfig.json
+@kontrolia/permissions:build: 
+@kontrolia/permissions:build: > @kontrolia/permissions@1.0.1 build C:\Codigo\KONTROLIA\auth\packages\permissions
+@kontrolia/db:build: 
+@kontrolia/permissions:build: > tsc -p tsconfig.json
+@kontrolia/permissions:build: 
+@kontrolia/documentation:typecheck: 
+@kontrolia/documentation:typecheck: > @kontrolia/documentation@0.1.0 typecheck C:\Codigo\KONTROLIA\auth\apps\documentation
+@kontrolia/documentation:typecheck: > tsc --noEmit
+@kontrolia/documentation:typecheck: 
+@kontrolia/permissions:typecheck: cache hit, replaying logs dbeb7c73fe0491b5
+create-kontrolia-auth:typecheck: cache miss, executing 3ca10e340bce2bb7
+@kontrolia/permissions:typecheck: 
+@kontrolia/permissions:typecheck: > @kontrolia/permissions@1.0.1 typecheck C:\Codigo\KONTROLIA\auth\packages\permissions
+@kontrolia/permissions:typecheck: > tsc -p tsconfig.json --noEmit
+@kontrolia/permissions:typecheck: 
+@kontrolia/auth:typecheck: cache hit, replaying logs dfec19a5ebb9aa67
+@kontrolia/auth:typecheck: 
+@kontrolia/auth:typecheck: > @kontrolia/auth@2.0.0 typecheck C:\Codigo\KONTROLIA\auth\packages\auth-sdk
+@kontrolia/auth:typecheck: > tsc -p tsconfig.json --noEmit
+@kontrolia/auth:typecheck: 
+@kontrolia/auth:build: cache hit, replaying logs 8f461cfe3128b5f9
+@kontrolia/auth:build: 
+@kontrolia/auth:build: > @kontrolia/auth@2.0.0 build C:\Codigo\KONTROLIA\auth\packages\auth-sdk
+@kontrolia/auth:build: > tsc -p tsconfig.json
+@kontrolia/auth:build: 
+@kontrolia/next:typecheck: cache hit, replaying logs 2fc642aa328ad658
+@kontrolia/react:build: cache hit, replaying logs f995436c0c2abb74
+@kontrolia/next:typecheck: 
+@kontrolia/next:typecheck: > @kontrolia/next@1.1.2 typecheck C:\Codigo\KONTROLIA\auth\packages\next-sdk
+@kontrolia/next:build: cache hit, replaying logs 01316fa2a8b0635b
+@kontrolia/next:typecheck: > tsc -p tsconfig.json --noEmit
+@kontrolia/next:typecheck: 
+@kontrolia/react:build: 
+@kontrolia/react:build: > @kontrolia/react@1.2.1 build C:\Codigo\KONTROLIA\auth\packages\react-sdk
+@kontrolia/react:build: > tsc -p tsconfig.json
+@kontrolia/react:build: 
+@kontrolia/react:typecheck: cache hit, replaying logs 6f70835613c0dea4
+@kontrolia/next:build: 
+@kontrolia/next:build: > @kontrolia/next@1.1.2 build C:\Codigo\KONTROLIA\auth\packages\next-sdk
+@kontrolia/next:build: > tsc -p tsconfig.json
+@kontrolia/next:build: 
+@kontrolia/react:typecheck: 
+@kontrolia/react:typecheck: > @kontrolia/react@1.2.1 typecheck C:\Codigo\KONTROLIA\auth\packages\react-sdk
+@kontrolia/react:typecheck: > tsc -p tsconfig.json --noEmit
+@kontrolia/react:typecheck: 
+@kontrolia/ui:typecheck: cache hit, replaying logs 6ec1e648a594ac92
+@kontrolia/ui:typecheck: 
+@kontrolia/ui:typecheck: > @kontrolia/ui@1.0.3 typecheck C:\Codigo\KONTROLIA\auth\packages\ui
+@kontrolia/ui:typecheck: > tsc -p tsconfig.json --noEmit
+@kontrolia/ui:typecheck: 
+@kontrolia/playground:typecheck: cache hit, replaying logs 5ae6b1e33a4f8874
+@kontrolia/playground:typecheck: 
+@kontrolia/playground:typecheck: > @kontrolia/playground@0.1.0 typecheck C:\Codigo\KONTROLIA\auth\apps\playground
+@kontrolia/playground:typecheck: > tsc --noEmit
+@kontrolia/playground:typecheck: 
+@kontrolia/ui:build: cache hit, replaying logs 3d8609472550c987
+@kontrolia/ui:build: 
+@kontrolia/ui:build: > @kontrolia/ui@1.0.3 build C:\Codigo\KONTROLIA\auth\packages\ui
+@kontrolia/ui:build: > tsc -p tsconfig.json
+@kontrolia/ui:build: 
+@kontrolia/auth-server:typecheck: cache miss, executing 8c5a83bd4ce0ec12
+@kontrolia/admin-panel:typecheck: cache miss, executing d23dad95e5d4f6cc
+@kontrolia/db:typecheck: 
+@kontrolia/db:typecheck: > @kontrolia/db@2.1.0 typecheck C:\Codigo\KONTROLIA\auth\packages\db
+@kontrolia/db:typecheck: > tsc -p tsconfig.json --noEmit
+@kontrolia/db:typecheck: 
+create-kontrolia-auth:typecheck: 
+create-kontrolia-auth:typecheck: > create-kontrolia-auth@2.4.2 typecheck C:\Codigo\KONTROLIA\auth\packages\cli
+create-kontrolia-auth:typecheck: > tsc -p tsconfig.json --noEmit
+create-kontrolia-auth:typecheck: 
+@kontrolia/auth-server:typecheck: 
+@kontrolia/auth-server:typecheck: > @kontrolia/auth-server@0.1.0 typecheck C:\Codigo\KONTROLIA\auth\apps\auth-server
+@kontrolia/auth-server:typecheck: > tsc --noEmit
+@kontrolia/auth-server:typecheck: 
+@kontrolia/admin-panel:typecheck: 
+@kontrolia/admin-panel:typecheck: > @kontrolia/admin-panel@0.1.0 typecheck C:\Codigo\KONTROLIA\auth\apps\admin-panel
+@kontrolia/admin-panel:typecheck: > tsc --noEmit
+@kontrolia/admin-panel:typecheck: 
+
+ Tasks:    19 successful, 19 total
+Cached:    15 cached, 19 total
+  Time:    5.016s 
+
