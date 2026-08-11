@@ -1,0 +1,95 @@
+Live database verification — second Phase 2 (professional-quality) re-audit, 2026-08-10T23:59:00
+Target: local Supabase Postgres, docker container supabase_db_VACIO, port 54322 (via `docker exec supabase_db_VACIO psql -U postgres -d postgres`)
+All statements below were run inside BEGIN;...ROLLBACK; transactions — no data was permanently modified.
+
+=====================================================================
+TEST 1 — PQ-SEC-001's specific cited vector: DELETE on membership_roles
+Expectation per migration 0025: blocked for the sole active Owner.
+=====================================================================
+
+Query:
+  Sole active Owner of org "Mi empresa" is membership d851c8dd-8901-40b6-9458-92e3a328cb28.
+  BEGIN;
+  DO $$ ... DELETE FROM kontrolia_auth.membership_roles WHERE membership_id = 'd851c8dd-...' AND role_id = (owner role id); ... $$;
+  ROLLBACK;
+
+Result:
+  NOTICE:  EXPLOIT BLOCKED (GOOD) - No puedes quitar el rol de Owner al único Owner activo de la organización.
+
+Conclusion: PQ-SEC-001's literal, originally-cited vector is genuinely fixed. VERIFIED.
+
+=====================================================================
+TEST 2 — Legitimate multi-owner case still works (regression check on migration 0025)
+=====================================================================
+
+Query:
+  Org "CRM Demo": existing owner membership 96b5df42-..., admin membership b9b4541b-....
+  BEGIN;
+  DO $$ ... INSERT owner role for b9b4541b (now 2 active owners) ...
+            DELETE owner role from 96b5df42 (the original owner) ... $$;
+  ROLLBACK;
+
+Result:
+  NOTICE:  MULTI-OWNER CASE: delete succeeded as expected (GOOD)
+
+Conclusion: migration 0025 does not incorrectly block legitimate role changes when >1 active Owner exists.
+
+=====================================================================
+TEST 3 — NEW vector: direct DELETE on kontrolia_auth.memberships (not membership_roles)
+=====================================================================
+
+Query:
+  Sole active Owner of org "Mi empresa": membership d851c8dd-8901-40b6-9458-92e3a328cb28.
+  BEGIN;
+  DELETE FROM kontrolia_auth.memberships WHERE id = 'd851c8dd-8901-40b6-9458-92e3a328cb28';
+  SELECT count(*) FROM kontrolia_auth.membership_roles WHERE membership_id = 'd851c8dd-...';
+  ROLLBACK;
+
+Result:
+  NOTICE:  BYPASS SUCCEEDED (BAD) - sole owner membership deleted directly, no error raised, membership_roles cascaded silently
+  remaining_membership_roles: 0
+
+Conclusion: the RLS policy "org admins remove memberships" (FOR DELETE, USING is_org_admin(organization_id))
+permits any org Admin to delete the sole Owner's entire membership row directly via PostgREST, with zero
+last-owner check. The migration-0025 trigger on membership_roles explicitly no-ops on cascade deletes
+(its own comment: "Membership already gone ... nothing left to protect"), so this path was never covered.
+Tracked as new CRITICAL finding PQ-SEC-003.
+
+=====================================================================
+TEST 4 — NEW vector: direct UPDATE of kontrolia_auth.memberships.status
+=====================================================================
+
+Query:
+  Sole active Owner of org "Facturación Demo": membership e84be83f-cd75-4a2c-bb99-cd08241ebb12.
+  BEGIN;
+  UPDATE kontrolia_auth.memberships SET status = 'suspended' WHERE id = 'e84be83f-...';
+  ROLLBACK;
+
+Result:
+  NOTICE:  BYPASS SUCCEEDED (BAD) - sole owner suspended directly via RLS-governed UPDATE, no last-owner check enforced at DB layer
+
+Conclusion: the RLS policy "org admins update memberships" (FOR UPDATE, USING is_org_admin(organization_id))
+permits any org Admin to suspend the sole active Owner directly via PostgREST, reproducing the exact
+suspend-to-zero-active-Owners lockout that plan-compliance commit 4579870 fixed — but only at the
+Next.js API-route layer (organization-members PATCH's wouldRemoveLastOwner() call). No DB-level trigger
+exists on memberships for UPDATE. Tracked as new CRITICAL finding PQ-SEC-004.
+
+=====================================================================
+Supporting schema evidence
+=====================================================================
+
+\d kontrolia_auth.membership_roles (relevant excerpt):
+  Triggers:
+    audit_role_assignment_change AFTER INSERT OR DELETE ON kontrolia_auth.membership_roles ...
+    before_membership_role_insert BEFORE INSERT ON kontrolia_auth.membership_roles ...
+    prevent_last_owner_role_removal BEFORE DELETE ON kontrolia_auth.membership_roles ...   <- migration 0025
+
+\d kontrolia_auth.memberships (relevant excerpt):
+  Policies:
+    "org admins manage memberships" FOR INSERT ... WITH CHECK (is_org_admin(organization_id))
+    "org admins remove memberships" FOR DELETE ... USING (is_org_admin(organization_id))     <- TEST 3 vector, no guard
+    "org admins update memberships" FOR UPDATE ... USING (is_org_admin(organization_id))     <- TEST 4 vector, no guard
+  Triggers:
+    audit_membership_change AFTER INSERT OR DELETE OR UPDATE ON kontrolia_auth.memberships ...  (audit-only, does not block)
+
+No BEFORE DELETE or BEFORE UPDATE trigger exists on kontrolia_auth.memberships itself.

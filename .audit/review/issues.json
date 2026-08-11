@@ -6,15 +6,16 @@
       "category": "UX",
       "description": "Remove-member action fires the delete mutation immediately on click — no confirmation dialog, unlike the (already-fixed) suspend-member flow on the same pages.",
       "severity": "CRITICAL",
-      "lastAuditStatus": "CRITICAL",
-      "status": "OPEN",
-      "lastAudited": "2026-08-10T23:30:00",
+      "lastAuditStatus": "RESOLVED",
+      "status": "VERIFIED",
+      "lastAudited": "2026-08-10T23:59:00",
       "evidence": [
-        "apps/admin-panel/app/users/page.tsx:135-165 — handleRemoveMember has no confirm() or dialog before the DELETE call",
-        "apps/admin-panel/app/users/[membershipId]/page.tsx:139-169 — same handler, same gap"
+        "apps/admin-panel/app/users/page.tsx:95 — window.confirm(`¿Quitar a ${member.email} de ${organization.name}? Perderá acceso a la organización.`)",
+        "apps/admin-panel/app/users/[membershipId]/page.tsx:121 — same specific, informative confirm() message"
       ],
       "verification": [
-        "Static code trace: onClick handler calls the removal fetch/mutation directly, no window.confirm/dialog wrapper found on either code path"
+        "Static code trace: onClick handler calls the removal fetch/mutation directly, no window.confirm/dialog wrapper found on either code path",
+        "Re-check 2026-08-10T23:59:00: grepped both files for window.confirm( and read the surrounding handler on each; confirm() now gates the mutation call on both pages with a message naming the affected user and organization, not a generic 'are you sure'"
       ],
       "history": [
         {
@@ -22,6 +23,12 @@
           "auditStatus": "CRITICAL",
           "remediationStatus": "OPEN",
           "note": "One misclick removes a member from the organization with zero confirmation step, on the same page where suspend was already fixed to require one."
+        },
+        {
+          "date": "2026-08-10T23:59:00",
+          "auditStatus": "RESOLVED",
+          "remediationStatus": "VERIFIED",
+          "note": "commit d1bf2cb added window.confirm() before the removal mutation on both pages with a specific, informative message. Re-checked via fresh code read this session, not taken on the commit message's claim."
         }
       ]
     },
@@ -30,14 +37,15 @@
       "category": "UX",
       "description": "Revoke-platform-admin action fires immediately on click with no confirmation dialog and no pending/in-flight state guard against double-submission.",
       "severity": "CRITICAL",
-      "lastAuditStatus": "CRITICAL",
-      "status": "OPEN",
-      "lastAudited": "2026-08-10T23:30:00",
+      "lastAuditStatus": "RESOLVED",
+      "status": "VERIFIED",
+      "lastAudited": "2026-08-10T23:59:00",
       "evidence": [
-        "apps/admin-panel/app/platform-admins/page.tsx:64 — revoke handler invoked directly from onClick, no confirm step, no disabled-while-pending guard"
+        "apps/admin-panel/app/platform-admins/page.tsx:66 — window.confirm(`¿Quitar el rol de platform admin a ${admin.email}?`)"
       ],
       "verification": [
-        "Static code trace of the revoke button's onClick handler"
+        "Static code trace of the revoke button's onClick handler",
+        "Re-check 2026-08-10T23:59:00: confirmed confirm() now gates the revoke call with the target admin's email named in the message"
       ],
       "history": [
         {
@@ -45,6 +53,12 @@
           "auditStatus": "CRITICAL",
           "remediationStatus": "OPEN",
           "note": "Revoking platform-admin status is a high-blast-radius action (removes a user's ability to manage the whole platform) with zero confirmation."
+        },
+        {
+          "date": "2026-08-10T23:59:00",
+          "auditStatus": "RESOLVED",
+          "remediationStatus": "VERIFIED",
+          "note": "commit d1bf2cb added window.confirm() before the revoke call. Re-checked via fresh code read this session."
         }
       ]
     },
@@ -53,14 +67,15 @@
       "category": "UX",
       "description": "Revoke-invitation action fires immediately on click with no confirmation dialog.",
       "severity": "CRITICAL",
-      "lastAuditStatus": "CRITICAL",
-      "status": "OPEN",
-      "lastAudited": "2026-08-10T23:30:00",
+      "lastAuditStatus": "RESOLVED",
+      "status": "VERIFIED",
+      "lastAudited": "2026-08-10T23:59:00",
       "evidence": [
-        "apps/admin-panel/app/invitations/page.tsx:108 — revoke handler invoked directly from onClick, no confirm step"
+        "apps/admin-panel/app/invitations/page.tsx:129 — window.confirm(`¿Revocar la invitación a ${row.email}? El enlace dejará de funcionar.`)"
       ],
       "verification": [
-        "Static code trace of the revoke button's onClick handler"
+        "Static code trace of the revoke button's onClick handler",
+        "Re-check 2026-08-10T23:59:00: confirmed confirm() now gates the revoke call, message explains the consequence (link stops working), not generic"
       ],
       "history": [
         {
@@ -68,6 +83,12 @@
           "auditStatus": "CRITICAL",
           "remediationStatus": "OPEN",
           "note": "Revoking a pending invitation with no confirmation risks accidentally cutting off a legitimate pending invite."
+        },
+        {
+          "date": "2026-08-10T23:59:00",
+          "auditStatus": "RESOLVED",
+          "remediationStatus": "VERIFIED",
+          "note": "commit d1bf2cb added window.confirm() before the revoke call. Re-checked via fresh code read this session."
         }
       ]
     },
@@ -76,14 +97,15 @@
       "category": "UX",
       "description": "Disable-application action fires immediately on click with no confirmation dialog.",
       "severity": "CRITICAL",
-      "lastAuditStatus": "CRITICAL",
-      "status": "OPEN",
-      "lastAudited": "2026-08-10T23:30:00",
+      "lastAuditStatus": "RESOLVED",
+      "status": "VERIFIED",
+      "lastAudited": "2026-08-10T23:59:00",
       "evidence": [
-        "apps/admin-panel/app/applications/page.tsx:87 — disable handler invoked directly from onClick, no confirm step"
+        "apps/admin-panel/app/applications/page.tsx:90 — window.confirm(...) now gates the disable call"
       ],
       "verification": [
-        "Static code trace of the disable button's onClick handler"
+        "Static code trace of the disable button's onClick handler",
+        "Re-check 2026-08-10T23:59:00: confirmed confirm() now gates the disable call"
       ],
       "history": [
         {
@@ -91,6 +113,12 @@
           "auditStatus": "CRITICAL",
           "remediationStatus": "OPEN",
           "note": "Disabling a registered application affects every user/org relying on it for OAuth login; fires with zero confirmation."
+        },
+        {
+          "date": "2026-08-10T23:59:00",
+          "auditStatus": "RESOLVED",
+          "remediationStatus": "VERIFIED",
+          "note": "commit d1bf2cb added window.confirm() before the disable call. Re-checked via fresh code read this session."
         }
       ]
     },
@@ -99,14 +127,15 @@
       "category": "UX",
       "description": "Remove-MFA-factor action fires immediately on click with no confirmation dialog.",
       "severity": "CRITICAL",
-      "lastAuditStatus": "CRITICAL",
-      "status": "OPEN",
-      "lastAudited": "2026-08-10T23:30:00",
+      "lastAuditStatus": "RESOLVED",
+      "status": "VERIFIED",
+      "lastAudited": "2026-08-10T23:59:00",
       "evidence": [
-        "apps/auth-server/app/security/page.tsx:95 — remove-factor handler invoked directly from onClick, no confirm step"
+        "apps/auth-server/app/security/page.tsx:61 — window.confirm(\"¿Eliminar este factor de verificación en dos pasos? Tu cuenta quedará menos protegida.\")"
       ],
       "verification": [
-        "Static code trace of the remove-factor button's onClick handler"
+        "Static code trace of the remove-factor button's onClick handler",
+        "Re-check 2026-08-10T23:59:00: confirmed confirm() now gates the removal, message explicitly warns the account becomes less protected"
       ],
       "history": [
         {
@@ -114,6 +143,12 @@
           "auditStatus": "CRITICAL",
           "remediationStatus": "OPEN",
           "note": "Removing a user's own MFA factor weakens their account security with a single accidental click and no confirmation."
+        },
+        {
+          "date": "2026-08-10T23:59:00",
+          "auditStatus": "RESOLVED",
+          "remediationStatus": "VERIFIED",
+          "note": "commit d1bf2cb added window.confirm() before the removal. Re-checked via fresh code read this session."
         }
       ]
     },
@@ -122,14 +157,15 @@
       "category": "UX",
       "description": "Revoke-device action fires immediately on click with no confirmation dialog.",
       "severity": "CRITICAL",
-      "lastAuditStatus": "CRITICAL",
-      "status": "OPEN",
-      "lastAudited": "2026-08-10T23:30:00",
+      "lastAuditStatus": "RESOLVED",
+      "status": "VERIFIED",
+      "lastAudited": "2026-08-10T23:59:00",
       "evidence": [
-        "apps/auth-server/app/devices/page.tsx:37 — revoke handler invoked directly from onClick, no confirm step"
+        "apps/auth-server/app/devices/page.tsx:38 — window.confirm(`¿Cerrar la sesión de \"${label}\"? Esa sesión perderá el acceso de inmediato.`)"
       ],
       "verification": [
-        "Static code trace of the revoke-device button's onClick handler"
+        "Static code trace of the revoke-device button's onClick handler",
+        "Re-check 2026-08-10T23:59:00: confirmed confirm() now gates the revoke call, message names the device/session and explains the effect"
       ],
       "history": [
         {
@@ -137,6 +173,12 @@
           "auditStatus": "CRITICAL",
           "remediationStatus": "OPEN",
           "note": "Revoking a device/session immediately signs it out; low data-loss risk but still a one-click irreversible-in-the-moment action with zero confirmation, consistent with the app's broader confirmation pattern gap."
+        },
+        {
+          "date": "2026-08-10T23:59:00",
+          "auditStatus": "RESOLVED",
+          "remediationStatus": "VERIFIED",
+          "note": "commit d1bf2cb added window.confirm() before the revoke call. Re-checked via fresh code read this session."
         }
       ]
     },
@@ -145,18 +187,20 @@
       "category": "SECURITY",
       "description": "The last-active-Owner lockout protection added for member suspend/remove is enforced only in the Next.js API route layer (organization-members PATCH/DELETE) and is missing entirely from the DB/RLS layer that governs kontrolia_auth.membership_roles — an org Admin can DELETE the sole Owner's role-assignment row directly via PostgREST/Supabase and strip Owner authority with no last-owner check at all.",
       "severity": "CRITICAL",
-      "lastAuditStatus": "CRITICAL",
-      "status": "OPEN",
-      "lastAudited": "2026-08-10T23:30:00",
+      "lastAuditStatus": "RESOLVED (narrow — see PQ-SEC-003/PQ-SEC-004)",
+      "status": "VERIFIED",
+      "lastAudited": "2026-08-10T23:59:00",
       "evidence": [
         "packages/db/migrations/0010_rls_policies.sql:78-81 — \"org admins manage membership roles\" policy is a bare is_org_admin() check with no last-owner guard",
         "packages/db/migrations/0009_helper_functions.sql:19-36 — is_org_admin() returns true for slug 'owner' OR 'admin', so a non-Owner Admin passes this policy",
         "apps/auth-server/app/api/organization-members/route.ts:107-144 — wouldRemoveLastOwner() exists and is called from PATCH (line 165) and DELETE (line 198) on memberships only, never referenced from any membership_roles code path",
-        "packages/db/migrations/0013_audit_log_triggers.sql:89-116 — role.unassigned audit trigger confirms DELETE on membership_roles is an expected, reachable, normal operation, not a theoretical edge case"
+        "packages/db/migrations/0013_audit_log_triggers.sql:89-116 — role.unassigned audit trigger confirms DELETE on membership_roles is an expected, reachable, normal operation, not a theoretical edge case",
+        "packages/db/migrations/0025_prevent_last_owner_role_removal.sql — new BEFORE DELETE trigger on kontrolia_auth.membership_roles, live-tested this session"
       ],
       "verification": [
         "Read the RLS policy text directly and confirmed no last-owner-count subquery or trigger exists anywhere in the migrations for membership_roles",
-        "Confirmed the admin-panel UI itself only ever edits app-scoped roles (apps/admin-panel/app/users/page.tsx:139-165 filters .not(\"application_id\",\"is\",null)) so the gap is only reachable via a direct authenticated API call, not through the shipped UI — still a real gap since the endpoint itself has no server-side guard"
+        "Confirmed the admin-panel UI itself only ever edits app-scoped roles (apps/admin-panel/app/users/page.tsx:139-165 filters .not(\"application_id\",\"is\",null)) so the gap is only reachable via a direct authenticated API call, not through the shipped UI — still a real gap since the endpoint itself has no server-side guard",
+        "Re-check 2026-08-10T23:59:00: LIVE-tested against the running local Supabase Postgres (docker container supabase_db_VACIO, port 54322) rather than just reading the migration. In a rolled-back transaction, DELETE FROM kontrolia_auth.membership_roles for the sole active Owner's role row on a real seeded org ('Mi empresa') raised the exact trigger error ('No puedes quitar el rol de Owner al único Owner activo de la organización.') — exploit genuinely blocked. In a second rolled-back transaction, granted a second membership the Owner role on 'CRM Demo' (2 active Owners) and confirmed the original Owner's role DELETE then succeeded with no error — legitimate multi-owner case still works. Both outcomes independently confirmed, not taken on the fix commit's own claimed verification."
       ],
       "history": [
         {
@@ -164,6 +208,62 @@
           "auditStatus": "CRITICAL",
           "remediationStatus": "OPEN",
           "note": "Same bug class as the plan-compliance CRITICAL fixed today in commit 4579870 (suspend-to-zero-active-Owners lockout) but through a different, DB-level door that fix never covered. An Admin (not just an Owner) can strip the sole Owner's org-wide role and reproduce the exact lockout scenario the earlier fix was meant to close."
+        },
+        {
+          "date": "2026-08-10T23:59:00",
+          "auditStatus": "RESOLVED (narrow)",
+          "remediationStatus": "VERIFIED",
+          "note": "commit d1bf2cb's migration 0025 closes exactly the vector this issue's evidence cited (DELETE on kontrolia_auth.membership_roles) — live-verified blocked in the running local DB, with the legitimate multi-owner case confirmed still working. HOWEVER: this session found the identical org-lockout outcome is still trivially achievable through two sibling doors on the neighboring kontrolia_auth.memberships table that migration 0025 does not touch and that were apparently not considered — see new CRITICAL findings PQ-SEC-003 (direct RLS DELETE on memberships) and PQ-SEC-004 (direct RLS UPDATE of memberships.status to 'suspended'), both live-verified exploitable this session. The literal finding as originally scoped is fixed; the underlying vulnerability class it was meant to close (RLS-only direct-table access bypassing wouldRemoveLastOwner, tracked architecturally as PQ-TECH-004) is not."
+        }
+      ]
+    },
+    {
+      "id": "PQ-SEC-003",
+      "category": "SECURITY",
+      "description": "An org Admin (not just Owner) can DELETE the sole active Owner's entire membership row directly on kontrolia_auth.memberships via PostgREST/Supabase (governed by RLS policy \"org admins remove memberships\", a bare is_org_admin() check with no last-owner guard), which cascades (ON DELETE CASCADE) to membership_roles. The new migration-0025 trigger on membership_roles explicitly no-ops in this case (by design, to not break legitimate org-delete cascades: \"if v_organization_id is null ... then return old\" — the parent membership is already gone by the time the child trigger runs), so the cascade-deleted Owner role is never checked at all. This reproduces the exact last-owner-lockout outcome PQ-SEC-001/PQ-SEC-002/REQ-017's fixes were all meant to close, through a door none of them covered.",
+      "severity": "CRITICAL",
+      "lastAuditStatus": "CRITICAL",
+      "status": "OPEN",
+      "lastAudited": "2026-08-10T23:59:00",
+      "evidence": [
+        "packages/db/migrations/0005_memberships.sql / current schema — \"org admins remove memberships\" FOR DELETE policy on kontrolia_auth.memberships is USING (kontrolia_auth.is_org_admin(organization_id)) with no last-owner check",
+        "packages/db/migrations/0025_prevent_last_owner_role_removal.sql:22-24 — the new trigger's own comment confirms the no-op-on-cascade design: \"Membership already gone ... nothing left to protect\"",
+        "No BEFORE DELETE trigger exists anywhere on kontrolia_auth.memberships itself (confirmed via \\d kontrolia_auth.memberships against the live local DB: only an AFTER audit-logging trigger, audit_membership_change, exists — audit-only, does not block)"
+      ],
+      "verification": [
+        "LIVE-tested against the running local Supabase Postgres (supabase_db_VACIO, port 54322). In a rolled-back transaction: DELETE FROM kontrolia_auth.memberships WHERE id = 'd851c8dd-8901-40b6-9458-92e3a328cb28' (the sole active Owner's membership row for org 'Mi empresa') succeeded with NO error, and a follow-up SELECT within the same transaction confirmed the associated membership_roles rows were silently cascade-deleted (0 remaining) with the last-owner check never firing."
+      ],
+      "history": [
+        {
+          "date": "2026-08-10T23:59:00",
+          "auditStatus": "CRITICAL",
+          "remediationStatus": "OPEN",
+          "note": "New finding this session, discovered while independently re-verifying PQ-SEC-001's fix rather than trusting the migration in isolation. Any authenticated org Admin (is_org_admin() passes for slug 'owner' OR 'admin') can call PostgREST directly (no admin-panel UI needed) to DELETE the sole Owner's membership row and lock the organization out of Owner-level access — the same outcome the API-layer fix (commit 4579870) and the membership_roles DB trigger (migration 0025, commit d1bf2cb, this same day) were both meant to prevent."
+        }
+      ]
+    },
+    {
+      "id": "PQ-SEC-004",
+      "category": "SECURITY",
+      "description": "An org Admin can directly UPDATE kontrolia_auth.memberships.status to 'suspended' for the sole active Owner via PostgREST/Supabase (governed by RLS policy \"org admins update memberships\", a bare is_org_admin() check), with zero last-owner enforcement at the DB layer for UPDATE — reproducing the exact suspend-to-zero-active-Owners lockout that plan-compliance commit 4579870 fixed, but only at the Next.js API-route layer (organization-members PATCH's wouldRemoveLastOwner() call), not at the RLS/DB layer that governs direct table access.",
+      "severity": "CRITICAL",
+      "lastAuditStatus": "CRITICAL",
+      "status": "OPEN",
+      "lastAudited": "2026-08-10T23:59:00",
+      "evidence": [
+        "current schema — \"org admins update memberships\" FOR UPDATE policy on kontrolia_auth.memberships is USING (kontrolia_auth.is_org_admin(organization_id)) with no status-transition or last-owner check",
+        "apps/auth-server/app/api/organization-members/route.ts:107-144,165 — wouldRemoveLastOwner() is only ever invoked from this one Next.js API route's PATCH handler, never from a DB-level trigger/constraint on memberships",
+        "No BEFORE UPDATE trigger exists on kontrolia_auth.memberships (confirmed via \\d against the live local DB: only the AFTER audit_membership_change trigger, audit-only)"
+      ],
+      "verification": [
+        "LIVE-tested against the running local Supabase Postgres. In a rolled-back transaction: UPDATE kontrolia_auth.memberships SET status = 'suspended' WHERE id = 'e84be83f-cd75-4a2c-bb99-cd08241ebb12' (the sole active Owner's membership for org 'Facturación Demo') succeeded with NO error and no last-owner check of any kind."
+      ],
+      "history": [
+        {
+          "date": "2026-08-10T23:59:00",
+          "auditStatus": "CRITICAL",
+          "remediationStatus": "OPEN",
+          "note": "New finding this session, sibling to PQ-SEC-003 — same root cause (RLS-only direct table access has no equivalent of the API route's wouldRemoveLastOwner() guard), different operation (UPDATE status vs DELETE row). Confirms PQ-TECH-004 ('two parallel mutation paths') is NOT resolved by migration 0025 — it patched exactly one of at least three reachable last-owner-bypass vectors on this data model (membership_roles DELETE: fixed; memberships DELETE: open; memberships UPDATE status: open)."
         }
       ]
     },
@@ -173,15 +273,17 @@
       "description": "Several list fetches never check the Supabase query's error before rendering, so a genuine backend failure (network error, RLS denial, downed DB) renders identically to \"this list is genuinely empty\" — the user has no way to tell the difference.",
       "severity": "HIGH",
       "lastAuditStatus": "HIGH",
-      "status": "OPEN",
-      "lastAudited": "2026-08-10T23:30:00",
+      "status": "IN_PROGRESS",
+      "lastAudited": "2026-08-10T23:59:00",
       "evidence": [
-        "apps/admin-panel/app/organizations/page.tsx:17 — fetch result's error field is never inspected",
-        "apps/admin-panel/lib/use-organizations.ts:25 — same gap, shared by both apps' org-switcher data source",
-        "apps/admin-panel/app/audit-logs/page.tsx:36 — same gap"
+        "apps/admin-panel/app/organizations/page.tsx:26,39 — now checks error and renders \"No se pudieron cargar las organizaciones: {error}\"",
+        "apps/admin-panel/lib/use-organizations.ts:29 — now surfaces fetchError.message as an `error` field consumed by dashboard-shell.tsx:397's ForbiddenScreen",
+        "apps/admin-panel/app/audit-logs/page.tsx:53,84 — now checks error and renders a distinct message",
+        "apps/auth-server/lib/use-organizations.ts — NOT touched by this commit: on a non-OK response it falls through silently with no error state set at all, leaving `organizations` at its previous (usually empty) value — this is worse than admin-panel's pre-fix behavior since it doesn't even reset state, and it feeds the org switcher on auth-server's own primary dashboard (apps/auth-server/app/page.tsx), not just admin tooling"
       ],
       "verification": [
-        "Read each fetch call site and confirmed only the data field is destructured/used; the error field returned alongside it is discarded"
+        "Read each fetch call site and confirmed only the data field is destructured/used; the error field returned alongside it is discarded",
+        "Re-check 2026-08-10T23:59:00 (via subagent, independently instructed to verify): confirmed the three cited admin-panel files now check `error` and render a visually/textually distinct state from the empty-state message. Confirmed apps/auth-server/lib/use-organizations.ts — the near-identical sibling hook tracked by PQ-MAINT-004 — was not part of this commit's diff and still has no error handling of any kind."
       ],
       "history": [
         {
@@ -189,6 +291,12 @@
           "auditStatus": "HIGH",
           "remediationStatus": "OPEN",
           "note": "A real outage would look like an empty org list to every admin, with no error indication anywhere to prompt investigation."
+        },
+        {
+          "date": "2026-08-10T23:59:00",
+          "auditStatus": "HIGH",
+          "remediationStatus": "IN_PROGRESS",
+          "note": "commit d1bf2cb fixed all three admin-panel call sites originally cited as evidence, with a real distinct error state — genuine progress. But the finding's underlying risk (a real outage rendering as \"empty\" with no indication) still fully reproduces on apps/auth-server's own main dashboard via its untouched, near-duplicate use-organizations.ts hook (see PQ-MAINT-004), which is arguably a more primary/core flow than admin-panel's organizations screen. Not closing this out until that sibling hook is fixed too."
         }
       ]
     },
@@ -197,17 +305,19 @@
       "category": "UI",
       "description": "No responsive design exists anywhere in the product — zero Tailwind sm:/md:/lg: breakpoint usages in apps/auth-server, apps/admin-panel, or packages/ui. The admin-panel sidebar is a fixed 220px width with no collapse behavior, and none of the 8+ data tables (users, roles, invitations, applications, oauth-clients, platform-admins, organizations, audit-logs, permissions) has an overflow-x-auto wrapper, so they clip/overflow on mobile and tablet viewports with no way to scroll to see cut-off columns.",
       "severity": "HIGH",
-      "lastAuditStatus": "HIGH",
-      "status": "OPEN",
-      "lastAudited": "2026-08-10T23:30:00",
+      "lastAuditStatus": "RESOLVED",
+      "status": "VERIFIED",
+      "lastAudited": "2026-08-10T23:59:00",
       "evidence": [
         "repo-wide grep for `sm:|md:|lg:` Tailwind variants across apps/auth-server, apps/admin-panel, packages/ui returned zero hits",
         "apps/admin-panel/app/dashboard-shell.tsx:272 — sidebar uses a fixed k-w-[220px] class with no responsive variant or collapse toggle",
-        "packages/ui/src/components/card.tsx — no overflow-x-auto wrapper; every admin-panel table (e.g. apps/admin-panel/app/users/page.tsx:185-193) sits directly inside a Card with no scroll container"
+        "packages/ui/src/components/card.tsx — no overflow-x-auto wrapper; every admin-panel table (e.g. apps/admin-panel/app/users/page.tsx:185-193) sits directly inside a Card with no scroll container",
+        "apps/admin-panel/app/dashboard-shell.tsx — sidebar now gated behind md:k-hidden/md:k-static with a real hamburger toggle; grep for `<table` across apps/ returns exactly 11 admin-panel data-grid tables, each individually confirmed wrapped in a `<div className=\"k-overflow-x-auto\">`"
       ],
       "verification": [
         "Grep across the three UI-owning locations for every responsive-utility prefix Tailwind supports",
-        "Read Card component source and multiple table-rendering call sites to confirm no scroll wrapper exists anywhere"
+        "Read Card component source and multiple table-rendering call sites to confirm no scroll wrapper exists anywhere",
+        "Re-check 2026-08-10T23:59:00 (via subagent): manually verified all 11 `<table` occurrences in apps/admin-panel have an overflow-x-auto ancestor div, none missed; confirmed the hamburger toggle is real and functional (md:-breakpoint gated, closes on route change/backdrop click). NOTE: a new, narrower gap was found in the same new code — the toggle button lacks aria-expanded and there's no Escape-key/focus-trap handling — tracked separately as new finding PQ-A11Y-006 since it's an accessibility semantics gap in code that didn't exist before this commit, not a regression of the original responsive-layout finding."
       ],
       "history": [
         {
@@ -215,6 +325,12 @@
           "auditStatus": "HIGH",
           "remediationStatus": "OPEN",
           "note": "Neither app adapts to mobile or tablet viewports at all — this is a back-office tool, but a professional admin panel is still routinely opened on a tablet or phone for a quick check."
+        },
+        {
+          "date": "2026-08-10T23:59:00",
+          "auditStatus": "RESOLVED",
+          "remediationStatus": "VERIFIED",
+          "note": "commit d1bf2cb added a real, working hamburger toggle at the md: breakpoint and wrapped all 11 admin-panel tables in an overflow-x-auto container. Verified via code re-read (dev server not running this session, so no live pixel-viewport screenshot was taken — same static-review limitation as the original audit — but the breakpoint-gated class structure and toggle logic are unambiguous in source). A new, smaller a11y gap in the new toggle code is tracked separately as PQ-A11Y-006."
         }
       ]
     },
@@ -223,14 +339,15 @@
       "category": "ACCESSIBILITY",
       "description": "The MFA-challenge 6-digit code entry (a primary, blocking step in login) renders six separate <input> elements with no <label>, no aria-label, and no fieldset/legend grouping them or tying them to the instruction text above.",
       "severity": "HIGH",
-      "lastAuditStatus": "HIGH",
-      "status": "OPEN",
-      "lastAudited": "2026-08-10T23:30:00",
+      "lastAuditStatus": "RESOLVED",
+      "status": "VERIFIED",
+      "lastAudited": "2026-08-10T23:59:00",
       "evidence": [
-        "apps/auth-server/app/mfa-challenge/page.tsx:118-139 — six <input> elements, none labeled, no fieldset/legend"
+        "apps/auth-server/app/mfa-challenge/page.tsx:118-139 — now a <fieldset> with a <legend className=\"k-sr-only\"> and a per-input aria-label"
       ],
       "verification": [
-        "Read the full mfa-challenge page component source"
+        "Read the full mfa-challenge page component source",
+        "Re-check 2026-08-10T23:59:00: confirmed fieldset/legend/aria-label structure matches the original finding's evidence exactly"
       ],
       "history": [
         {
@@ -238,6 +355,12 @@
           "auditStatus": "HIGH",
           "remediationStatus": "OPEN",
           "note": "A screen-reader user tabbing through hears six unnamed 'edit text' fields with no indication of purpose or digit position, on the one screen that gates access to the entire app for MFA-enrolled users."
+        },
+        {
+          "date": "2026-08-10T23:59:00",
+          "auditStatus": "RESOLVED",
+          "remediationStatus": "VERIFIED",
+          "note": "commit d1bf2cb added fieldset/legend/aria-label. Re-checked via fresh code read this session."
         }
       ]
     },
@@ -247,17 +370,21 @@
       "description": "Every list endpoint except audit-logs is completely unbounded — no pagination, cursor, or limit of any kind. organization-members, invitations, applications/permissions, roles, and organizations all fetch the entire table on every load. audit-logs is the only capped list (.limit(200)) but has no pagination UI, cursor, or filter, so history beyond 200 rows becomes permanently invisible with no indication more exists.",
       "severity": "HIGH",
       "lastAuditStatus": "HIGH",
-      "status": "OPEN",
-      "lastAudited": "2026-08-10T23:30:00",
+      "status": "IN_PROGRESS",
+      "lastAudited": "2026-08-10T23:59:00",
       "evidence": [
-        "apps/auth-server/app/api/organization-members/route.ts:69-76 — no .limit()/.range()",
-        "apps/admin-panel/app/invitations/page.tsx:64-70 — no limit",
-        "apps/admin-panel/app/applications/page.tsx:31-50 — no limit",
-        "apps/admin-panel/app/roles/page.tsx:53-84 — no limit",
-        "apps/admin-panel/app/audit-logs/page.tsx:41 — the one .limit(200) in the whole codebase, with no cursor/load-more"
+        "apps/auth-server/app/api/organization-members/route.ts:43,86,118-120,143 — now paginated, MEMBERS_PAGE_SIZE=100, correct .range()/hasMore math, no off-by-one",
+        "apps/admin-panel/app/invitations/page.tsx:25,67-79,305-316 — now paginated with a working \"Cargar más\" button (correct append logic, disappears at end, has a loading label)",
+        "apps/admin-panel/app/audit-logs/page.tsx:32,41-60,115-126 — now paginated, resets on org change, preserves hasMore/retry on a failed load-more page",
+        "apps/admin-panel/app/applications/page.tsx:31-50 — still unbounded (this commit only added a confirm dialog to this file, not pagination)",
+        "apps/admin-panel/app/roles/page.tsx:53-59,80-84 — still unbounded (this commit only added the overflow-x-auto wrapper here, not pagination)",
+        "apps/admin-panel/app/permissions/page.tsx:27-31 — still unbounded, untouched",
+        "apps/admin-panel/app/roles/[roleId]/page.tsx — still unbounded, untouched",
+        "apps/auth-server/app/api/platform-admins/route.ts:95 — GET still has no .range()/.limit() at all"
       ],
       "verification": [
-        "Read each list-fetching call site directly to confirm absence of .limit()/.range()"
+        "Read each list-fetching call site directly to confirm absence of .limit()/.range()",
+        "Re-check 2026-08-10T23:59:00 (via subagent): confirmed correct range math and working load-more UX on the 3 originally-cited files (organization-members, invitations, audit-logs) plus users/page.tsx which consumes the now-paginated API; confirmed applications, roles, permissions, roles/[roleId], and platform-admins GET remain fully unbounded — none of these were in this commit's pagination scope even though some were touched for unrelated reasons"
       ],
       "history": [
         {
@@ -265,6 +392,12 @@
           "auditStatus": "HIGH",
           "remediationStatus": "OPEN",
           "note": "Architecture assumes small/demo data volumes throughout; any org that grows past a few hundred members/invitations/audit events will visibly degrade with no pagination fallback anywhere."
+        },
+        {
+          "date": "2026-08-10T23:59:00",
+          "auditStatus": "HIGH",
+          "remediationStatus": "IN_PROGRESS",
+          "note": "commit d1bf2cb paginated organization-members, invitations, and audit-logs correctly (verified range math, verified no duplicate/skipped rows on load-more). Real, meaningful progress, but 5 other unbounded list surfaces (applications, roles, roles/[roleId], permissions, platform-admins GET) were not in scope and remain exactly as unbounded as before — the finding's original claim ('every list endpoint except audit-logs') is now only about half true, not fully resolved."
         }
       ]
     },
@@ -273,15 +406,17 @@
       "category": "PERFORMANCE",
       "description": "organization-members and platform-admins list endpoints resolve each row's email via a separate GoTrue admin API call inside a Promise.all loop instead of one batched lookup — a true N+1 pattern duplicated in two files.",
       "severity": "HIGH",
-      "lastAuditStatus": "HIGH",
-      "status": "OPEN",
-      "lastAudited": "2026-08-10T23:30:00",
+      "lastAuditStatus": "RESOLVED",
+      "status": "VERIFIED",
+      "lastAudited": "2026-08-10T23:59:00",
       "evidence": [
-        "apps/auth-server/app/api/organization-members/route.ts:80-94 — Promise.all(...admin.auth.admin.getUserById(row.user_id)...) per membership row",
-        "apps/auth-server/app/api/platform-admins/route.ts:66-71 — identical pattern"
+        "apps/auth-server/app/api/organization-members/route.ts:80-94 — Promise.all(...admin.auth.admin.getUserById(row.user_id)...) per membership row (pre-fix)",
+        "apps/auth-server/app/api/platform-admins/route.ts:66-71 — identical pattern (pre-fix)",
+        "apps/auth-server/app/api/organization-members/route.ts:51-74 and platform-admins/route.ts:65-88 — new resolveEmails() helper, correct pagination loop over GoTrue listUsers({page,perPage:200}) with clean termination on error/empty/short page"
       ],
       "verification": [
-        "Read both route handlers in full and confirmed each membership/admin row triggers its own admin API round-trip"
+        "Read both route handlers in full and confirmed each membership/admin row triggers its own admin API round-trip",
+        "Re-check 2026-08-10T23:59:00 (via subagent): confirmed resolveEmails() terminates correctly (no infinite loop, doesn't silently stop after page 1 when more users exist) and genuinely eliminates the per-row N+1 call pattern. CAVEAT found: resolveEmails() is O(pages of ALL platform users), not O(members returned) — every request re-scans listUsers from page 1, so an install with a very large total user base could still pay a large, mostly-wasted cost per request even for a small member list. Tracked separately as new MEDIUM finding PQ-PERF-006 since it's a distinct, narrower scaling concern than the N+1-call-count problem this issue specifically described, which is genuinely fixed."
       ],
       "history": [
         {
@@ -289,6 +424,12 @@
           "auditStatus": "HIGH",
           "remediationStatus": "OPEN",
           "note": "For an organization with hundreds of members, loading the Users page fires hundreds of GoTrue admin-API calls; this also risks hitting GoTrue admin rate limits, not just being slow."
+        },
+        {
+          "date": "2026-08-10T23:59:00",
+          "auditStatus": "RESOLVED",
+          "remediationStatus": "VERIFIED",
+          "note": "commit d1bf2cb's resolveEmails() helper genuinely eliminates the per-row N+1 GoTrue call pattern in both files. A related but distinct scaling caveat (full-platform-user-base rescan per call) is tracked separately as PQ-PERF-006."
         }
       ]
     },
@@ -297,14 +438,16 @@
       "category": "PERFORMANCE",
       "description": "The single-member detail page fetches the entire organization's member list (inheriting the full PQ-PERF-002 N+1 cost) and then does a client-side .find() to locate the one row it needs — there is no server endpoint or filter to fetch a single membership directly.",
       "severity": "HIGH",
-      "lastAuditStatus": "HIGH",
-      "status": "OPEN",
-      "lastAudited": "2026-08-10T23:30:00",
+      "lastAuditStatus": "RESOLVED",
+      "status": "VERIFIED",
+      "lastAudited": "2026-08-10T23:59:00",
       "evidence": [
-        "apps/admin-panel/app/users/[membershipId]/page.tsx:45-56 — fetches /api/organization-members?organizationId=... (no membershipId filter) then data.members.find(...)"
+        "apps/admin-panel/app/users/[membershipId]/page.tsx:45-56 — fetches /api/organization-members?organizationId=... (no membershipId filter) then data.members.find(...) (pre-fix)",
+        "apps/admin-panel/app/users/[membershipId]/page.tsx:45-57 — now calls ?organizationId=...&membershipId=...; organization-members/route.ts:118-120 skips .range() and applies .eq(\"id\", membershipId) when present"
       ],
       "verification": [
-        "Read the detail page's data-fetching code and confirmed no membershipId-scoped query exists anywhere in the API"
+        "Read the detail page's data-fetching code and confirmed no membershipId-scoped query exists anywhere in the API",
+        "Re-check 2026-08-10T23:59:00 (via subagent): confirmed genuinely a single-row lookup now, not full-list-then-filter"
       ],
       "history": [
         {
@@ -312,6 +455,12 @@
           "auditStatus": "HIGH",
           "remediationStatus": "OPEN",
           "note": "Visiting one user's detail page costs exactly as much as loading the full list page, and gets more expensive as the org grows — a scaling assumption baked into the architecture."
+        },
+        {
+          "date": "2026-08-10T23:59:00",
+          "auditStatus": "RESOLVED",
+          "remediationStatus": "VERIFIED",
+          "note": "commit d1bf2cb added a membershipId-filtered server-side query. Re-verified via fresh code read this session — no bug found."
         }
       ]
     },
@@ -321,14 +470,19 @@
       "description": "No automated test coverage exists anywhere in the monorepo for security-critical logic, except packages/permissions/src/__tests__/match.test.ts. Zero tests for JWT verification (packages/auth-sdk/src/server.ts, jwt.ts), PKCE (pkce.ts), OAuth code exchange (client.ts), the Next.js middleware auth-gate (packages/next-sdk/src/middleware.ts), the React auth context/guard state machine (packages/react-sdk/src/context.tsx, guards.tsx), or any API route handler in apps/auth-server or apps/admin-panel.",
       "severity": "HIGH",
       "lastAuditStatus": "HIGH",
-      "status": "OPEN",
-      "lastAudited": "2026-08-10T23:30:00",
+      "status": "IN_PROGRESS",
+      "lastAudited": "2026-08-10T23:59:00",
       "evidence": [
-        "Repo-wide search for *.test.*/*.spec.* returns exactly one file: packages/permissions/src/__tests__/match.test.ts",
-        "package.json scripts across apps/auth-server, apps/admin-panel, packages/db, packages/auth-sdk, packages/react-sdk, packages/next-sdk contain no \"test\" script that exercises anything"
+        "Repo-wide search for *.test.*/*.spec.* returns exactly one file: packages/permissions/src/__tests__/match.test.ts (pre-fix)",
+        "packages/auth-sdk/src/__tests__/{jwt,pkce,server}.test.ts — 17 real tests (confirmed passing), including a genuine local JWKS HTTP server + jose-signed RS256 tokens for server.test.ts",
+        "packages/next-sdk/src/__tests__/middleware.test.ts — 8 real tests (confirmed passing) covering redirect/pass-through/MFA-pending/no-redirect-loop branches",
+        "packages/react-sdk has no __tests__ directory at all — still zero coverage on the auth context/guard state machine",
+        "exchangeOAuthServerCode() and the rest of the OAuth code-exchange flow in packages/auth-sdk/src/client.ts — still zero test coverage",
+        "apps/auth-server and apps/admin-panel — still no \"test\" script in either package.json, no *.test.ts anywhere under apps/"
       ],
       "verification": [
-        "Enumerated test files across all in-scope packages and apps; cross-checked each package.json's scripts block"
+        "Enumerated test files across all in-scope packages and apps; cross-checked each package.json's scripts block",
+        "Re-check 2026-08-10T23:59:00 (via subagent): actually ran `pnpm -F @kontrolia/auth test` (17/17 pass) and `pnpm -F @kontrolia/next test` (8/8 pass), plus root `pnpm test` via turbo (confirms both are correctly wired into the root test task, no filter gap). Read every new test file in full and confirmed real assertions on real behavior (signature tampering, expiry, wrong key, PKCE S256 correctness/uniqueness, middleware redirect logic) — not filler. NOTE: the commit message claims \"30 new tests total\" — actual new-test count is 25 (17+8); the other 5 (packages/permissions) pre-date this commit and were not touched by it. Minor overstatement in the commit message, not a fabrication of test content."
       ],
       "history": [
         {
@@ -336,6 +490,12 @@
           "auditStatus": "HIGH",
           "remediationStatus": "OPEN",
           "note": "The exact logic a third-party integrator is trusting blind (JWT/PKCE/OAuth) and the exact logic that already produced two real bugs today (last-owner lockout, missing audit triggers) has zero regression protection."
+        },
+        {
+          "date": "2026-08-10T23:59:00",
+          "auditStatus": "HIGH",
+          "remediationStatus": "IN_PROGRESS",
+          "note": "commit d1bf2cb added 25 real, well-constructed tests for JWT verification, PKCE, and the Next.js middleware auth-gate — genuine, verified progress on exactly the highest-value part of the original finding. But the original finding's scope was broader: OAuth code exchange (client.ts), the React SDK's auth state machine, and every API route handler in both apps remain completely untested. Severity held at HIGH given the OAuth code-exchange gap in particular is comparably security-sensitive to what was just covered."
         }
       ]
     },
@@ -345,15 +505,18 @@
       "description": "No server-side logging or error-tracking exists anywhere in the backend. Every route catches its own errors and turns them into a JSON response for the caller, but nothing is ever written to a server log or an error-tracking service (grep for Sentry/Datadog/Bugsnag/Rollbar/OpenTelemetry across the whole repo returns nothing; no instrumentation.ts/global-error.tsx/error.tsx in either app).",
       "severity": "HIGH",
       "lastAuditStatus": "HIGH",
-      "status": "OPEN",
-      "lastAudited": "2026-08-10T23:30:00",
+      "status": "IN_PROGRESS",
+      "lastAudited": "2026-08-10T23:59:00",
       "evidence": [
-        "grep -rln \"console.(error|log|warn)\" across apps/auth-server and apps/admin-panel API/route code returns zero matches",
-        "No instrumentation.ts, global-error.tsx, or error.tsx found under either app",
-        "No error-tracking SDK dependency found in any package.json in apps/"
+        "grep -rln \"console.(error|log|warn)\" across apps/auth-server and apps/admin-panel API/route code returns zero matches (pre-fix)",
+        "apps/auth-server/lib/logger.ts:12-27 — new structured JSON logger (level/timestamp/context/error/meta) to console.error",
+        "apps/auth-server/instrumentation.ts:10-20 — Next.js 15 onRequestError catch-all, correctly registered (Next 15.1.3, instrumentation hook stable by default, no experimental flag needed)",
+        "logError() confirmed called from 9 of 12 apps/auth-server/app/api route.ts files; the 3 not calling it (devices/revoke, invitations POST, organizations/[id] PATCH/DELETE) have no try/catch at all — any unexpected exception still reaches instrumentation.ts's catch-all",
+        "apps/admin-panel — zero observability, no lib/logger.ts, no logError usage, no instrumentation.ts anywhere; entirely untouched by this commit"
       ],
       "verification": [
-        "Repo-wide grep for logging calls and error-tracking package names/imports"
+        "Repo-wide grep for logging calls and error-tracking package names/imports",
+        "Re-check 2026-08-10T23:59:00 (via subagent): read logger.ts and instrumentation.ts in full, confirmed correct Next.js 15 wiring; cross-checked every apps/auth-server route file with a `status: 500` return against logError() call sites — 1:1 match, 9 of 9; confirmed apps/admin-panel has no equivalent infrastructure at all"
       ],
       "history": [
         {
@@ -361,6 +524,12 @@
           "auditStatus": "HIGH",
           "remediationStatus": "OPEN",
           "note": "If GoTrue, Postgres, or a downstream call fails in production, there is no way to know it happened unless the affected user reports it — no alerting, no trace retained anywhere."
+        },
+        {
+          "date": "2026-08-10T23:59:00",
+          "auditStatus": "HIGH",
+          "remediationStatus": "IN_PROGRESS",
+          "note": "commit d1bf2cb added a real, correctly-wired logger + framework-level catch-all, fully covering apps/auth-server's 12 API routes (9 explicit + 3 via the instrumentation.ts fallback). Genuine, verified progress. But apps/admin-panel — which does just as much sensitive server-adjacent work (invitations, org management, several RLS-direct writes) — has zero observability, exactly as before. Severity held at HIGH given half the product surface is still completely unobserved."
         }
       ]
     },
@@ -371,12 +540,13 @@
       "severity": "MEDIUM",
       "lastAuditStatus": "MEDIUM",
       "status": "OPEN",
-      "lastAudited": "2026-08-10T23:30:00",
+      "lastAudited": "2026-08-10T23:59:00",
       "evidence": [
-        "apps/auth-server/app/api/platform-admins/route.ts:110-120 — COUNT then DELETE as two separate, non-atomic statements"
+        "apps/auth-server/app/api/platform-admins/route.ts:140-164 (line numbers shifted slightly by this session's other edits to the file, logic unchanged) — COUNT then DELETE as two separate, non-atomic statements"
       ],
       "verification": [
-        "Read the DELETE handler in full and confirmed the count-check and the delete are two separate round-trips with no transaction/row-lock between them"
+        "Read the DELETE handler in full and confirmed the count-check and the delete are two separate round-trips with no transaction/row-lock between them",
+        "Re-check 2026-08-10T23:59:00: re-read the current DELETE handler directly — confirmed untouched by commit d1bf2cb, still a plain SELECT count(*) followed by a separate DELETE with no transaction/lock"
       ],
       "history": [
         {
@@ -384,6 +554,12 @@
           "auditStatus": "MEDIUM",
           "remediationStatus": "OPEN",
           "note": "Low likelihood (requires two admins concurrently revoking down to the same last-two boundary) but the outcome — zero platform admins, no recovery path except direct DB access — is severe, and it's the exact same TOCTOU pattern the org-owner fix was meant to close, just not propagated here."
+        },
+        {
+          "date": "2026-08-10T23:59:00",
+          "auditStatus": "MEDIUM",
+          "remediationStatus": "OPEN",
+          "note": "Confirmed unchanged this session via direct code read."
         }
       ]
     },
@@ -394,13 +570,16 @@
       "severity": "MEDIUM",
       "lastAuditStatus": "MEDIUM",
       "status": "OPEN",
-      "lastAudited": "2026-08-10T23:30:00",
+      "lastAudited": "2026-08-10T23:59:00",
       "evidence": [
         "apps/admin-panel/app/roles/page.tsx:108 — Supabase error.message rendered directly",
-        "apps/auth-server/app/api/organization-members/route.ts:78 — 500 response body includes error.message verbatim"
+        "apps/auth-server/app/api/organization-members/route.ts:78 — 500 response body includes error.message verbatim",
+        "NEW this session: apps/admin-panel/app/organizations/page.tsx:26,39 and audit-logs/page.tsx:53,84 — the PQ-UX-007 fix (checking the Supabase error field) was implemented by rendering `fetchError.message` verbatim, the same anti-pattern this issue already tracks, now in 2 more places",
+        "apps/admin-panel/lib/use-organizations.ts:29 — same pattern, propagated into dashboard-shell.tsx:397's ForbiddenScreen"
       ],
       "verification": [
-        "Read both call sites and confirmed the raw driver/PostgREST error string is passed through unmodified to the response/UI"
+        "Read both call sites and confirmed the raw driver/PostgREST error string is passed through unmodified to the response/UI",
+        "Re-check 2026-08-10T23:59:00 (via subagent): confirmed the commit's own PQ-UX-007 fix mechanically extended this exact pattern into 3 new locations rather than avoiding it — not a functional break, but worth flagging before treating PQ-UX-007 as unambiguously clean"
       ],
       "history": [
         {
@@ -408,6 +587,12 @@
           "auditStatus": "MEDIUM",
           "remediationStatus": "OPEN",
           "note": "Not a full stack trace, but internal DB error text is not written for end users and can leak schema/implementation details."
+        },
+        {
+          "date": "2026-08-10T23:59:00",
+          "auditStatus": "MEDIUM",
+          "remediationStatus": "OPEN",
+          "note": "commit d1bf2cb's fix for PQ-UX-007 (list-fetch error checking) reused this exact anti-pattern in 3 new spots instead of a translated message. Still MEDIUM (not a literal SQL/stack-trace leak, just an unrefined PostgREST message string), but now more widespread than before."
         }
       ]
     },
@@ -481,6 +666,30 @@
           "auditStatus": "MEDIUM",
           "remediationStatus": "OPEN",
           "note": "Mounted on every page of both apps (apps/admin-panel/app/dashboard-shell.tsx:325, apps/auth-server/app/page.tsx:38), so this is a systemic, not isolated, gap."
+        }
+      ]
+    },
+    {
+      "id": "PQ-A11Y-006",
+      "category": "ACCESSIBILITY",
+      "description": "The new mobile hamburger sidebar toggle (added by commit d1bf2cb to fix PQ-UI-001) has an aria-label on its open/close buttons but no aria-expanded reflecting current menu state, no Escape-key handler, and no focus management (focus doesn't move into the nav on open or return to the toggle button on close) — an incomplete accessible-disclosure pattern.",
+      "severity": "MEDIUM",
+      "lastAuditStatus": "MEDIUM",
+      "status": "OPEN",
+      "lastAudited": "2026-08-10T23:59:00",
+      "evidence": [
+        "apps/admin-panel/app/dashboard-shell.tsx:366-374 (open button) and :319-326 (close button) — both have aria-label, neither has aria-expanded",
+        "No keydown handler for Escape found in the sidebar/nav component; no focus-management call (element.focus()) around the open/close toggle"
+      ],
+      "verification": [
+        "Found via subagent code read of the new dashboard-shell.tsx diff while verifying PQ-UI-001's fix"
+      ],
+      "history": [
+        {
+          "date": "2026-08-10T23:59:00",
+          "auditStatus": "MEDIUM",
+          "remediationStatus": "OPEN",
+          "note": "New finding this session — code that didn't exist before commit d1bf2cb. Not a regression of prior behavior (there was no mobile nav at all before), but a real gap in the new implementation: a keyboard/screen-reader user has no way to know whether the menu is open, no quick way to close it without a mouse, and loses their place in the document on open/close."
         }
       ]
     },
@@ -577,6 +786,35 @@
           "auditStatus": "MEDIUM",
           "remediationStatus": "OPEN",
           "note": "AuthProvider wraps the entire app tree in every consumer application, so this re-render cost is paid by every app built on the SDK, not just this monorepo's own apps."
+        },
+        {
+          "date": "2026-08-10T23:59:00",
+          "auditStatus": "MEDIUM",
+          "remediationStatus": "OPEN",
+          "note": "Re-check this session (via subagent): confirmed untouched by commit d1bf2cb — packages/react-sdk/src/context.tsx:77-79 still passes a fresh object literal directly as the Provider value, not wrapped in useMemo."
+        }
+      ]
+    },
+    {
+      "id": "PQ-PERF-006",
+      "category": "PERFORMANCE",
+      "description": "The new resolveEmails() helper (added to fix PQ-PERF-002's N+1 problem) resolves emails by paging through GoTrue's listUsers() for the ENTIRE platform user base on every single request, rather than caching or scoping the scan to just the ids it needs — O(pages of all platform users) instead of O(members returned). For an install with a large total user base, even a single-membership lookup (e.g. the now-fixed user-detail page, PQ-PERF-003) re-scans from page 1 every time.",
+      "severity": "MEDIUM",
+      "lastAuditStatus": "MEDIUM",
+      "status": "OPEN",
+      "lastAudited": "2026-08-10T23:59:00",
+      "evidence": [
+        "apps/auth-server/app/api/organization-members/route.ts:51-74 and platform-admins/route.ts:65-88 — resolveEmails() loops admin.auth.admin.listUsers({page, perPage:200}) until all requested ids are found or a short/empty page ends the scan; no caching, no id-scoped lookup, no early return when only 1 id (e.g. a membershipId-filtered request) is needed"
+      ],
+      "verification": [
+        "Found via subagent code read while verifying PQ-PERF-002's fix — this is a genuine improvement over the original N+1-calls problem (call count is now O(pages) not O(members)), but introduces its own, different scaling ceiling for platforms with a large total user base"
+      ],
+      "history": [
+        {
+          "date": "2026-08-10T23:59:00",
+          "auditStatus": "MEDIUM",
+          "remediationStatus": "OPEN",
+          "note": "New finding this session, discovered while verifying PQ-PERF-002 (now VERIFIED/resolved for the N+1-call-count problem it specifically described). This is a narrower, lower-severity follow-on scaling concern in the same new code, not a reason to reopen PQ-PERF-002 itself."
         }
       ]
     },
@@ -674,6 +912,12 @@
           "auditStatus": "MEDIUM",
           "remediationStatus": "OPEN",
           "note": "Comments in each file explain why the data source differs, but the surrounding hook plumbing is a clear extraction candidate."
+        },
+        {
+          "date": "2026-08-10T23:59:00",
+          "auditStatus": "MEDIUM",
+          "remediationStatus": "OPEN",
+          "note": "Re-check this session: the two hooks have now diverged further, not converged — commit d1bf2cb added error-checking to apps/admin-panel/lib/use-organizations.ts (as part of fixing PQ-UX-007) but left apps/auth-server/lib/use-organizations.ts completely untouched, which still silently swallows fetch failures. This is direct, concrete evidence of the exact risk this finding describes: fixing shared-shape logic in one copy and not the other."
         }
       ]
     },
@@ -715,7 +959,8 @@
         "contrast with apps/auth-server/app/api/organization-members/route.ts and platform-admins/route.ts, which route through server-side business-rule checks"
       ],
       "verification": [
-        "Traced both mutation styles across the four listed files"
+        "Traced both mutation styles across the four listed files",
+        "Re-check 2026-08-10T23:59:00: this session live-tested whether migration 0025 (the DB-layer trigger added this same day for PQ-SEC-001) resolved this architectural gap — it does not. Two more RLS-only mutation paths on kontrolia_auth.memberships (direct DELETE, direct UPDATE of status) were confirmed live-exploitable with zero last-owner enforcement, becoming CRITICAL findings PQ-SEC-003 and PQ-SEC-004. This is direct, live confirmation (not inference) that a DB-level trigger patching one specific table/operation does not close the architectural gap this finding describes — the gap reproduces on every RLS-only mutation surface individually unless each one gets its own guard."
       ],
       "history": [
         {
@@ -723,6 +968,12 @@
           "auditStatus": "MEDIUM",
           "remediationStatus": "OPEN",
           "note": "This is the architectural root cause of PQ-SEC-001 — the RLS-only path has no equivalent of wouldRemoveLastOwner because there's no application layer for it to live in. A reviewer can't reason about 'where is X enforced' without checking two entirely different mechanisms per screen."
+        },
+        {
+          "date": "2026-08-10T23:59:00",
+          "auditStatus": "MEDIUM",
+          "remediationStatus": "OPEN",
+          "note": "CONFIRMED still architecturally unresolved, and elevated in importance: this session proved live that migration 0025 (which the fix commit's own message frames as closing 'the RLS-only bypass of the earlier API-layer guard') only closed one of at least three reachable last-owner-bypass vectors sharing this exact root cause. Recommend addressing this MEDIUM as the actual highest-priority follow-up work, ahead of any further individual point-fixes, since point-fixing table-by-table has now visibly failed to keep up twice in one day (organization-members PATCH/DELETE fixed by commit 4579870 → membership_roles DELETE fixed by migration 0025 → memberships DELETE/UPDATE still open)."
         }
       ]
     },

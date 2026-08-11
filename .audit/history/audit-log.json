@@ -80,5 +80,25 @@
       "PQ-MAINT-001","PQ-MAINT-002","PQ-MAINT-003","PQ-MAINT-004"
     ],
     "note": "First Phase 2 (professional-quality) run — whole-monorepo static review (apps/auth-server, apps/admin-panel, apps/documentation, all packages/*, all examples/*). Same-day plan-compliance run (2026-08-10T22:15:00) reached 100% requirement compliance, but this independent quality pass found 7 CRITICAL issues: 6 destructive UI actions across both apps fire with zero confirmation (only suspend-member was fixed earlier today), plus a DB/RLS-layer gap that lets an org Admin bypass the just-fixed last-owner-lockout protection via a different mutation path (membership_roles DELETE). Also 8 HIGH and 19 MEDIUM findings spanning zero responsive design, zero test coverage outside packages/permissions, no backend observability, unbounded list endpoints with N+1 admin API calls, and several accessibility/maintainability gaps."
+  },
+  {
+    "date": "2026-08-10T23:59:00",
+    "skill": "kontrolia-professional-review",
+    "auditFile": ".audit/audits/2026-08-10-professional-review-2.md",
+    "result": "NOT PRODUCTION READY",
+    "overallScore": 40,
+    "critical": 2,
+    "high": 4,
+    "medium": 21,
+    "issuesInScope": [
+      "PQ-UX-001","PQ-UX-002","PQ-UX-003","PQ-UX-004","PQ-UX-005","PQ-UX-006","PQ-UX-007","PQ-UX-008","PQ-UX-009",
+      "PQ-SEC-001","PQ-SEC-002","PQ-SEC-003","PQ-SEC-004",
+      "PQ-UI-001",
+      "PQ-A11Y-001","PQ-A11Y-002","PQ-A11Y-003","PQ-A11Y-004","PQ-A11Y-005","PQ-A11Y-006",
+      "PQ-PERF-001","PQ-PERF-002","PQ-PERF-003","PQ-PERF-004","PQ-PERF-005","PQ-PERF-006",
+      "PQ-TECH-001","PQ-TECH-002","PQ-TECH-003","PQ-TECH-004","PQ-TECH-005","PQ-TECH-006","PQ-TECH-007","PQ-TECH-008",
+      "PQ-MAINT-001","PQ-MAINT-002","PQ-MAINT-003","PQ-MAINT-004"
+    ],
+    "note": "Second Phase 2 run — independent re-audit of fix commit d1bf2cb, which claimed to resolve all 7 CRITICAL and 8 HIGH findings from the first run. 13 of 15 claims independently VERIFIED as genuine, non-trivial fixes (6 confirm() dialogs with specific messages verified present; MFA fieldset/labels verified; responsive hamburger + 11/11 tables wrapped verified; pagination verified with correct range math on 3 of 4 target files; N+1 email resolution verified fixed; user-detail single-row lookup verified; 25 real passing tests added for JWT/PKCE/middleware; structured logger + instrumentation verified wired through all 12 auth-server routes). BUT: live database testing (not just reading the migration) against the running local Supabase instance found the headline security fix (migration 0025, blocking last-owner removal via membership_roles DELETE) only closes one of at least three reachable doors to the same lockout outcome — direct RLS DELETE and UPDATE on the neighboring kontrolia_auth.memberships table remain fully unguarded and were both live-exploited successfully in rolled-back transactions this session (PQ-SEC-003, PQ-SEC-004, both CRITICAL). Verdict unchanged from the first run (NOT PRODUCTION READY) despite substantial real progress, because any open CRITICAL caps the verdict regardless of how much else improved."
   }
 ]

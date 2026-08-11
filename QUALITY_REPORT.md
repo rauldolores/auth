@@ -15,7 +15,7 @@ packages/db, cli, auth-sdk, react-sdk, next-sdk, permissions, shared, ui;
 examples/nextjs, react, express, nestjs)
 
 ## Last Audit
-2026-08-10T23:30:00
+2026-08-10T23:59:00
 
 ## Overall Status
 NOT READY
@@ -148,83 +148,103 @@ flagged only for stylistic consistency.
 40/100 — NOT PRODUCTION READY
 
 ## UX Score
-40/100 (capped by: PQ-UX-001–006 — CRITICAL, 6 destructive actions fire with no confirmation)
+70/100 (capped by: PQ-UX-007 — HIGH, admin-panel's list-error fix left the near-identical
+auth-server hook untouched, still silently swallowing failures. All 6 destructive-action
+confirmation CRITICALs — PQ-UX-001–006 — VERIFIED resolved this run.)
 
 ## UI Score
-60/100 (capped by: PQ-UI-001 — HIGH, zero responsive design anywhere in either app)
+82/100 (uncapped — PQ-UI-001 VERIFIED resolved: responsive hamburger toggle and all 11
+admin-panel tables wrapped in overflow-x-auto, confirmed this run)
 
 ## Technical Score
-65/100 (capped by: PQ-TECH-001, PQ-TECH-002 — HIGH, no tests outside packages/permissions; no
-backend observability)
+70/100 (capped by: PQ-TECH-001, PQ-TECH-002 — HIGH, real progress (25 new passing tests for
+JWT/PKCE/middleware; structured logger wired through all 12 auth-server routes) but OAuth
+exchange/react-sdk/all API routes still untested, admin-panel still entirely unobserved)
 
 ## Security Score
-40/100 (capped by: PQ-SEC-001 — CRITICAL, last-owner lockout protection bypassable via a direct
-DELETE on `kontrolia_auth.membership_roles`, a door the same-day plan-compliance fix didn't cover)
+40/100 (capped by: PQ-SEC-003, PQ-SEC-004 — CRITICAL, NEW this run. PQ-SEC-001's specific
+cited vector — membership_roles DELETE — is live-verified fixed by migration 0025, but the same
+last-owner-lockout outcome is live-exploitable via 2 sibling doors migration 0025 doesn't cover:
+a direct RLS DELETE and a direct RLS UPDATE(status) on kontrolia_auth.memberships itself)
 
 ## Accessibility Score
-65/100 (capped by: PQ-A11Y-001 — HIGH, MFA-challenge 6-digit code entry has no labels, a primary
-blocking login step)
+68/100 (uncapped — PQ-A11Y-001 VERIFIED resolved: MFA-challenge fieldset/legend/aria-labels
+confirmed present. 6 MEDIUM findings remain, including 1 new: PQ-A11Y-006, the new hamburger
+toggle missing aria-expanded/focus management)
 
 ## Performance Score
-50/100 (capped by: PQ-PERF-001, PQ-PERF-002, PQ-PERF-003 — HIGH, unbounded list endpoints, N+1
-GoTrue admin calls, full-list refetch on the user-detail page)
+70/100 (capped by: PQ-PERF-001 — HIGH, organization-members/invitations/audit-logs correctly
+paginated and verified this run, but 5 other list endpoints remain unbounded. PQ-PERF-002 and
+PQ-PERF-003 VERIFIED resolved.)
 
 ## Maintainability Score
-70/100 (capped by: — MEDIUM findings only — duplicated corsHeaders/authorizePlatformAdmin/
-error-message-extraction/useOrganizations)
+70/100 (capped by: — MEDIUM findings only, unchanged this run — duplicated corsHeaders/
+authorizePlatformAdmin/error-message-extraction/useOrganizations; the useOrganizations
+duplication (PQ-MAINT-004) is confirmed to have diverged further, not converged, this run)
 
 ## Critical Issues
-- PQ-UX-001 — Remove-member fires with no confirmation
-- PQ-UX-002 — Revoke platform-admin fires with no confirmation
-- PQ-UX-003 — Revoke invitation fires with no confirmation
-- PQ-UX-004 — Disable application fires with no confirmation
-- PQ-UX-005 — Remove MFA factor fires with no confirmation
-- PQ-UX-006 — Revoke device fires with no confirmation
-- PQ-SEC-001 — Last-owner lockout bypassable via direct `membership_roles` DELETE (RLS/DB layer
-  has no equivalent of the API-layer `wouldRemoveLastOwner` guard)
+- PQ-SEC-003 (NEW) — Direct RLS DELETE on `kontrolia_auth.memberships` deletes the sole active
+  Owner's membership entirely, cascading past the last-owner check migration 0025 added — live-
+  exploited this session against the running local DB.
+- PQ-SEC-004 (NEW) — Direct RLS UPDATE of `memberships.status` to `'suspended'` for the sole
+  active Owner has zero last-owner check at the DB layer — live-exploited this session.
+- PQ-SEC-001 — RESOLVED for its literal cited vector (membership_roles DELETE, live-verified
+  blocked); the underlying vulnerability class is NOT resolved — see PQ-SEC-003/004. Kept CRITICAL
+  on record per the no-silent-rewrite rule; see `.audit/review/issues.json` history.
+- PQ-UX-001–006 — RESOLVED. All 6 destructive-action confirmations verified present with specific
+  messages (remove-member, revoke-platform-admin, revoke-invitation, disable-application,
+  remove-MFA-factor, revoke-device).
 
 ## High Issues
-- PQ-UX-007 — List fetches don't check the Supabase error; a real outage looks like "empty"
-- PQ-UI-001 — Zero responsive design (no sm:/md:/lg: anywhere; tables have no scroll wrapper)
-- PQ-A11Y-001 — MFA-challenge code entry has no labels/fieldset
-- PQ-PERF-001 — No pagination on any list endpoint except audit-logs (hard-capped at 200)
-- PQ-PERF-002 — N+1 GoTrue admin API calls in organization-members and platform-admins routes
-- PQ-PERF-003 — User-detail page refetches the entire org member list to find one row
-- PQ-TECH-001 — No tests anywhere except packages/permissions (zero coverage on JWT/PKCE/OAuth)
-- PQ-TECH-002 — No server-side logging or error-tracking anywhere in the backend
+- PQ-UX-007 — FIXED-but-partial: admin-panel's 3 cited call sites fixed; auth-server's near-
+  identical use-organizations.ts hook untouched, still silently swallows failures.
+- PQ-UI-001 — RESOLVED (verified: hamburger toggle + all 11 tables wrapped).
+- PQ-A11Y-001 — RESOLVED (verified: fieldset/legend/aria-label).
+- PQ-PERF-001 — FIXED-but-partial: 3 of 8 unbounded list endpoints paginated and verified; 5 remain
+  unbounded (applications, roles, roles/[roleId], permissions, platform-admins GET).
+- PQ-PERF-002 — RESOLVED (verified: N+1 call pattern genuinely eliminated).
+- PQ-PERF-003 — RESOLVED (verified: genuine single-row server lookup).
+- PQ-TECH-001 — FIXED-but-partial: 25 real passing tests added for JWT/PKCE/middleware; OAuth
+  code exchange, react-sdk, and all API route handlers remain untested.
+- PQ-TECH-002 — FIXED-but-partial: structured logger + instrumentation verified wired through all
+  12 auth-server routes; admin-panel has zero observability, untouched.
 
 ## Medium Issues
-- PQ-SEC-002 — platform-admins last-admin check is a non-atomic COUNT-then-DELETE (TOCTOU race)
-- PQ-UX-008 — Raw Postgres/PostgREST error text reaches the UI in 2+ places
+- PQ-SEC-002 — platform-admins last-admin check is a non-atomic COUNT-then-DELETE (TOCTOU race) — confirmed unchanged this run
+- PQ-UX-008 — Raw Postgres/PostgREST error text reaches the UI — now in 5 places (2 original + 3 new, introduced by this run's PQ-UX-007 fix reusing the same anti-pattern)
 - PQ-UX-009 — No UI to revoke/delete a registered OAuth client
 - PQ-A11Y-002 — Several inputs rely on placeholder-only or no label
 - PQ-A11Y-003 — UserMenu dropdown has no ARIA state, no Escape/outside-click close
 - PQ-A11Y-004 — Active nav item conveyed by color alone, no aria-current
 - PQ-A11Y-005 — No live-region treatment for any error/success message; no toast component exists
+- PQ-A11Y-006 (NEW) — New hamburger toggle missing aria-expanded and focus management
 - PQ-PERF-004 — No skeleton/loading component; several list pages show no loading indicator
-- PQ-PERF-005 — Unmemoized AuthProvider context value causes app-wide unnecessary re-renders
+- PQ-PERF-005 — Unmemoized AuthProvider context value causes app-wide unnecessary re-renders (confirmed unchanged this run)
+- PQ-PERF-006 (NEW) — resolveEmails() rescans the entire platform user base on every call
 - PQ-MAINT-001 — corsHeaders() duplicated across 3 route files
 - PQ-MAINT-002 — authorizePlatformAdmin duplicated with divergent return shapes across 2 files
 - PQ-MAINT-003 — Error-message extraction pattern duplicated 31 times, no shared helper
-- PQ-MAINT-004 — Two near-identical useOrganizations hooks (admin-panel + auth-server)
+- PQ-MAINT-004 — Two near-identical useOrganizations hooks — confirmed further diverged this run (one fixed, one not)
 - PQ-TECH-003 — No uniqueness constraint on invitations (org_id, email)
-- PQ-TECH-004 — Two parallel mutation paths (API-enforced vs RLS-only) — root cause of PQ-SEC-001
+- PQ-TECH-004 — Two parallel mutation paths (API-enforced vs RLS-only) — CONFIRMED this run, via live exploitation of PQ-SEC-003/004, to be the actual unresolved architectural root cause, not a theoretical concern
 - PQ-TECH-005 — No index on memberships.status despite being filtered on every RLS check
 - PQ-TECH-006 — Weak input validation on organizations POST (no slug format/length constraint)
 - PQ-TECH-007 — OAuth code-exchange fetch() calls unwrapped in try/catch in auth-sdk
 - PQ-TECH-008 — applications/sync silently ignores one update call's error
 
 ## Polish Opportunities
-LOW/POLISH items not individually tracked: `getSession()` vs `getUser()` inconsistency
-server-side; CORS headers silently omitted (not failed-closed) when
-`NEXT_PUBLIC_ADMIN_PANEL_URL` is unset; no rate limiting anywhere (mitigated by auth-first design
-and a timing-safe API-key compare); CLI's top-level catch-all prints a raw error object as a last
-resort; no configurable JWKS cache TTL in the SDK; duplicated Supabase select-embed string between
-`getMemberships()`/`listMemberships()`; PATCH body typed as loose `{status?: string}` rather than
-a real union; missing `aria-expanded` on the users-page access-toggle; no skip-to-content link;
-a `title`-only tooltip for unconfigured app URLs; inline date formatting repeated across 7 files;
-`dashboard-shell.tsx` is icon-heavy (351 lines, not a real complexity problem); fresh Supabase
-browser client instantiated per call site (19x) rather than once per module.
+LOW/POLISH items not individually tracked (carried forward, not re-checked this run unless noted):
+`getSession()` vs `getUser()` inconsistency server-side; CORS headers silently omitted (not
+failed-closed) when `NEXT_PUBLIC_ADMIN_PANEL_URL` is unset; no rate limiting anywhere; CLI's
+top-level catch-all prints a raw error object as a last resort; no configurable JWKS cache TTL in
+the SDK; duplicated Supabase select-embed string between `getMemberships()`/`listMemberships()`;
+PATCH body typed as loose `{status?: string}` rather than a real union; missing `aria-expanded` on
+the users-page access-toggle; no skip-to-content link; a `title`-only tooltip for unconfigured app
+URLs; inline date formatting repeated across 7 files; `dashboard-shell.tsx` grew further with the
+new mobile-nav logic (still not a real complexity problem); fresh Supabase browser client
+instantiated per call site rather than once per module; commit d1bf2cb's message claims "30 new
+tests" where the actual new-test count is 25 (5 pre-existing permissions tests were included in
+the claimed total) — minor inaccuracy, not fabrication, noted for the record.
 
 ---
 
@@ -268,36 +288,40 @@ NOT AUDITED
 | LOW | REQ-017 | No confirmation dialog before suspending a member in admin-panel | Plan Compliance | VERIFIED (2026-08-10T22:15:00, commit 4579870) — `window.confirm()` added on both `users/page.tsx` and `users/[membershipId]/page.tsx` |
 | LOW | — | `apps/admin-panel/lib/supabase-browser.ts:6-8` doc comment claims the browser Supabase client is "read-only, no elevated privileges" — stale now that invitations page uses it for writes | Plan Compliance | VERIFIED (2026-08-10T22:15:00, commit 4579870) — comment corrected to describe read+write RLS-scoped usage |
 | LOW | — | `packages/db/migrations/0024_extend_audit_triggers.sql`'s new `audit_invitation_deleted` trigger is created with a plain `create trigger`, unlike `audit_membership_change` in the same file which is preceded by `drop trigger if exists` — stylistic inconsistency only, no functional effect under the current filename-tracked migration runner | Plan Compliance | OPEN (non-blocking, optional cleanup) |
-| CRITICAL | PQ-UX-001 | Remove-member fires immediately, no confirmation (admin-panel users list + detail page) | Professional Review | OPEN |
-| CRITICAL | PQ-UX-002 | Revoke platform-admin fires immediately, no confirmation, no pending-state guard | Professional Review | OPEN |
-| CRITICAL | PQ-UX-003 | Revoke invitation fires immediately, no confirmation | Professional Review | OPEN |
-| CRITICAL | PQ-UX-004 | Disable application fires immediately, no confirmation | Professional Review | OPEN |
-| CRITICAL | PQ-UX-005 | Remove MFA factor fires immediately, no confirmation | Professional Review | OPEN |
-| CRITICAL | PQ-UX-006 | Revoke device fires immediately, no confirmation | Professional Review | OPEN |
-| CRITICAL | PQ-SEC-001 | Last-owner lockout protection bypassable via direct DELETE on `kontrolia_auth.membership_roles` — the DB/RLS layer has no equivalent of the API-layer `wouldRemoveLastOwner` guard fixed earlier today | Professional Review | OPEN |
-| HIGH | PQ-UX-007 | List fetches (organizations, use-organizations hook, audit-logs) never check the Supabase error — a real outage renders identically to "empty" | Professional Review | OPEN |
-| HIGH | PQ-UI-001 | Zero responsive design anywhere — no sm:/md:/lg: breakpoints in either app or packages/ui; tables have no overflow-x-auto | Professional Review | OPEN |
-| HIGH | PQ-A11Y-001 | MFA-challenge 6-digit code entry has no labels/fieldset — a primary, blocking login step | Professional Review | OPEN |
-| HIGH | PQ-PERF-001 | No pagination on any list endpoint except audit-logs (hard-capped at 200, no cursor) | Professional Review | OPEN |
-| HIGH | PQ-PERF-002 | N+1 GoTrue admin API calls resolving emails in organization-members and platform-admins routes | Professional Review | OPEN |
-| HIGH | PQ-PERF-003 | User-detail page refetches the entire org member list to find one row | Professional Review | OPEN |
-| HIGH | PQ-TECH-001 | No automated tests anywhere except packages/permissions — zero coverage on JWT/PKCE/OAuth/middleware/any API route | Professional Review | OPEN |
-| HIGH | PQ-TECH-002 | No server-side logging or error-tracking anywhere in the backend | Professional Review | OPEN |
-| MEDIUM | PQ-SEC-002 | platform-admins last-admin check is a non-atomic COUNT-then-DELETE (TOCTOU race) | Professional Review | OPEN |
-| MEDIUM | PQ-UX-008 | Raw Postgres/PostgREST error text reaches the UI (roles page, organization-members route) | Professional Review | OPEN |
+| CRITICAL | PQ-UX-001 | Remove-member fires immediately, no confirmation (admin-panel users list + detail page) | Professional Review | VERIFIED (2026-08-10T23:59:00) — window.confirm() with specific message confirmed present |
+| CRITICAL | PQ-UX-002 | Revoke platform-admin fires immediately, no confirmation, no pending-state guard | Professional Review | VERIFIED (2026-08-10T23:59:00) — window.confirm() confirmed present |
+| CRITICAL | PQ-UX-003 | Revoke invitation fires immediately, no confirmation | Professional Review | VERIFIED (2026-08-10T23:59:00) — window.confirm() confirmed present |
+| CRITICAL | PQ-UX-004 | Disable application fires immediately, no confirmation | Professional Review | VERIFIED (2026-08-10T23:59:00) — window.confirm() confirmed present |
+| CRITICAL | PQ-UX-005 | Remove MFA factor fires immediately, no confirmation | Professional Review | VERIFIED (2026-08-10T23:59:00) — window.confirm() confirmed present |
+| CRITICAL | PQ-UX-006 | Revoke device fires immediately, no confirmation | Professional Review | VERIFIED (2026-08-10T23:59:00) — window.confirm() confirmed present |
+| CRITICAL | PQ-SEC-001 | Last-owner lockout protection bypassable via direct DELETE on `kontrolia_auth.membership_roles` — the DB/RLS layer has no equivalent of the API-layer `wouldRemoveLastOwner` guard fixed earlier today | Professional Review | VERIFIED (2026-08-10T23:59:00) — migration 0025 live-tested against the running local DB, blocked as designed. NOTE: underlying vulnerability class NOT closed — see new rows PQ-SEC-003/PQ-SEC-004 below |
+| CRITICAL | PQ-SEC-003 | Direct RLS DELETE on `kontrolia_auth.memberships` deletes the sole active Owner's membership entirely, cascading past migration 0025's last-owner check (which explicitly no-ops on cascade) | Professional Review | OPEN — live-exploited 2026-08-10T23:59:00 against the running local DB |
+| CRITICAL | PQ-SEC-004 | Direct RLS UPDATE of `memberships.status` to `'suspended'` for the sole active Owner has zero last-owner check at the DB layer | Professional Review | OPEN — live-exploited 2026-08-10T23:59:00 against the running local DB |
+| HIGH | PQ-UX-007 | List fetches (organizations, use-organizations hook, audit-logs) never check the Supabase error — a real outage renders identically to "empty" | Professional Review | IN_PROGRESS (2026-08-10T23:59:00) — 3 admin-panel call sites fixed and verified; apps/auth-server/lib/use-organizations.ts (near-duplicate hook) untouched, still silent |
+| HIGH | PQ-UI-001 | Zero responsive design anywhere — no sm:/md:/lg: breakpoints in either app or packages/ui; tables have no overflow-x-auto | Professional Review | VERIFIED (2026-08-10T23:59:00) — hamburger toggle + all 11 tables confirmed wrapped |
+| HIGH | PQ-A11Y-001 | MFA-challenge 6-digit code entry has no labels/fieldset — a primary, blocking login step | Professional Review | VERIFIED (2026-08-10T23:59:00) — fieldset/legend/aria-label confirmed present |
+| HIGH | PQ-PERF-001 | No pagination on any list endpoint except audit-logs (hard-capped at 200, no cursor) | Professional Review | IN_PROGRESS (2026-08-10T23:59:00) — organization-members/invitations/audit-logs paginated and verified; 5 other endpoints remain unbounded |
+| HIGH | PQ-PERF-002 | N+1 GoTrue admin API calls resolving emails in organization-members and platform-admins routes | Professional Review | VERIFIED (2026-08-10T23:59:00) — resolveEmails() confirmed to eliminate the N+1 call pattern |
+| HIGH | PQ-PERF-003 | User-detail page refetches the entire org member list to find one row | Professional Review | VERIFIED (2026-08-10T23:59:00) — genuine single-row server lookup confirmed |
+| HIGH | PQ-TECH-001 | No automated tests anywhere except packages/permissions — zero coverage on JWT/PKCE/OAuth/middleware/any API route | Professional Review | IN_PROGRESS (2026-08-10T23:59:00) — 25 real passing tests added for JWT/PKCE/middleware; OAuth exchange/react-sdk/API routes still untested |
+| HIGH | PQ-TECH-002 | No server-side logging or error-tracking anywhere in the backend | Professional Review | IN_PROGRESS (2026-08-10T23:59:00) — logger+instrumentation wired through all 12 auth-server routes; admin-panel still unobserved |
+| MEDIUM | PQ-SEC-002 | platform-admins last-admin check is a non-atomic COUNT-then-DELETE (TOCTOU race) | Professional Review | OPEN — confirmed unchanged 2026-08-10T23:59:00 |
+| MEDIUM | PQ-UX-008 | Raw Postgres/PostgREST error text reaches the UI (roles page, organization-members route) | Professional Review | OPEN — 3 new instances added by this run's PQ-UX-007 fix, confirmed 2026-08-10T23:59:00 |
 | MEDIUM | PQ-UX-009 | No UI to revoke/delete a registered OAuth client | Professional Review | OPEN |
 | MEDIUM | PQ-A11Y-002 | Several inputs rely on placeholder-only or no label (org create/rename/delete-confirm, TOTP enroll, app URL edit) | Professional Review | OPEN |
 | MEDIUM | PQ-A11Y-003 | UserMenu dropdown has no ARIA state, no Escape/outside-click close | Professional Review | OPEN |
 | MEDIUM | PQ-A11Y-004 | Active nav item conveyed by color alone, no aria-current | Professional Review | OPEN |
 | MEDIUM | PQ-A11Y-005 | No live-region treatment for any error/success message; no toast component exists | Professional Review | OPEN |
+| MEDIUM | PQ-A11Y-006 | New hamburger toggle missing aria-expanded and focus management | Professional Review | OPEN — new 2026-08-10T23:59:00 |
 | MEDIUM | PQ-PERF-004 | No skeleton/loading component; several list pages show no loading indicator | Professional Review | OPEN |
-| MEDIUM | PQ-PERF-005 | Unmemoized AuthProvider context value causes app-wide unnecessary re-renders | Professional Review | OPEN |
+| MEDIUM | PQ-PERF-005 | Unmemoized AuthProvider context value causes app-wide unnecessary re-renders | Professional Review | OPEN — confirmed unchanged 2026-08-10T23:59:00 |
+| MEDIUM | PQ-PERF-006 | resolveEmails() rescans the entire platform user base on every call | Professional Review | OPEN — new 2026-08-10T23:59:00 |
 | MEDIUM | PQ-MAINT-001 | corsHeaders() duplicated across 3 route files | Professional Review | OPEN |
 | MEDIUM | PQ-MAINT-002 | authorizePlatformAdmin duplicated with divergent return shapes across 2 files | Professional Review | OPEN |
 | MEDIUM | PQ-MAINT-003 | Error-message extraction pattern duplicated 31 times, no shared helper | Professional Review | OPEN |
-| MEDIUM | PQ-MAINT-004 | Two near-identical useOrganizations hooks (admin-panel + auth-server) | Professional Review | OPEN |
+| MEDIUM | PQ-MAINT-004 | Two near-identical useOrganizations hooks (admin-panel + auth-server) | Professional Review | OPEN — confirmed further diverged 2026-08-10T23:59:00 |
 | MEDIUM | PQ-TECH-003 | No uniqueness constraint on invitations (org_id, email) | Professional Review | OPEN |
-| MEDIUM | PQ-TECH-004 | Two parallel mutation paths (API-enforced vs RLS-only) — root cause of PQ-SEC-001 | Professional Review | OPEN |
+| MEDIUM | PQ-TECH-004 | Two parallel mutation paths (API-enforced vs RLS-only) — root cause of PQ-SEC-001 | Professional Review | OPEN — confirmed 2026-08-10T23:59:00 to be the real unresolved architectural root cause of PQ-SEC-003/PQ-SEC-004 |
 | MEDIUM | PQ-TECH-005 | No index on memberships.status despite being filtered on every RLS check | Professional Review | OPEN |
 | MEDIUM | PQ-TECH-006 | Weak input validation on organizations POST (no slug format/length constraint) | Professional Review | OPEN |
 | MEDIUM | PQ-TECH-007 | OAuth code-exchange fetch() calls unwrapped in try/catch in auth-sdk | Professional Review | OPEN |
@@ -321,6 +345,7 @@ moves it to VERIFIED.
 | 2026-08-10 (re-audit after commit 8a05162) | kontrolia-plan-compliance | PARTIAL | 90% | 0 FAIL, 4 PARTIAL (REQ-006, REQ-008 [new regression], REQ-017, REQ-034) — three targeted fixes made real progress but each introduced a new defect; REQ-008 regressed from PASS |
 | 2026-08-10T22:15:00 (re-audit after commit 4579870) | kontrolia-plan-compliance | PASS | 100% | 0 FAIL, 0 PARTIAL — all four prior PARTIAL findings (REQ-006, REQ-008, REQ-017, REQ-034) independently re-verified as fixed; no new regression found |
 | 2026-08-10T23:30:00 | kontrolia-professional-review | NOT PRODUCTION READY | — | 7 (6 destructive UI actions with no confirmation across both apps; last-owner lockout bypassable at the DB/RLS layer via `membership_roles`, a door the same-day plan-compliance fix didn't cover) |
+| 2026-08-10T23:59:00 (re-audit after commit d1bf2cb) | kontrolia-professional-review | NOT PRODUCTION READY | — | 2 (down from 7 — all 6 UX-confirmation CRITICALs and the specific membership_roles vector of PQ-SEC-001 independently VERIFIED fixed via live DB testing; but 2 NEW CRITICAL findings, PQ-SEC-003/PQ-SEC-004, live-exploited this session — the identical last-owner-lockout outcome is still reachable via direct RLS DELETE/UPDATE on `kontrolia_auth.memberships`, doors migration 0025 didn't cover) |
 
 Append-only. Never delete or edit a previous row — a new audit adds a new
 row, it doesn't replace the old one.

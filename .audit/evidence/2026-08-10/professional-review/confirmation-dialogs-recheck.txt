@@ -1,0 +1,37 @@
+Re-verification of PQ-UX-001 through PQ-UX-006 (destructive-action confirmations), 2026-08-10T23:59:00
+Command: grep -n "window.confirm|confirm(" across the 7 files cited by the original findings.
+
+apps/admin-panel/app/users/page.tsx:95
+  if (!window.confirm(`¿Quitar a ${member.email} de ${organization.name}? Perderá acceso a la organización.`)) return;
+
+apps/admin-panel/app/users/page.tsx:121
+  const confirmed = window.confirm(...)   [suspend flow — pre-existing from earlier fix, unaffected]
+
+apps/admin-panel/app/users/[membershipId]/page.tsx:93
+  const confirmed = window.confirm(...)   [suspend flow — pre-existing]
+
+apps/admin-panel/app/users/[membershipId]/page.tsx:121
+  if (!window.confirm(`¿Quitar a ${member.email} de ${organization.name}? Perderá acceso a la organización.`)) return;
+
+apps/admin-panel/app/platform-admins/page.tsx:66
+  if (!window.confirm(`¿Quitar el rol de platform admin a ${admin.email}?`)) return;
+
+apps/admin-panel/app/invitations/page.tsx:129
+  if (!window.confirm(`¿Revocar la invitación a ${row.email}? El enlace dejará de funcionar.`)) return;
+
+apps/admin-panel/app/applications/page.tsx:90
+  !window.confirm(...)  [disable-application flow]
+
+apps/auth-server/app/security/page.tsx:61
+  if (!window.confirm("¿Eliminar este factor de verificación en dos pasos? Tu cuenta quedará menos protegida.")) return;
+
+apps/auth-server/app/devices/page.tsx:38
+  if (!window.confirm(`¿Cerrar la sesión de "${label}"? Esa sesión perderá el acceso de inmediato.`)) return;
+
+Conclusion: all 6 previously-CRITICAL findings (PQ-UX-001 through PQ-UX-006) are confirmed present in the
+current codebase, each with a specific, informative message naming the affected entity and consequence
+(not a generic "are you sure?"), consistently gating the mutation call before it fires. VERIFIED.
+
+Note: window.confirm() is a native browser dialog — inherently keyboard-operable (Enter/Escape/Tab) and
+announced by screen readers without any additional ARIA work required, so no accessibility follow-up
+is needed specifically for these six dialogs.
