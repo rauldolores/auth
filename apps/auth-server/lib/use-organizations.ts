@@ -12,10 +12,12 @@ import type { OrgOption } from "@kontrolia/ui";
 export function useOrganizations(isAuthenticated: boolean) {
   const [organizations, setOrganizations] = useState<OrgOption[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     if (!isAuthenticated) {
       setOrganizations([]);
+      setError(null);
       setIsLoading(false);
       return;
     }
@@ -23,7 +25,11 @@ export function useOrganizations(isAuthenticated: boolean) {
     const response = await fetch("/api/organizations");
     if (response.ok) {
       const body = (await response.json()) as { organizations: OrgOption[] };
+      setError(null);
       setOrganizations(body.organizations);
+    } else {
+      const body = (await response.json().catch(() => null)) as { error?: string } | null;
+      setError(body?.error ?? "No se pudieron cargar tus organizaciones.");
     }
     setIsLoading(false);
   }, [isAuthenticated]);
@@ -32,5 +38,5 @@ export function useOrganizations(isAuthenticated: boolean) {
     void reload();
   }, [reload]);
 
-  return { organizations, isLoading, reload };
+  return { organizations, isLoading, error, reload };
 }

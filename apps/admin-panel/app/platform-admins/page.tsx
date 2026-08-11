@@ -20,15 +20,24 @@ export default function PlatformAdminsPage() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [revokingId, setRevokingId] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
-  async function loadAdmins() {
+  async function loadAdmins(offset = 0, append = false) {
     const token = await getToken();
-    const response = await fetch(`${AUTH_SERVER_URL}/api/platform-admins`, {
+    const response = await fetch(`${AUTH_SERVER_URL}/api/platform-admins?offset=${offset}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!response.ok) return;
-    const data = (await response.json()) as { admins: PlatformAdminRow[] };
-    setAdmins(data.admins);
+    const data = (await response.json()) as { admins: PlatformAdminRow[]; hasMore: boolean };
+    setAdmins((current) => (append ? [...(current ?? []), ...data.admins] : data.admins));
+    setHasMore(data.hasMore);
+  }
+
+  async function handleLoadMore() {
+    setLoadingMore(true);
+    await loadAdmins((admins ?? []).length, true);
+    setLoadingMore(false);
   }
 
   useEffect(() => {
@@ -164,6 +173,18 @@ export default function PlatformAdminsPage() {
           </tbody>
         </table>
         </div>
+        {hasMore && (
+          <div className="k-border-t k-border-border k-p-3 k-text-center">
+            <button
+              type="button"
+              disabled={loadingMore}
+              onClick={() => void handleLoadMore()}
+              className="k-text-sm k-text-muted-foreground hover:k-underline disabled:k-opacity-60"
+            >
+              {loadingMore ? "Cargando..." : "Cargar más"}
+            </button>
+          </div>
+        )}
       </Card>
     </div>
   );

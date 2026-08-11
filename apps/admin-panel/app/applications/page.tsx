@@ -15,6 +15,8 @@ interface ApplicationRow {
   permissionCount: number;
 }
 
+const APPLICATIONS_PAGE_SIZE = 50;
+
 export default function ApplicationsPage() {
   const { organization, hasRole } = useAuth();
   const [enabled, setEnabled] = useState<ApplicationRow[] | null>(null);
@@ -23,13 +25,19 @@ export default function ApplicationsPage() {
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [editingUrlId, setEditingUrlId] = useState<string | null>(null);
   const [urlDraft, setUrlDraft] = useState("");
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const canManage = hasRole(["owner", "admin"]);
 
-  async function loadApplications(orgId: string) {
+  async function loadApplications(orgId: string, offset = 0, append = false) {
     const supabase = createKontroliaSchemaClient();
 
-    const [{ data: allApps }, { data: enabledRows }] = await Promise.all([
-      supabase.from("applications").select("id, name, slug, environment, owner_organization_id, homepage_url"),
+    const [{ data: appPage }, { data: enabledRows }] = await Promise.all([
+      supabase
+        .from("applications")
+        .select("id, name, slug, environment, owner_organization_id, homepage_url")
+        .order("name")
+        .range(offset, offset + APPLICATIONS_PAGE_SIZE - 1),
       supabase
         .from("application_organizations")
         .select("application_id")
@@ -38,14 +46,14 @@ export default function ApplicationsPage() {
     ]);
 
     const enabledIds = new Set((enabledRows ?? []).map((row) => row.application_id));
-    const apps = allApps ?? [];
+    const page = appPage ?? [];
 
     const { data: permissionRows } = await supabase
       .from("permissions")
       .select("application_id")
       .in(
         "application_id",
-        apps.map((app) => app.id),
+        page.map((app) => app.id),
       )
       .returns<{ application_id: string }[]>();
 
@@ -54,17 +62,30 @@ export default function ApplicationsPage() {
       counts.set(permission.application_id, (counts.get(permission.application_id) ?? 0) + 1);
     }
 
-    const withCounts = apps
-      .map((app) => ({ ...app, permissionCount: counts.get(app.id) ?? 0 }))
-      .sort((a, b) => a.name.localeCompare(b.name));
+    const withCounts = page.map((app) => ({ ...app, permissionCount: counts.get(app.id) ?? 0 }));
 
-    setEnabled(withCounts.filter((app) => enabledIds.has(app.id)));
-    setAvailable(withCounts.filter((app) => !enabledIds.has(app.id)));
+    setEnabled((current) => {
+      const next = withCounts.filter((app) => enabledIds.has(app.id));
+      return append ? [...(current ?? []), ...next] : next;
+    });
+    setAvailable((current) => {
+      const next = withCounts.filter((app) => !enabledIds.has(app.id));
+      return append ? [...(current ?? []), ...next] : next;
+    });
+    setHasMore(page.length === APPLICATIONS_PAGE_SIZE);
   }
 
   useEffect(() => {
     if (organization) void loadApplications(organization.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organization?.id]);
+
+  async function handleLoadMore() {
+    if (!organization) return;
+    setLoadingMore(true);
+    await loadApplications(organization.id, (enabled?.length ?? 0) + (available?.length ?? 0), true);
+    setLoadingMore(false);
+  }
 
   async function handleEnable(applicationId: string) {
     if (!organization) return;
@@ -291,6 +312,19 @@ export default function ApplicationsPage() {
             </table>
             </div>
           </Card>
+        </div>
+      )}
+
+      {hasMore && (
+        <div className="k-text-center">
+          <button
+            type="button"
+            disabled={loadingMore}
+            onClick={() => void handleLoadMore()}
+            className="k-text-sm k-text-muted-foreground hover:k-underline disabled:k-opacity-60"
+          >
+            {loadingMore ? "Cargando..." : "Cargar más"}
+          </button>
         </div>
       )}
     </div>

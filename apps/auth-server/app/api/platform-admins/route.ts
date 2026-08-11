@@ -87,12 +87,21 @@ async function resolveEmails(
   return emailById;
 }
 
+const PLATFORM_ADMINS_PAGE_SIZE = 50;
+
 export async function GET(request: Request) {
   const authResult = await authorizePlatformAdmin(request);
   if (authResult instanceof NextResponse) return authResult;
 
+  const offset = Number(new URL(request.url).searchParams.get("offset") ?? "0") || 0;
+
   const admin = createSupabaseAdminClient();
-  const { data, error } = await admin.schema("kontrolia_auth").from("platform_admins").select("user_id, granted_at");
+  const { data, error } = await admin
+    .schema("kontrolia_auth")
+    .from("platform_admins")
+    .select("user_id, granted_at")
+    .order("granted_at", { ascending: false })
+    .range(offset, offset + PLATFORM_ADMINS_PAGE_SIZE - 1);
   if (error) {
     logError("GET /api/platform-admins", error);
     return NextResponse.json({ error: error.message }, { status: 500, headers: corsHeaders() });
@@ -105,7 +114,8 @@ export async function GET(request: Request) {
     grantedAt: row.granted_at,
   }));
 
-  return NextResponse.json({ admins }, { headers: corsHeaders() });
+  const hasMore = admins.length === PLATFORM_ADMINS_PAGE_SIZE;
+  return NextResponse.json({ admins, hasMore }, { headers: corsHeaders() });
 }
 
 export async function POST(request: Request) {

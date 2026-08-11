@@ -32,16 +32,52 @@ interface ApplicationGroup {
   permissions: PermissionRow[];
 }
 
+const PERMISSIONS_PAGE_SIZE = 50;
+
 export default function RoleDetailPage() {
   const params = useParams<{ roleId: string }>();
   const roleId = params.roleId;
   const { organization } = useAuth();
 
   const [role, setRole] = useState<RoleDetail | null | undefined>(undefined);
-  const [groups, setGroups] = useState<ApplicationGroup[]>([]);
+  const [permissions, setPermissions] = useState<PermissionRow[]>([]);
+  const [appIds, setAppIds] = useState<string[]>([]);
   const [grantedIds, setGrantedIds] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  const groups: ApplicationGroup[] = (() => {
+    const byApplication = new Map<string, ApplicationGroup>();
+    for (const permission of permissions) {
+      const appName = permission.application?.name ?? "—";
+      const group = byApplication.get(permission.application_id) ?? { name: appName, permissions: [] };
+      group.permissions.push(permission);
+      byApplication.set(permission.application_id, group);
+    }
+    return [...byApplication.values()].sort((a, b) => a.name.localeCompare(b.name));
+  })();
+
+  async function loadPermissions(ids: string[], offset: number, append: boolean) {
+    if (ids.length === 0) {
+      setPermissions([]);
+      setHasMore(false);
+      return;
+    }
+    const supabase = createKontroliaSchemaClient();
+    const { data: permissionRows } = await supabase
+      .from("permissions")
+      .select("id, key, resource, action, description, application_id, application:applications(name)")
+      .in("application_id", ids)
+      .order("key")
+      .range(offset, offset + PERMISSIONS_PAGE_SIZE - 1)
+      .returns<PermissionRow[]>();
+
+    const page = permissionRows ?? [];
+    setPermissions((current) => (append ? [...current, ...page] : page));
+    setHasMore(page.length === PERMISSIONS_PAGE_SIZE);
+  }
 
   async function loadAll(orgId: string) {
     const supabase = createKontroliaSchemaClient();
@@ -58,37 +94,19 @@ export default function RoleDetailPage() {
     // application — show permissions across every app enabled for this org,
     // same as before. App-scoped roles (custom or the auto-managed
     // "Administrador de <app>") only ever show that one app's permissions.
-    let appIds: string[];
+    let ids: string[];
     if (roleRow.application_id) {
-      appIds = [roleRow.application_id];
+      ids = [roleRow.application_id];
     } else {
       const { data: appRows } = await supabase
         .from("application_organizations")
         .select("application_id")
         .eq("organization_id", orgId)
         .returns<{ application_id: string }[]>();
-      appIds = (appRows ?? []).map((row) => row.application_id);
+      ids = (appRows ?? []).map((row) => row.application_id);
     }
-
-    if (appIds.length > 0) {
-      const { data: permissionRows } = await supabase
-        .from("permissions")
-        .select("id, key, resource, action, description, application_id, application:applications(name)")
-        .in("application_id", appIds)
-        .order("key")
-        .returns<PermissionRow[]>();
-
-      const byApplication = new Map<string, ApplicationGroup>();
-      for (const permission of permissionRows ?? []) {
-        const appName = permission.application?.name ?? "—";
-        const group = byApplication.get(permission.application_id) ?? { name: appName, permissions: [] };
-        group.permissions.push(permission);
-        byApplication.set(permission.application_id, group);
-      }
-      setGroups([...byApplication.values()].sort((a, b) => a.name.localeCompare(b.name)));
-    } else {
-      setGroups([]);
-    }
+    setAppIds(ids);
+    await loadPermissions(ids, 0, false);
 
     const { data: rolePermissionRows } = await supabase
       .from("role_permissions")
@@ -102,6 +120,12 @@ export default function RoleDetailPage() {
     if (organization) void loadAll(organization.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organization?.id, roleId]);
+
+  async function handleLoadMore() {
+    setLoadingMore(true);
+    await loadPermissions(appIds, permissions.length, true);
+    setLoadingMore(false);
+  }
 
   const isEditable = role != null && !role.is_system_role;
 
@@ -210,6 +234,19 @@ export default function RoleDetailPage() {
           </Card>
         </div>
       ))}
+
+      {hasMore && (
+        <div className="k-text-center">
+          <button
+            type="button"
+            disabled={loadingMore}
+            onClick={() => void handleLoadMore()}
+            className="k-text-sm k-text-muted-foreground hover:k-underline disabled:k-opacity-60"
+          >
+            {loadingMore ? "Cargando..." : "Cargar más"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

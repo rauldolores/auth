@@ -19,28 +19,48 @@ interface ApplicationGroup {
   permissions: PermissionRow[];
 }
 
-export default function PermissionsPage() {
-  const [groups, setGroups] = useState<ApplicationGroup[] | null>(null);
+const PERMISSIONS_PAGE_SIZE = 50;
 
-  useEffect(() => {
+export default function PermissionsPage() {
+  const [permissions, setPermissions] = useState<PermissionRow[] | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  const groups: ApplicationGroup[] | null = (() => {
+    if (permissions === null) return null;
+    const byApplication = new Map<string, ApplicationGroup>();
+    for (const permission of permissions) {
+      const app = permission.application;
+      if (!app) continue;
+      const group = byApplication.get(app.id) ?? { id: app.id, name: app.name, permissions: [] };
+      group.permissions.push(permission);
+      byApplication.set(app.id, group);
+    }
+    return [...byApplication.values()].sort((a, b) => a.name.localeCompare(b.name));
+  })();
+
+  async function loadPage(offset: number, append: boolean) {
     const supabase = createKontroliaSchemaClient();
-    supabase
+    const { data } = await supabase
       .from("permissions")
       .select("id, key, resource, action, description, application:applications(id, name)")
       .order("key")
-      .returns<PermissionRow[]>()
-      .then(({ data }) => {
-        const byApplication = new Map<string, ApplicationGroup>();
-        for (const permission of data ?? []) {
-          const app = permission.application;
-          if (!app) continue;
-          const group = byApplication.get(app.id) ?? { id: app.id, name: app.name, permissions: [] };
-          group.permissions.push(permission);
-          byApplication.set(app.id, group);
-        }
-        setGroups([...byApplication.values()].sort((a, b) => a.name.localeCompare(b.name)));
-      });
+      .range(offset, offset + PERMISSIONS_PAGE_SIZE - 1)
+      .returns<PermissionRow[]>();
+    const page = data ?? [];
+    setPermissions((current) => (append ? [...(current ?? []), ...page] : page));
+    setHasMore(page.length === PERMISSIONS_PAGE_SIZE);
+  }
+
+  useEffect(() => {
+    void loadPage(0, false);
   }, []);
+
+  async function handleLoadMore() {
+    setLoadingMore(true);
+    await loadPage((permissions ?? []).length, true);
+    setLoadingMore(false);
+  }
 
   return (
     <div className="k-flex k-flex-col k-gap-5">
@@ -83,6 +103,19 @@ export default function PermissionsPage() {
         <p className="k-text-sm k-text-muted-foreground">
           Sin permisos todavía — se registran junto con cada aplicación (Facturación, CRM, ...).
         </p>
+      )}
+
+      {hasMore && (
+        <div className="k-text-center">
+          <button
+            type="button"
+            disabled={loadingMore}
+            onClick={() => void handleLoadMore()}
+            className="k-text-sm k-text-muted-foreground hover:k-underline disabled:k-opacity-60"
+          >
+            {loadingMore ? "Cargando..." : "Cargar más"}
+          </button>
+        </div>
       )}
     </div>
   );

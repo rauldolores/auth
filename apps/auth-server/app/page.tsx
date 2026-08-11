@@ -8,7 +8,7 @@ import { useOrganizations } from "@/lib/use-organizations";
 
 export default function HomePage() {
   const { user, organization, isAuthenticated, hasRole } = useAuth();
-  const { organizations, isLoading, reload } = useOrganizations(isAuthenticated);
+  const { organizations, isLoading, error: organizationsError, reload } = useOrganizations(isAuthenticated);
   const [showCreateForm, setShowCreateForm] = useState(false);
 
   // Records this browser session as a known device once per sign-in, so
@@ -56,7 +56,13 @@ export default function HomePage() {
             </div>
           )}
 
-          {!organization && !isLoading && organizations.length === 0 && (
+          {organizationsError && !isLoading && (
+            <p className="k-text-sm k-text-destructive">
+              No se pudieron cargar tus organizaciones: {organizationsError}. Intenta recargar la página.
+            </p>
+          )}
+
+          {!organization && !isLoading && !organizationsError && organizations.length === 0 && (
             <CreateOrganizationForm onCreated={() => void reload()} />
           )}
 

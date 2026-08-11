@@ -37,32 +37,26 @@ function slugify(name: string): string {
     .replace(/(^-+|-+$)/g, "");
 }
 
+const ROLES_PAGE_SIZE = 50;
+
 export default function RolesPage() {
   const { organization } = useAuth();
-  const [generalRoles, setGeneralRoles] = useState<RoleRow[]>([]);
-  const [appGroups, setAppGroups] = useState<ApplicationGroup[]>([]);
+  const [allRoles, setAllRoles] = useState<(RoleRow & { application: { name: string } | null })[]>([]);
   const [availableApps, setAvailableApps] = useState<ApplicationOption[]>([]);
   const [name, setName] = useState("");
   const [applicationId, setApplicationId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
-  async function loadRoles(orgId: string) {
-    const supabase = createKontroliaSchemaClient();
+  const generalRoles = allRoles
+    .filter((role) => role.application_id === null)
+    .sort((a, b) => a.name.localeCompare(b.name));
 
-    const { data: roleRows } = await supabase
-      .from("roles")
-      .select(
-        "id, name, slug, is_system_role, grants_all_permissions, organization_id, application_id, application:applications(name)",
-      )
-      .or(`organization_id.is.null,organization_id.eq.${orgId}`)
-      .returns<(RoleRow & { application: { name: string } | null })[]>();
-
-    const all = roleRows ?? [];
-    setGeneralRoles(all.filter((role) => role.application_id === null).sort((a, b) => a.name.localeCompare(b.name)));
-
+  const appGroups: ApplicationGroup[] = (() => {
     const byApplication = new Map<string, ApplicationGroup>();
-    for (const role of all) {
+    for (const role of allRoles) {
       if (role.application_id === null) continue;
       const group = byApplication.get(role.application_id) ?? {
         applicationId: role.application_id,
@@ -75,22 +69,49 @@ export default function RolesPage() {
     for (const group of byApplication.values()) {
       group.roles.sort((a, b) => Number(b.grants_all_permissions) - Number(a.grants_all_permissions) || a.name.localeCompare(b.name));
     }
-    setAppGroups([...byApplication.values()].sort((a, b) => a.applicationName.localeCompare(b.applicationName)));
+    return [...byApplication.values()].sort((a, b) => a.applicationName.localeCompare(b.applicationName));
+  })();
 
-    const { data: enabledRows } = await supabase
-      .from("application_organizations")
-      .select("application:applications(id, name)")
-      .eq("organization_id", orgId)
-      .returns<{ application: ApplicationOption | null }[]>();
-    const apps = (enabledRows ?? []).map((row) => row.application).filter((app): app is ApplicationOption => app !== null);
-    setAvailableApps(apps);
-    if (apps.length && !applicationId) setApplicationId(apps[0]!.id);
+  async function loadRoles(orgId: string, offset = 0, append = false) {
+    const supabase = createKontroliaSchemaClient();
+
+    const { data: roleRows } = await supabase
+      .from("roles")
+      .select(
+        "id, name, slug, is_system_role, grants_all_permissions, organization_id, application_id, application:applications(name)",
+      )
+      .or(`organization_id.is.null,organization_id.eq.${orgId}`)
+      .order("name")
+      .range(offset, offset + ROLES_PAGE_SIZE - 1)
+      .returns<(RoleRow & { application: { name: string } | null })[]>();
+
+    const page = roleRows ?? [];
+    setAllRoles((current) => (append ? [...current, ...page] : page));
+    setHasMore(page.length === ROLES_PAGE_SIZE);
+
+    if (!append) {
+      const { data: enabledRows } = await supabase
+        .from("application_organizations")
+        .select("application:applications(id, name)")
+        .eq("organization_id", orgId)
+        .returns<{ application: ApplicationOption | null }[]>();
+      const apps = (enabledRows ?? []).map((row) => row.application).filter((app): app is ApplicationOption => app !== null);
+      setAvailableApps(apps);
+      if (apps.length && !applicationId) setApplicationId(apps[0]!.id);
+    }
   }
 
   useEffect(() => {
     if (organization) void loadRoles(organization.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organization?.id]);
+
+  async function handleLoadMore() {
+    if (!organization) return;
+    setLoadingMore(true);
+    await loadRoles(organization.id, allRoles.length, true);
+    setLoadingMore(false);
+  }
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -240,6 +261,19 @@ export default function RolesPage() {
           </Card>
         </div>
       ))}
+
+      {hasMore && (
+        <div className="k-text-center">
+          <button
+            type="button"
+            disabled={loadingMore}
+            onClick={() => void handleLoadMore()}
+            className="k-text-sm k-text-muted-foreground hover:k-underline disabled:k-opacity-60"
+          >
+            {loadingMore ? "Cargando..." : "Cargar más"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
