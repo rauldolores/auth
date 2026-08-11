@@ -26,5 +26,32 @@
       "INT-DX-002",
       "INT-OPENAPI-001"
     ]
+  },
+  {
+    "date": "2026-08-11",
+    "mode": "GENERATE",
+    "scope": "INT-KEY-001, INT-KEY-002, INT-SEC-001 — user-selected subset of the audit above",
+    "result": "GAPS_CLOSED",
+    "gapsClosed": ["INT-KEY-001", "INT-KEY-002", "INT-SEC-001"],
+    "commit": "585b646"
+  },
+  {
+    "date": "2026-08-11T21:23:00",
+    "mode": "GENERATE",
+    "scope": "New API: /api/applications/members (list, invite, remove, manage roles) — kapp_-key-authenticated, scoped to the calling application's own organization",
+    "result": "CAPABILITY_DELIVERED",
+    "filesAdded": [
+      "apps/auth-server/lib/application-auth.ts",
+      "apps/auth-server/lib/assignable-role.ts",
+      "apps/auth-server/lib/resolve-emails.ts",
+      "apps/auth-server/app/api/applications/members/route.ts",
+      "apps/auth-server/app/api/applications/members/[membershipId]/route.ts",
+      "apps/auth-server/app/api/__tests__/applications-members.test.ts",
+      "apps/auth-server/app/api/__tests__/applications-members-detail.test.ts",
+      "packages/db/migrations/0033_prevent_owner_role_invitation.sql"
+    ],
+    "incidentalFindingClosed": "POST /api/invitations/accept granted an invitation's role_id via a service_role client with no owner-role check — any org Admin could create an owner-role invitation and have it silently grant real Owner on acceptance, bypassing every owner-grant protection built in migrations 0025-0031. Closed via migration 0033: invitations can never reference the Owner role, for any caller.",
+    "newGapsFound": ["INT-DOC-005"],
+    "testsAdded": 21
   }
 ]

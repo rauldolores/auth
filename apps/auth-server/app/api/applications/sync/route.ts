@@ -1,11 +1,6 @@
-import { timingSafeEqual } from "node:crypto";
-import { hashApplicationApiKey } from "@kontrolia/db";
-import { logError, logSecurityEvent } from "@/lib/logger";
-import { checkRateLimit } from "@/lib/rate-limit";
-import { createSupabaseAdminClient } from "@/lib/supabase-admin";
+import { logError } from "@/lib/logger";
+import { authenticateApplication } from "@/lib/application-auth";
 import { NextResponse } from "next/server";
-
-const RATE_LIMIT = { max: 30, windowMs: 5 * 60 * 1000 };
 
 interface PermissionInput {
   resource: string;
@@ -20,26 +15,6 @@ interface SyncBody {
   permissions?: PermissionInput[];
 }
 
-function extractApiKey(request: Request): string | null {
-  const header = request.headers.get("authorization");
-  if (!header?.startsWith("Bearer ")) return null;
-  return header.slice("Bearer ".length).trim() || null;
-}
-
-function safeEqualHex(a: string, b: string): boolean {
-  const bufferA = Buffer.from(a, "hex");
-  const bufferB = Buffer.from(b, "hex");
-  if (bufferA.length !== bufferB.length) return false;
-  return timingSafeEqual(bufferA, bufferB);
-}
-
-/** Best-effort client IP for logging only — never used for anything
- * security-decision-relevant, so a spoofed header here can't be abused for
- * more than a misleading log line. */
-function clientIp(request: Request): string | null {
-  return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
-}
-
 /**
  * Lets an already-registered application push updates to its own permission
  * catalog — resources/actions are added or their description updated, never
@@ -52,66 +27,14 @@ function clientIp(request: Request): string | null {
  * implement.
  */
 export async function POST(request: Request) {
-  const ip = clientIp(request);
-  const rateLimit = checkRateLimit(`applications-sync:${ip ?? "unknown"}`, RATE_LIMIT);
-  if (!rateLimit.allowed) {
-    logSecurityEvent("applications/sync: rate limited", { ip });
-    return NextResponse.json(
-      { error: "Demasiadas solicitudes. Intenta de nuevo más tarde." },
-      { status: 429, headers: { "Retry-After": String(rateLimit.retryAfterSeconds) } },
-    );
-  }
-
-  const apiKey = extractApiKey(request);
-  if (!apiKey) {
-    return NextResponse.json({ error: "Falta el header Authorization: Bearer <api key>" }, { status: 401 });
-  }
-
   const body = (await request.json().catch(() => null)) as SyncBody | null;
   if (!body?.slug || !Array.isArray(body.permissions)) {
     return NextResponse.json({ error: "slug y permissions son requeridos" }, { status: 400 });
   }
 
-  const admin = createSupabaseAdminClient();
-
-  const { data: application, error: lookupError } = await admin
-    .schema("kontrolia_auth")
-    .from("applications")
-    .select("id, api_key_hash")
-    .eq("slug", body.slug)
-    .maybeSingle<{ id: string; api_key_hash: string | null }>();
-
-  if (lookupError) {
-    logError("POST /api/applications/sync", lookupError, { slug: body.slug });
-    return NextResponse.json({ error: lookupError.message }, { status: 500 });
-  }
-  if (!application) return NextResponse.json({ error: "Aplicación no encontrada" }, { status: 404 });
-  if (!application.api_key_hash) {
-    logSecurityEvent("applications/sync: no key configured", { slug: body.slug, ip });
-    return NextResponse.json(
-      {
-        error:
-          "Esta aplicación no tiene una clave de sincronización. Vuelve a registrarla con el instalador (CLI) para generar una.",
-      },
-      { status: 403 },
-    );
-  }
-  if (!safeEqualHex(hashApplicationApiKey(apiKey), application.api_key_hash)) {
-    logSecurityEvent("applications/sync: invalid key", { slug: body.slug, ip });
-    return NextResponse.json({ error: "Clave inválida" }, { status: 401 });
-  }
-
-  // Fire-and-forget: a "last used" signal for the rotate/revoke UI is a
-  // nice-to-have, not worth failing (or even delaying) a legitimate,
-  // already-authenticated sync call over.
-  void admin
-    .schema("kontrolia_auth")
-    .from("applications")
-    .update({ api_key_last_used_at: new Date().toISOString() })
-    .eq("id", application.id)
-    .then(({ error: touchError }) => {
-      if (touchError) logError("applications/sync: touch api_key_last_used_at", touchError, { slug: body.slug });
-    });
+  const auth = await authenticateApplication(request, body.slug, "applications/sync");
+  if (auth instanceof NextResponse) return auth;
+  const { application, admin } = auth;
 
   if (body.name || body.environment) {
     await admin
