@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@kontrolia/react";
-import { Card } from "@kontrolia/ui";
+import { Card, Dialog } from "@kontrolia/ui";
 import { Fragment, useEffect, useState } from "react";
 import { createKontroliaSchemaClient } from "@/lib/supabase-browser";
 
@@ -39,6 +39,7 @@ export default function OrganizationsPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmText, setConfirmText] = useState("");
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const deletingOrg = organizations?.find((org) => org.id === deletingId) ?? null;
 
   async function loadOrganizations() {
     if (!user) return;
@@ -255,44 +256,6 @@ export default function OrganizationsPage() {
                       )}
                     </td>
                   </tr>
-                  {deletingId === org.id && (
-                    <tr className="k-border-b k-border-border k-bg-destructive/5 last:k-border-0">
-                      <td colSpan={4} className="k-px-5 k-py-4">
-                        <div className="k-flex k-flex-col k-gap-2 k-rounded-md k-border k-border-destructive/40 k-bg-background k-p-3">
-                          <p className="k-text-sm">
-                            Esto elimina <strong>{org.name}</strong> de forma permanente — todos sus miembros, roles,
-                            invitaciones y el historial de auditoría se pierden. No se puede deshacer.
-                          </p>
-                          <p className="k-text-sm k-text-muted-foreground">
-                            Escribe <strong>{org.name}</strong> para confirmar:
-                          </p>
-                          <input
-                            type="text"
-                            value={confirmText}
-                            onChange={(e) => setConfirmText(e.target.value)}
-                            className="k-max-w-sm k-rounded-md k-border k-border-border k-bg-background k-px-3 k-py-2 k-text-sm"
-                          />
-                          <div className="k-flex k-gap-3">
-                            <button
-                              type="button"
-                              disabled={confirmText !== org.name || pendingId === org.id}
-                              onClick={() => void handleDelete(org)}
-                              className="k-rounded-md k-bg-destructive k-px-3 k-py-2 k-text-sm k-font-medium k-text-destructive-foreground disabled:k-opacity-60"
-                            >
-                              Eliminar definitivamente
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setDeletingId(null)}
-                              className="k-text-sm k-text-muted-foreground hover:k-underline"
-                            >
-                              Cancelar
-                            </button>
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
                 </Fragment>
               ))}
             </tbody>
@@ -300,6 +263,59 @@ export default function OrganizationsPage() {
         </div>
         {organizations?.length === 0 && <p className="k-px-5 k-py-6 k-text-sm k-text-muted-foreground">Sin organizaciones todavía.</p>}
       </Card>
+
+      <Dialog
+        open={deletingOrg !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeletingId(null);
+            setConfirmText("");
+          }
+        }}
+        title="Eliminar organización"
+      >
+        {deletingOrg && (
+          <div className="k-flex k-flex-col k-gap-3">
+            <p className="k-text-sm">
+              Esto elimina <strong>{deletingOrg.name}</strong> de forma permanente — todos sus miembros, roles,
+              invitaciones y el historial de auditoría se pierden. No se puede deshacer.
+            </p>
+            <div className="k-flex k-flex-col k-gap-1.5">
+              <label htmlFor="k-org-delete-confirm" className="k-text-sm k-text-muted-foreground">
+                Escribe <strong>{deletingOrg.name}</strong> para confirmar:
+              </label>
+              <input
+                id="k-org-delete-confirm"
+                type="text"
+                autoFocus
+                value={confirmText}
+                onChange={(e) => setConfirmText(e.target.value)}
+                className="k-rounded-md k-border k-border-border k-bg-background k-px-3 k-py-2 k-text-sm"
+              />
+            </div>
+            <div className="k-flex k-justify-end k-gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setDeletingId(null);
+                  setConfirmText("");
+                }}
+                className="k-rounded-md k-px-4 k-py-2 k-text-sm k-font-medium k-text-muted-foreground hover:k-bg-muted"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={confirmText !== deletingOrg.name || pendingId === deletingOrg.id}
+                onClick={() => void handleDelete(deletingOrg)}
+                className="k-rounded-md k-bg-destructive k-px-4 k-py-2 k-text-sm k-font-medium k-text-destructive-foreground disabled:k-opacity-60"
+              >
+                Eliminar definitivamente
+              </button>
+            </div>
+          </div>
+        )}
+      </Dialog>
     </div>
   );
 }

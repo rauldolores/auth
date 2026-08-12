@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@kontrolia/react";
-import { Badge, Card } from "@kontrolia/ui";
+import { Badge, Card, ConfirmDialog } from "@kontrolia/ui";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -41,6 +41,7 @@ export default function UserDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const canManage = hasRole(["owner", "admin"]);
+  const [confirmAction, setConfirmAction] = useState<"remove" | "suspend" | null>(null);
 
   async function loadMember(orgId: string) {
     const token = await getToken();
@@ -89,12 +90,6 @@ export default function UserDetailPage() {
   async function handleToggleStatus() {
     if (!organization || !member) return;
     const nextStatus = member.status === "suspended" ? "active" : "suspended";
-    if (nextStatus === "suspended") {
-      const confirmed = window.confirm(
-        `¿Suspender a ${member.email}? Perderá acceso a ${organization.name} hasta que lo reactives.`,
-      );
-      if (!confirmed) return;
-    }
     setError(null);
     setPending(true);
     try {
@@ -118,7 +113,6 @@ export default function UserDetailPage() {
 
   async function handleRemove() {
     if (!organization || !member) return;
-    if (!window.confirm(`¿Quitar a ${member.email} de ${organization.name}? Perderá acceso a la organización.`)) return;
     setError(null);
     setPending(true);
     try {
@@ -217,7 +211,7 @@ export default function UserDetailPage() {
               <button
                 type="button"
                 disabled={pending}
-                onClick={() => void handleToggleStatus()}
+                onClick={() => (member.status === "suspended" ? void handleToggleStatus() : setConfirmAction("suspend"))}
                 className="k-rounded-md k-border k-border-border k-px-3 k-py-1.5 k-text-sm hover:k-bg-muted disabled:k-opacity-60"
               >
                 {member.status === "suspended" ? "Reactivar" : "Suspender"}
@@ -225,7 +219,7 @@ export default function UserDetailPage() {
               <button
                 type="button"
                 disabled={pending}
-                onClick={() => void handleRemove()}
+                onClick={() => setConfirmAction("remove")}
                 className="k-rounded-md k-border k-border-destructive k-px-3 k-py-1.5 k-text-sm k-text-destructive hover:k-bg-destructive/10 disabled:k-opacity-60"
               >
                 Quitar de la organización
@@ -277,6 +271,23 @@ export default function UserDetailPage() {
           })}
         </Card>
       )}
+
+      <ConfirmDialog
+        open={confirmAction !== null}
+        onOpenChange={(open) => !open && setConfirmAction(null)}
+        destructive
+        title={confirmAction === "remove" ? "Quitar de la organización" : "Suspender miembro"}
+        description={
+          confirmAction === "remove"
+            ? `¿Quitar a ${member.email} de ${organization.name}? Perderá acceso a la organización.`
+            : `¿Suspender a ${member.email}? Perderá acceso a ${organization.name} hasta que lo reactives.`
+        }
+        confirmLabel={confirmAction === "remove" ? "Quitar" : "Suspender"}
+        onConfirm={async () => {
+          if (confirmAction === "remove") await handleRemove();
+          else if (confirmAction === "suspend") await handleToggleStatus();
+        }}
+      />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@kontrolia/react";
-import { Badge, Card } from "@kontrolia/ui";
+import { Badge, Card, ConfirmDialog } from "@kontrolia/ui";
 import { useEffect, useState } from "react";
 import { createKontroliaSchemaClient } from "@/lib/supabase-browser";
 
@@ -52,6 +52,9 @@ export default function ApplicationsPage() {
   const [copied, setCopied] = useState(false);
   const [platformAdmin, setPlatformAdmin] = useState(false);
   const canManage = hasRole(["owner", "admin"]);
+  const [confirmAction, setConfirmAction] = useState<{ kind: "disable" | "claim" | "rotate" | "revoke"; app: ApplicationRow } | null>(
+    null,
+  );
 
   useEffect(() => {
     void (async () => setPlatformAdmin(await isPlatformAdmin()))();
@@ -134,15 +137,8 @@ export default function ApplicationsPage() {
     }
   }
 
-  async function handleDisable(applicationId: string, applicationName: string) {
+  async function handleDisable(applicationId: string) {
     if (!organization) return;
-    if (
-      !window.confirm(
-        `¿Deshabilitar "${applicationName}" para ${organization.name}? Quien inicie sesión con esa app dejará de poder acceder.`,
-      )
-    ) {
-      return;
-    }
     setError(null);
     setPendingId(applicationId);
     try {
@@ -182,13 +178,6 @@ export default function ApplicationsPage() {
 
   async function handleClaim(app: ApplicationRow) {
     if (!organization) return;
-    if (
-      !window.confirm(
-        `¿Reclamar "${app.name}" para ${organization.name}? Esta organización pasará a controlar su clave de sincronización — no se puede deshacer ni transferir después.`,
-      )
-    ) {
-      return;
-    }
     setError(null);
     setPendingId(app.id);
     try {
@@ -211,13 +200,6 @@ export default function ApplicationsPage() {
   }
 
   async function handleRotateKey(app: ApplicationRow) {
-    if (
-      !window.confirm(
-        `¿Rotar la clave de sincronización de "${app.name}"? La clave anterior deja de funcionar de inmediato — actualiza el pipeline de despliegue de la app con la nueva.`,
-      )
-    ) {
-      return;
-    }
     setError(null);
     setPendingId(app.id);
     setNewApiKey(null);
@@ -239,13 +221,6 @@ export default function ApplicationsPage() {
   }
 
   async function handleRevokeKey(app: ApplicationRow) {
-    if (
-      !window.confirm(
-        `¿Revocar la clave de sincronización de "${app.name}"? El pipeline de despliegue de la app dejará de poder sincronizar su catálogo de permisos hasta que generes una nueva.`,
-      )
-    ) {
-      return;
-    }
     setError(null);
     setPendingId(app.id);
     try {
@@ -398,7 +373,7 @@ export default function ApplicationsPage() {
                             <button
                               type="button"
                               disabled={pendingId === app.id}
-                              onClick={() => void handleRotateKey(app)}
+                              onClick={() => setConfirmAction({ kind: "rotate", app })}
                               className="k-text-sm k-text-muted-foreground hover:k-underline disabled:k-opacity-60"
                             >
                               Rotar
@@ -406,7 +381,7 @@ export default function ApplicationsPage() {
                             <button
                               type="button"
                               disabled={pendingId === app.id}
-                              onClick={() => void handleRevokeKey(app)}
+                              onClick={() => setConfirmAction({ kind: "revoke", app })}
                               className="k-text-sm k-text-destructive hover:k-underline disabled:k-opacity-60"
                             >
                               Revocar
@@ -418,7 +393,7 @@ export default function ApplicationsPage() {
                       <button
                         type="button"
                         disabled={pendingId === app.id}
-                        onClick={() => void handleClaim(app)}
+                        onClick={() => setConfirmAction({ kind: "claim", app })}
                         className="k-text-sm k-font-medium k-text-primary hover:k-underline disabled:k-opacity-60"
                       >
                         Reclamar propiedad
@@ -434,7 +409,7 @@ export default function ApplicationsPage() {
                       <button
                         type="button"
                         disabled={pendingId === app.id}
-                        onClick={() => void handleDisable(app.id, app.name)}
+                        onClick={() => setConfirmAction({ kind: "disable", app })}
                         className="k-text-sm k-text-destructive hover:k-underline disabled:k-opacity-60"
                       >
                         Deshabilitar
@@ -507,6 +482,49 @@ export default function ApplicationsPage() {
           </button>
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmAction !== null}
+        onOpenChange={(open) => !open && setConfirmAction(null)}
+        destructive={confirmAction?.kind === "disable" || confirmAction?.kind === "revoke"}
+        title={
+          confirmAction?.kind === "disable"
+            ? "Deshabilitar aplicación"
+            : confirmAction?.kind === "claim"
+              ? "Reclamar propiedad"
+              : confirmAction?.kind === "rotate"
+                ? "Rotar clave de sincronización"
+                : "Revocar clave de sincronización"
+        }
+        description={
+          !confirmAction
+            ? ""
+            : confirmAction.kind === "disable"
+              ? `¿Deshabilitar "${confirmAction.app.name}" para ${organization.name}? Quien inicie sesión con esa app dejará de poder acceder.`
+              : confirmAction.kind === "claim"
+                ? `¿Reclamar "${confirmAction.app.name}" para ${organization.name}? Esta organización pasará a controlar su clave de sincronización — no se puede deshacer ni transferir después.`
+                : confirmAction.kind === "rotate"
+                  ? `¿Rotar la clave de sincronización de "${confirmAction.app.name}"? La clave anterior deja de funcionar de inmediato — actualiza el pipeline de despliegue de la app con la nueva.`
+                  : `¿Revocar la clave de sincronización de "${confirmAction.app.name}"? El pipeline de despliegue de la app dejará de poder sincronizar su catálogo de permisos hasta que generes una nueva.`
+        }
+        confirmLabel={
+          confirmAction?.kind === "disable"
+            ? "Deshabilitar"
+            : confirmAction?.kind === "claim"
+              ? "Reclamar"
+              : confirmAction?.kind === "rotate"
+                ? "Rotar"
+                : "Revocar"
+        }
+        onConfirm={async () => {
+          if (!confirmAction) return;
+          const { kind, app } = confirmAction;
+          if (kind === "disable") await handleDisable(app.id);
+          else if (kind === "claim") await handleClaim(app);
+          else if (kind === "rotate") await handleRotateKey(app);
+          else await handleRevokeKey(app);
+        }}
+      />
     </div>
   );
 }

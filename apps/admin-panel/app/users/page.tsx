@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@kontrolia/react";
-import { Badge, Card } from "@kontrolia/ui";
+import { Badge, Card, ConfirmDialog } from "@kontrolia/ui";
 import Link from "next/link";
 import { Fragment, useEffect, useState } from "react";
 import { createKontroliaSchemaClient } from "@/lib/supabase-browser";
@@ -41,6 +41,7 @@ export default function UsersPage() {
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const canManage = hasRole(["owner", "admin"]);
+  const [confirmAction, setConfirmAction] = useState<{ kind: "remove" | "suspend"; member: MemberRow } | null>(null);
 
   async function loadMembers(orgId: string, offset = 0, append = false) {
     const token = await getToken();
@@ -97,7 +98,6 @@ export default function UsersPage() {
 
   async function handleRemoveMember(member: MemberRow) {
     if (!organization) return;
-    if (!window.confirm(`¿Quitar a ${member.email} de ${organization.name}? Perderá acceso a la organización.`)) return;
     const membershipId = member.membershipId;
     setError(null);
     setPendingId(membershipId);
@@ -122,12 +122,6 @@ export default function UsersPage() {
   async function handleToggleStatus(member: MemberRow) {
     if (!organization) return;
     const nextStatus = member.status === "suspended" ? "active" : "suspended";
-    if (nextStatus === "suspended") {
-      const confirmed = window.confirm(
-        `¿Suspender a ${member.email}? Perderá acceso a ${organization.name} hasta que lo reactives.`,
-      );
-      if (!confirmed) return;
-    }
     setError(null);
     setPendingId(member.membershipId);
     try {
@@ -264,7 +258,11 @@ export default function UsersPage() {
                         <button
                           type="button"
                           disabled={pendingId === member.membershipId}
-                          onClick={() => void handleToggleStatus(member)}
+                          onClick={() =>
+                            member.status === "suspended"
+                              ? void handleToggleStatus(member)
+                              : setConfirmAction({ kind: "suspend", member })
+                          }
                           className="k-mr-3 k-text-sm k-text-muted-foreground hover:k-underline disabled:k-opacity-60"
                         >
                           {member.status === "suspended" ? "Reactivar" : "Suspender"}
@@ -274,7 +272,7 @@ export default function UsersPage() {
                         <button
                           type="button"
                           disabled={pendingId === member.membershipId}
-                          onClick={() => void handleRemoveMember(member)}
+                          onClick={() => setConfirmAction({ kind: "remove", member })}
                           className="k-text-sm k-text-destructive hover:k-underline disabled:k-opacity-60"
                         >
                           Quitar
@@ -331,6 +329,26 @@ export default function UsersPage() {
           </div>
         )}
       </Card>
+
+      <ConfirmDialog
+        open={confirmAction !== null}
+        onOpenChange={(open) => !open && setConfirmAction(null)}
+        destructive
+        title={confirmAction?.kind === "remove" ? "Quitar de la organización" : "Suspender miembro"}
+        description={
+          !confirmAction
+            ? ""
+            : confirmAction.kind === "remove"
+              ? `¿Quitar a ${confirmAction.member.email} de ${organization.name}? Perderá acceso a la organización.`
+              : `¿Suspender a ${confirmAction.member.email}? Perderá acceso a ${organization.name} hasta que lo reactives.`
+        }
+        confirmLabel={confirmAction?.kind === "remove" ? "Quitar" : "Suspender"}
+        onConfirm={async () => {
+          if (!confirmAction) return;
+          if (confirmAction.kind === "remove") await handleRemoveMember(confirmAction.member);
+          else await handleToggleStatus(confirmAction.member);
+        }}
+      />
     </div>
   );
 }
