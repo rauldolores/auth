@@ -8,6 +8,8 @@ export { UserMenu, type UserMenuProps } from "./components/user-menu.js";
 export { Avatar, type AvatarProps } from "./components/avatar.js";
 export { Badge, type BadgeProps, type BadgeVariant } from "./components/badge.js";
 export { Card, type CardProps } from "./components/card.js";
+export { Dialog, type DialogProps } from "./components/dialog.js";
+export { ConfirmDialog, type ConfirmDialogProps } from "./components/confirm-dialog.js";
 export { GoogleLoginButton, type GoogleLoginButtonProps } from "./components/oauth-buttons.js";
 export { MicrosoftLoginButton, type MicrosoftLoginButtonProps } from "./components/oauth-buttons.js";
 export { UnauthorizedScreen, ForbiddenScreen, SessionExpiredScreen } from "./screens/status-screens.js";

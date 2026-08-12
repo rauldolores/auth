@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@kontrolia/react";
-import { Badge, Card } from "@kontrolia/ui";
+import { Badge, Card, ConfirmDialog } from "@kontrolia/ui";
 import { useEffect, useState } from "react";
 import { createKontroliaSchemaClient } from "@/lib/supabase-browser";
 
@@ -51,6 +51,7 @@ export default function InvitationsPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [revokeTarget, setRevokeTarget] = useState<InvitationRow | null>(null);
 
   async function loadRoles(orgId: string) {
     const supabase = createKontroliaSchemaClient();
@@ -126,7 +127,6 @@ export default function InvitationsPage() {
 
   async function handleRevoke(row: InvitationRow) {
     if (!organization) return;
-    if (!window.confirm(`¿Revocar la invitación a ${row.email}? El enlace dejará de funcionar.`)) return;
     setError(null);
     setPendingId(row.id);
     try {
@@ -288,7 +288,7 @@ export default function InvitationsPage() {
                       <button
                         type="button"
                         disabled={pendingId === row.id}
-                        onClick={() => void handleRevoke(row)}
+                        onClick={() => setRevokeTarget(row)}
                         className="k-text-sm k-text-destructive hover:k-underline disabled:k-opacity-60"
                       >
                         Revocar
@@ -315,6 +315,18 @@ export default function InvitationsPage() {
           </div>
         )}
       </Card>
+
+      <ConfirmDialog
+        open={revokeTarget !== null}
+        onOpenChange={(open) => !open && setRevokeTarget(null)}
+        title="Revocar invitación"
+        description={revokeTarget ? `¿Revocar la invitación a ${revokeTarget.email}? El enlace dejará de funcionar.` : ""}
+        confirmLabel="Revocar"
+        destructive
+        onConfirm={async () => {
+          if (revokeTarget) await handleRevoke(revokeTarget);
+        }}
+      />
     </div>
   );
 }
