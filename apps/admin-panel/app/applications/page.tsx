@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@kontrolia/react";
-import { Badge, Card, ConfirmDialog } from "@kontrolia/ui";
+import { Badge, Card, ConfirmDialog, Dialog } from "@kontrolia/ui";
 import { useEffect, useState } from "react";
 import { createKontroliaSchemaClient } from "@/lib/supabase-browser";
 
@@ -15,7 +15,14 @@ interface ApplicationRow {
   owner_organization_id: string | null;
   homepage_url: string | null;
   api_key_last_used_at: string | null;
+  oauth_client_id: string | null;
   permissionCount: number;
+}
+
+interface OAuthClient {
+  client_id: string;
+  client_name: string;
+  redirect_uris: string[];
 }
 
 const APPLICATIONS_PAGE_SIZE = 50;
@@ -55,11 +62,31 @@ export default function ApplicationsPage() {
   const [confirmAction, setConfirmAction] = useState<{ kind: "disable" | "claim" | "rotate" | "revoke"; app: ApplicationRow } | null>(
     null,
   );
+  const [oauthClients, setOauthClients] = useState<Map<string, OAuthClient>>(new Map());
+  const [oauthDialogApp, setOauthDialogApp] = useState<ApplicationRow | null>(null);
+  const [oauthName, setOauthName] = useState("");
+  const [oauthRedirectUris, setOauthRedirectUris] = useState("");
+  const [oauthError, setOauthError] = useState<string | null>(null);
+  const [oauthSaving, setOauthSaving] = useState(false);
 
   useEffect(() => {
-    void (async () => setPlatformAdmin(await isPlatformAdmin()))();
+    void (async () => {
+      const isAdmin = await isPlatformAdmin();
+      setPlatformAdmin(isAdmin);
+      if (isAdmin) await loadOauthClients();
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function loadOauthClients() {
+    const token = await getToken();
+    const response = await fetch(`${AUTH_SERVER_URL}/api/oauth-clients`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) return;
+    const data = (await response.json().catch(() => ({}))) as { clients?: OAuthClient[] };
+    setOauthClients(new Map((data.clients ?? []).map((client) => [client.client_id, client])));
+  }
 
   async function loadApplications(orgId: string, offset = 0, append = false) {
     const supabase = createKontroliaSchemaClient();
@@ -67,7 +94,7 @@ export default function ApplicationsPage() {
     const [{ data: appPage }, { data: enabledRows }] = await Promise.all([
       supabase
         .from("applications")
-        .select("id, name, slug, environment, owner_organization_id, homepage_url, api_key_last_used_at")
+        .select("id, name, slug, environment, owner_organization_id, homepage_url, api_key_last_used_at, oauth_client_id")
         .order("name")
         .range(offset, offset + APPLICATIONS_PAGE_SIZE - 1),
       supabase
@@ -239,6 +266,55 @@ export default function ApplicationsPage() {
     }
   }
 
+  function openOauthDialog(app: ApplicationRow) {
+    const existing = app.oauth_client_id ? oauthClients.get(app.oauth_client_id) : null;
+    setOauthName(existing?.client_name ?? app.name);
+    setOauthRedirectUris(existing?.redirect_uris.join("\n") ?? "");
+    setOauthError(null);
+    setOauthDialogApp(app);
+  }
+
+  async function handleSaveOauthClient() {
+    if (!oauthDialogApp || !organization) return;
+    setOauthError(null);
+    setOauthSaving(true);
+    try {
+      const token = await getToken();
+      const redirectUris = oauthRedirectUris
+        .split("\n")
+        .map((uri) => uri.trim())
+        .filter(Boolean);
+      const isEdit = !!oauthDialogApp.oauth_client_id;
+      const response = await fetch(
+        `${AUTH_SERVER_URL}/api/oauth-clients${isEdit ? `?clientId=${oauthDialogApp.oauth_client_id}` : ""}`,
+        {
+          method: isEdit ? "PUT" : "POST",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ client_name: oauthName, redirect_uris: redirectUris }),
+        },
+      );
+      const data = (await response.json()) as { client_id?: string; error?: string };
+      if (!response.ok) throw new Error(data.error ?? "No se pudo guardar el cliente OAuth.");
+
+      if (!isEdit && data.client_id) {
+        const supabase = createKontroliaSchemaClient();
+        const { error: updateError } = await supabase
+          .from("applications")
+          .update({ oauth_client_id: data.client_id })
+          .eq("id", oauthDialogApp.id);
+        if (updateError) throw updateError;
+      }
+
+      await loadOauthClients();
+      await loadApplications(organization.id);
+      setOauthDialogApp(null);
+    } catch (err) {
+      setOauthError(err instanceof Error ? err.message : "No se pudo guardar el cliente OAuth.");
+    } finally {
+      setOauthSaving(false);
+    }
+  }
+
   if (!organization) {
     return <p className="k-text-sm k-text-muted-foreground">Selecciona una organización primero.</p>;
   }
@@ -252,8 +328,8 @@ export default function ApplicationsPage() {
           aplicación mantiene su propio catálogo sincronizado desde su pipeline de despliegue (ver la guía
           "Registro de aplicaciones" en la documentación) — lo que se ve aquí se actualiza solo, sin que nadie lo
           edite a mano. Solo las aplicaciones habilitadas aquí aparecen en Permisos y se pueden asignar a un rol.
-          Si lo que buscas es dar de alta un cliente OAuth (para que otra app inicie sesión vía auth-server), eso
-          está en "Clientes OAuth" (solo visible para platform admins).
+          Si necesitas que otra app use el login de auth-server (SSO), registra su cliente OAuth desde la fila de
+          esa aplicación abajo (solo platform admins).
         </p>
       </div>
 
@@ -292,8 +368,26 @@ export default function ApplicationsPage() {
                 <th className="k-px-5 k-py-3 k-font-semibold">Slug</th>
                 <th className="k-px-5 k-py-3 k-font-semibold">Entorno</th>
                 <th className="k-px-5 k-py-3 k-font-semibold">Permisos</th>
-                <th className="k-px-5 k-py-3 k-font-semibold">URL</th>
-                <th className="k-px-5 k-py-3 k-font-semibold">Clave de sincronización</th>
+                <th className="k-px-5 k-py-3 k-font-semibold">
+                  URL
+                  <span className="k-block k-text-[10.5px] k-font-normal k-normal-case k-text-muted-foreground">
+                    dónde acceden los usuarios a esta app
+                  </span>
+                </th>
+                <th className="k-px-5 k-py-3 k-font-semibold">
+                  Clave de sincronización
+                  <span className="k-block k-text-[10.5px] k-font-normal k-normal-case k-text-muted-foreground">
+                    usada por su pipeline de despliegue para actualizar su catálogo de permisos
+                  </span>
+                </th>
+                {platformAdmin && (
+                  <th className="k-px-5 k-py-3 k-font-semibold">
+                    Cliente OAuth
+                    <span className="k-block k-text-[10.5px] k-font-normal k-normal-case k-text-muted-foreground">
+                      para que esta app use el login de auth-server
+                    </span>
+                  </th>
+                )}
                 {canManage && <th className="k-px-5 k-py-3 k-font-semibold" />}
               </tr>
             </thead>
@@ -390,20 +484,51 @@ export default function ApplicationsPage() {
                         )}
                       </div>
                     ) : app.owner_organization_id === null && platformAdmin ? (
-                      <button
-                        type="button"
-                        disabled={pendingId === app.id}
-                        onClick={() => setConfirmAction({ kind: "claim", app })}
-                        className="k-text-sm k-font-medium k-text-primary hover:k-underline disabled:k-opacity-60"
-                      >
-                        Reclamar propiedad
-                      </button>
+                      <div className="k-flex k-flex-col k-gap-1">
+                        <span className="k-text-xs k-text-muted-foreground">
+                          Sin dueño — nadie puede rotar su clave ni registrar su cliente OAuth todavía
+                        </span>
+                        <button
+                          type="button"
+                          disabled={pendingId === app.id}
+                          onClick={() => setConfirmAction({ kind: "claim", app })}
+                          className="k-self-start k-text-sm k-font-medium k-text-primary hover:k-underline disabled:k-opacity-60"
+                        >
+                          Reclamar propiedad
+                        </button>
+                      </div>
                     ) : app.owner_organization_id === null ? (
                       <span className="k-text-sm k-text-muted-foreground">Sin propietario</span>
                     ) : (
                       <span className="k-text-sm k-text-muted-foreground">—</span>
                     )}
                   </td>
+                  {platformAdmin && (
+                    <td className="k-px-5 k-py-3">
+                      {app.owner_organization_id !== organization.id ? (
+                        <span className="k-text-sm k-text-muted-foreground">—</span>
+                      ) : app.oauth_client_id ? (
+                        <div className="k-flex k-flex-col k-gap-1">
+                          <code className="k-text-xs k-text-muted-foreground">{app.oauth_client_id}</code>
+                          <button
+                            type="button"
+                            onClick={() => openOauthDialog(app)}
+                            className="k-self-start k-text-sm k-text-muted-foreground hover:k-underline"
+                          >
+                            Editar
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => openOauthDialog(app)}
+                          className="k-text-sm k-font-medium k-text-primary hover:k-underline"
+                        >
+                          Crear cliente OAuth
+                        </button>
+                      )}
+                    </td>
+                  )}
                   {canManage && (
                     <td className="k-px-5 k-py-3 k-text-right">
                       <button
@@ -525,6 +650,66 @@ export default function ApplicationsPage() {
           else await handleRevokeKey(app);
         }}
       />
+
+      <Dialog
+        open={oauthDialogApp !== null}
+        onOpenChange={(open) => !open && setOauthDialogApp(null)}
+        title={oauthDialogApp?.oauth_client_id ? "Editar cliente OAuth" : "Crear cliente OAuth"}
+        description={
+          oauthDialogApp
+            ? `Permite que "${oauthDialogApp.name}" use el login de auth-server (SSO) — no tiene relación con el catálogo de permisos ni con la clave de sincronización.`
+            : undefined
+        }
+      >
+        <div className="k-flex k-flex-col k-gap-3">
+          <div className="k-flex k-flex-col k-gap-1.5">
+            <label htmlFor="k-oauth-app-name" className="k-text-sm k-font-medium">
+              Nombre de la aplicación
+            </label>
+            <input
+              id="k-oauth-app-name"
+              type="text"
+              required
+              value={oauthName}
+              onChange={(e) => setOauthName(e.target.value)}
+              className="k-rounded-md k-border k-border-border k-bg-background k-px-3 k-py-2 k-text-sm"
+            />
+          </div>
+          <div className="k-flex k-flex-col k-gap-1.5">
+            <label htmlFor="k-oauth-app-redirects" className="k-text-sm k-font-medium">
+              Redirect URIs (una por línea)
+            </label>
+            <textarea
+              id="k-oauth-app-redirects"
+              required
+              rows={3}
+              value={oauthRedirectUris}
+              onChange={(e) => setOauthRedirectUris(e.target.value)}
+              placeholder="https://facturacion.tuempresa.com/oauth/callback"
+              className="k-rounded-md k-border k-border-border k-bg-background k-px-3 k-py-2 k-font-mono k-text-sm"
+            />
+          </div>
+          {oauthError && <p className="k-text-sm k-text-destructive">{oauthError}</p>}
+          <div className="k-flex k-justify-end k-gap-3">
+            <button
+              type="button"
+              onClick={() => setOauthDialogApp(null)}
+              disabled={oauthSaving}
+              className="k-rounded-md k-px-4 k-py-2 k-text-sm k-font-medium k-text-muted-foreground hover:k-bg-muted disabled:k-opacity-60"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleSaveOauthClient()}
+              disabled={oauthSaving || !oauthName.trim() || !oauthRedirectUris.trim()}
+              className="k-rounded-md k-bg-primary k-px-4 k-py-2 k-text-sm k-font-medium k-text-primary-foreground disabled:k-opacity-60"
+            >
+              {oauthSaving ? "Guardando..." : "Guardar"}
+            </button>
+          </div>
+        </div>
+      </Dialog>
     </div>
   );
 }

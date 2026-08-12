@@ -87,20 +87,6 @@ function IconClock({ className }: IconProps) {
   );
 }
 
-function IconLink({ className }: IconProps) {
-  return (
-    <svg viewBox="0 0 16 16" fill="none" className={className} aria-hidden="true">
-      <path
-        d="M6.5 9.5 9.5 6.5M6.8 4.3 8 3.1a2.5 2.5 0 0 1 3.5 3.5l-1.2 1.2M9.2 11.7 8 12.9a2.5 2.5 0 0 1-3.5-3.5l1.2-1.2"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
 function IconSearch({ className }: IconProps) {
   return (
     <svg viewBox="0 0 16 16" fill="none" className={className} aria-hidden="true">
@@ -174,7 +160,6 @@ const NAV_GROUPS: NavGroup[] = [
 const PLATFORM_NAV_GROUP: NavGroup = {
   label: "Plataforma",
   items: [
-    { href: "/oauth-clients", label: "Clientes OAuth", icon: IconLink },
     { href: "/platform-admins", label: "Platform admins", icon: IconStar },
     { href: "/user-access", label: "Acceso de usuarios", icon: IconSearch },
   ],
