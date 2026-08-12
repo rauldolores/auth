@@ -101,6 +101,15 @@ function IconLink({ className }: IconProps) {
   );
 }
 
+function IconSearch({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" className={className} aria-hidden="true">
+      <circle cx="6.75" cy="6.75" r="4.25" stroke="currentColor" strokeWidth="1.4" />
+      <path d="m9.9 9.9 3.6 3.6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function IconStar({ className }: IconProps) {
   return (
     <svg viewBox="0 0 16 16" fill="none" className={className} aria-hidden="true">
@@ -167,6 +176,7 @@ const PLATFORM_NAV_GROUP: NavGroup = {
   items: [
     { href: "/oauth-clients", label: "Clientes OAuth", icon: IconLink },
     { href: "/platform-admins", label: "Platform admins", icon: IconStar },
+    { href: "/user-access", label: "Acceso de usuarios", icon: IconSearch },
   ],
 };
 
