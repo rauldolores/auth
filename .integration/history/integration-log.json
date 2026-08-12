@@ -64,5 +64,20 @@
     "highGaps": 2,
     "gapsInScope": ["INT-API-007", "INT-API-008"],
     "note": "Two sides of one root cause: no self-service application creation/ownership-claim flow exists anywhere (CLI-only, no org context at registration time), and owner_organization_id is never written by any code path — confirmed by exhaustive grep. INT-KEY-001's rotate/revoke UI and the new /api/applications/members API are both correctly built but practically unreachable in a fresh deployment as a result."
+  },
+  {
+    "date": "2026-08-11T23:59:00",
+    "mode": "GENERATE",
+    "scope": "INT-API-007, INT-API-008 — user approved the recommended fix shape from the prior scoped AUDIT",
+    "result": "GAPS_CLOSED",
+    "gapsClosed": ["INT-API-007", "INT-API-008"],
+    "filesAdded": [
+      "apps/auth-server/app/api/applications/claim/route.ts",
+      "apps/auth-server/app/api/__tests__/applications-claim.test.ts",
+      "packages/db/migrations/0034_application_ownership_claim.sql"
+    ],
+    "incidentalFindingClosed": "CRITICAL, not tracked as an integration-surface gap (recorded as PQ-SEC-010 in kontrolia-professional-review's issues.json instead, since it's a pre-existing regression unrelated to this feature's own design): migration 0030 silently dropped the is_platform_admin JWT claim, found live while testing this route with a real platform-admin session. Fixed via migration 0035.",
+    "note": "Also closed an adjacent gap found while designing the claim route: migration 0022's UPDATE policy let a dual-org admin silently reassign an already-owned application to their other org (same shape as PQ-SEC-005). Migration 0034's prevent_application_ownership_reassignment trigger blocks any non-service_role change to owner_organization_id once set.",
+    "testsAdded": 9
   }
 ]

@@ -145,7 +145,7 @@ flagged only for stylistic consistency.
      never write into this section beyond the initial NOT AUDITED seed. -->
 
 ## Overall Score
-75/100 — PROFESSIONAL BUT NEEDS POLISH
+76/100 — PROFESSIONAL BUT NEEDS POLISH
 
 ## UX Score
 73/100 (uncapped — unchanged this run; not re-walked, this round was scoped to the application
@@ -155,21 +155,23 @@ registration/ownership lifecycle only, not a full UX sweep)
 82/100 (uncapped — unchanged this run; not re-walked, out of this round's scope)
 
 ## Technical Score
-70/100 (uncapped — down from 78. New this round: PQ-TECH-010 (HIGH) — three real, shipped,
-independently-tested capabilities (migration 0022's owning-org UPDATE policy, the admin-panel
-rotate/revoke API-key UI marked VERIFIED as INT-KEY-001 earlier today, and this session's new
-`/api/applications/members` API) are all gated on `applications.owner_organization_id`, a column
-no code path anywhere in the repo — not `registerApplication()`, not any migration, not any RLS
-policy, not any route — ever writes. Confirmed live: the only application row with a non-NULL
-owner in the sandbox was set via a direct SQL `UPDATE` while preparing test data, not through any
-product flow. None of the three features is reachable by a real user in a genuinely fresh
-deployment. Not held as low as round 7's 66 (an entire missing test layer) since this is a single,
-well-scoped architectural gap with an obvious fix shape, not a systemic absence — but a real,
-newly-open HIGH. The 6 pre-existing MEDIUM technical items — PQ-TECH-003 through PQ-TECH-008 —
-are unchanged.)
+79/100 (uncapped — up from 70. PQ-TECH-010 is now RESOLVED/VERIFIED: `POST /api/applications/claim`
+(platform-admin-gated, service_role write), migration 0034 (audit logging + a reassignment-block
+trigger closing an adjacent dual-org-admin gap found while designing the fix), and admin-panel's
+"Reclamar propiedad" UI were all live-verified against the real sandbox with a real platform-admin
+JWT — claim happy path, already-owned 409, unauthenticated 401, unknown-app 404, the resulting
+`audit_logs` entry, and the reassignment-block trigger's live SQL rejection all confirmed. 9 new
+tests added for the claim route. While verifying, also found and fixed PQ-SEC-010 (see Security
+Score) — a separate CRITICAL that was itself blocking this verification. Slightly above the prior
+78 baseline to reflect the net new, real coverage this round added. The 6 pre-existing MEDIUM
+technical items — PQ-TECH-003 through PQ-TECH-008 — are unchanged.)
 
 ## Security Score
-84/100 (uncapped — no CRITICAL or HIGH open in this dimension any longer. PQ-SEC-009 was
+84/100 (uncapped — unchanged. PQ-SEC-010, a new CRITICAL found this round while live-verifying
+the applications/claim fix — migration 0030 had silently dropped the `is_platform_admin` JWT
+claim, breaking every platform-admin-gated route since it shipped earlier today — is already
+RESOLVED/VERIFIED in the same pass (migration 0035), not open, so it does not hold the score down
+the way an open CRITICAL would. No other CRITICAL or HIGH open in this dimension. PQ-SEC-009 was
 independently re-verified this run — not taken on the fix commit's own message — genuinely,
 correctly RESOLVED: the exact grant-then-rename chain from round 6 (create ordinary custom role,
 self-grant via membership_roles, UPDATE its slug to 'owner') was re-attempted live end-to-end
@@ -204,6 +206,14 @@ more adjacent, unguarded door before migration 0030 addressed the actual root ca
 
 ## Critical Issues
 None open.
+- PQ-SEC-010 — RESOLVED, VERIFIED this run. Migration 0030's `custom_access_token_hook`
+  replacement silently dropped the `is_platform_admin` JWT claim 0020 had set, breaking every
+  platform-admin-gated route (`/api/platform-admins`, `/api/oauth-clients`, and the new
+  `/api/applications/claim`) for any real logged-in user since 0030 shipped earlier today. Found
+  live while testing the claim route with a real session; fixed same-pass via migration 0035.
+  Fails closed — no privilege escalation. Re-verified: a fresh session for the same
+  `platform_admins` user now correctly carries `is_platform_admin: true`, and that real token
+  authenticated successfully against the new claim route.
 - PQ-SEC-009 — remains RESOLVED (verified round 7), carried forward unchanged, not re-tested
   this round (unaffected by anything that changed since — commit 07d8ec5 is test-only).
 - PQ-SEC-008 / PQ-SEC-006 / PQ-SEC-007 / PQ-SEC-005 / PQ-SEC-003 / PQ-SEC-004 — remain RESOLVED
@@ -212,13 +222,14 @@ None open.
   unchanged.
 
 ## High Issues
-1 open:
-- **PQ-TECH-010** (new, 2026-08-11T21:23:00) — `applications.owner_organization_id` is never
-  written by any code path in the repo, making three shipped, tested capabilities (migration
-  0022's owning-org UPDATE policy, the admin-panel rotate/revoke API-key UI, and the new
-  `/api/applications/members` API) practically unreachable in a genuinely fresh self-hosted
-  deployment. Not a security hole — fails closed. See `.audit/audits/2026-08-11-professional-
-  review-6.md` and `.audit/review/issues.json` for full evidence.
+None open.
+- PQ-TECH-010 — RESOLVED, VERIFIED this run. `POST /api/applications/claim`
+  (platform-admin-gated), migration 0034, and admin-panel's "Reclamar propiedad" UI now let a
+  platform admin assign the first owner to an application, closing the gap that made migration
+  0022's owning-org UPDATE policy, the rotate/revoke API-key UI, and the
+  `/api/applications/members` API practically unreachable in a fresh deployment. Live-verified
+  end to end with a real platform-admin session. See `.audit/audits/2026-08-11-professional-
+  review-7.md` and `.audit/review/issues.json` for full evidence.
 
 Resolved, unchanged from prior rounds:
 - PQ-TECH-001 — RESOLVED, VERIFIED (eighth same-day round). Independently confirmed
@@ -440,7 +451,8 @@ both are the closest of the 7 remaining items to a genuine security/production-s
 | MEDIUM | PQ-TECH-006 | Weak input validation on organizations POST (no slug format/length constraint) | Professional Review | OPEN |
 | MEDIUM | PQ-TECH-007 | OAuth code-exchange fetch() calls unwrapped in try/catch in auth-sdk | Professional Review | OPEN |
 | MEDIUM | PQ-TECH-008 | applications/sync silently ignores one update call's error | Professional Review | OPEN |
-| HIGH | PQ-TECH-010 | `applications.owner_organization_id` is never written by any code path anywhere in the repo — `registerApplication()`'s INSERT omits it, the CLI wizard never asks which org should own the app, and no INSERT/ownership-claim RLS policy exists on `kontrolia_auth.applications` for a regular user. Makes migration 0022's owning-org UPDATE policy, admin-panel's rotate/revoke API-key UI, and the new `/api/applications/members` API all practically unreachable in a fresh deployment | Professional Review | OPEN — new 2026-08-11T21:23:00, found while answering a user question about the missing "create application" UI |
+| HIGH | PQ-TECH-010 | `applications.owner_organization_id` is never written by any code path anywhere in the repo — `registerApplication()`'s INSERT omits it, the CLI wizard never asks which org should own the app, and no INSERT/ownership-claim RLS policy exists on `kontrolia_auth.applications` for a regular user. Makes migration 0022's owning-org UPDATE policy, admin-panel's rotate/revoke API-key UI, and the new `/api/applications/members` API all practically unreachable in a fresh deployment | Professional Review | VERIFIED (2026-08-11T23:59:00) — `POST /api/applications/claim` (platform-admin-gated) + migration 0034 + admin-panel's "Reclamar propiedad" UI, live-verified end to end with a real platform-admin session against the real sandbox |
+| CRITICAL | PQ-SEC-010 | Migration 0030's `custom_access_token_hook` replacement silently dropped the `is_platform_admin` JWT claim that 0020 had set — every platform-admin-gated route (`/api/platform-admins`, `/api/oauth-clients`, `/api/applications/claim`) has been unusable for any real logged-in user since 0030 shipped earlier today. Fails closed, no privilege escalation | Professional Review | VERIFIED (2026-08-11T23:59:00) — found live while testing the new claim route with a real session, fixed same-pass via migration 0035, re-verified with a fresh decoded JWT and a successful real-token request against the claim route |
 | MEDIUM | REL-SEC-001 | No application-level rate limiting on login/register/password-reset; GoTrue's own per-IP limiter now enabled via `GOTRUE_RATE_LIMIT_HEADER` but bypassable by a deliberate attacker spoofing X-Forwarded-For given this stack's Kong config (no trusted_ips/real_ip_header set) | Release Readiness | OPEN — re-audited 2026-08-11T23:45:00, partial fix only (commit 7080d4e), not VERIFIED |
 | LOW | REL-DB-001 | 6 of 7 new migrations (0024-0026, 0028, 0029) create triggers without `drop trigger if exists`, unlike the codebase's own pattern — harmless under the filename-tracked runner | Release Readiness | OPEN — re-confirmed unchanged 2026-08-11T23:45:00 |
 | LOW | REL-DB-002 | `kontrolia_migrations` bookkeeping table created without a schema qualifier, lands outside `kontrolia_auth` | Release Readiness | OPEN — re-confirmed unchanged 2026-08-11T23:45:00 |
@@ -458,8 +470,8 @@ both are the closest of the 7 remaining items to a genuine security/production-s
 | MEDIUM | INT-SEC-001 | Zero rate limiting (any layer) on `/api/oauth-clients` and `/api/applications/sync` — Kong never proxies these routes and Next.js middleware explicitly excludes `/api/*` | Integration Surface | VERIFIED (2026-08-11, commit 585b646) — dependency-free in-memory sliding-window limiter (`apps/auth-server/lib/rate-limit.ts`), 30 req/5 min on both routes, 429 + Retry-After; now also applied to the new `/api/applications/members` endpoints (2026-08-11, this session) |
 | MEDIUM | INT-KEY-002 | `/api/applications/sync` logs nothing on invalid/missing-key attempts or successful syncs — no audit trail for detecting a misused or leaked key | Integration Surface | VERIFIED (2026-08-11, commit 585b646) — `logSecurityEvent()` added on every rejection branch (no-key-configured, invalid-key, rate-limited), `api_key_last_used_at` touched on every successful auth |
 | LOW | INT-DOC-005 | The new `/api/applications/members` API (list/invite/remove/manage-roles for an application's own organization, `kapp_`-key authenticated) has no page in `apps/documentation` — same class of gap as INT-DOC-001/003 | Integration Surface | OPEN — new 2026-08-11, found while shipping the API itself; deferred as a separate DOCUMENT-mode pass rather than expanding this GENERATE request's scope |
-| HIGH | INT-API-007 | No self-service path anywhere in the product lets an organization register and own a new application. The only creation path is the CLI wizard's `registerApplication()` (raw Postgres connection string, no admin-panel/API equivalent), and that wizard runs before any organization necessarily exists and never asks which org should own the app it creates — `owner_organization_id` is left out of its INSERT entirely. A real developer onboarding an application today has no product-driven way to reach the state where they can manage it | Integration Surface | OPEN — new 2026-08-11, found while answering a user question about why there's no "create API key" page in admin-panel |
-| HIGH | INT-API-008 | `applications.owner_organization_id` — the column `/api/applications/members`'s entire tenant-isolation boundary and admin-panel's key-rotation UI both depend on — is never written by any code path in the repo: not `registerApplication()`, not any migration, not any RLS policy's `WITH CHECK`, not any route (exhaustive grep across `apps/` and `packages/db/src` confirms zero write occurrences). The only way an application ever gets an owner today is a DBA running raw SQL directly against Postgres | Integration Surface | OPEN — new 2026-08-11, same investigation as INT-API-007 (two sides of the same root gap: no creation flow assigns it, and no separate "claim ownership" flow exists either) |
+| HIGH | INT-API-007 | No self-service path anywhere in the product lets an organization register and own a new application. The only creation path is the CLI wizard's `registerApplication()` (raw Postgres connection string, no admin-panel/API equivalent), and that wizard runs before any organization necessarily exists and never asks which org should own the app it creates — `owner_organization_id` is left out of its INSERT entirely. A real developer onboarding an application today has no product-driven way to reach the state where they can manage it | Integration Surface | VERIFIED (2026-08-11T23:59:00) — `POST /api/applications/claim` (platform-admin-gated, migration 0034) + admin-panel's "Reclamar propiedad" UI now provide a real, product-driven ownership path. Not full self-service creation (deliberately — the app catalog stays platform-level, matching migration 0010's own design comment), but the actual blocking gap [no way to *ever* reach ownership] is closed. Live-verified end to end |
+| HIGH | INT-API-008 | `applications.owner_organization_id` — the column `/api/applications/members`'s entire tenant-isolation boundary and admin-panel's key-rotation UI both depend on — is never written by any code path in the repo: not `registerApplication()`, not any migration, not any RLS policy's `WITH CHECK`, not any route (exhaustive grep across `apps/` and `packages/db/src` confirms zero write occurrences). The only way an application ever gets an owner today is a DBA running raw SQL directly against Postgres | Integration Surface | VERIFIED (2026-08-11T23:59:00) — closed by the same fix as INT-API-007. Also closed an adjacent gap found while designing it: migration 0022's UPDATE policy let a dual-org admin silently reassign an already-owned application to their other org; migration 0034 blocks any non-`service_role` change to `owner_organization_id` once set |
 | MEDIUM | INT-WEBHOOK-001 | No webhook system exists anywhere (subscriptions/events/delivery/retries/signing/logs) — a plausible, real gap for a centralized auth/IAM provider whose downstream consumers would want to react to events like user.created/invitation.accepted without polling | Integration Surface | OPEN |
 | MEDIUM | INT-API-001 | OAuth client management has no DELETE/revoke (API or UI) — a client can be created and edited but never decommissioned; overlaps `PQ-UX-009` | Integration Surface | OPEN |
 | MEDIUM | INT-API-003 | No validation of `redirect_uris` format/scheme/host, no dedup, on OAuth client create/edit | Integration Surface | OPEN |
@@ -501,6 +513,7 @@ moves it to VERIFIED.
 | 2026-08-11T19:30:00 (re-audit after commit 1549077, seventh same-day run, security-verification-only scope) | kontrolia-professional-review | PROFESSIONAL BUT NEEDS POLISH | — | 0 (PQ-SEC-009 independently re-exploited fresh this round against migration 0030, not taken on the fix commit's own message — genuinely, fully RESOLVED: the full grant-then-rename chain and direct slug='owner'/'admin'/'member' hijack attempts are all blocked by the new prevent_custom_role_reserved_slug trigger plus the is_system_role-anchored is_org_owner()/is_org_admin(); legitimate system-role bootstrap and ordinary custom-role slugs both re-confirmed still working. Migration 0030's SQL read in full for correctness. One more live-exploit hunt for the same general pattern elsewhere in the schema — applications.owner_organization_id, platform_admins, user_permissions — found all three genuinely clean under live adversarial testing (properly org-isolated non-owning admin for the ownership test, after self-catching and correcting an initial test-data mistake). Zero CRITICAL and zero new HIGH/MEDIUM findings this round. PQ-TECH-001 re-confirmed unchanged and is now the sole open finding of any severity — CRITICAL or HIGH — across the entire seven-round Phase 2 sequence. Verdict rises from NOT PRODUCTION READY to PROFESSIONAL BUT NEEDS POLISH: security is genuinely closed as of this round, subject to the honest caveat that this round did not re-walk UX/UI/accessibility/performance/maintainability, which are carried forward unchanged from round 6 and still contain 24 open MEDIUM findings) |
 | 2026-08-11T21:00:00 (re-audit after commit 07d8ec5, eighth same-day run, narrow closing-verification scope) | kontrolia-professional-review | PROFESSIONAL BUT NEEDS POLISH | — | 0 (PQ-TECH-001 independently VERIFIED RESOLVED this round, not taken on the prior session's own claim of "145/145 pass": read organization-members.test.ts, platform-admins.test.ts, invitations-accept.test.ts, and test-helpers.ts in full and cross-checked every assertion against the real route.ts implementations — mocks sit at the correct real boundary, wouldRemoveLastOwner()'s three branches are each distinctly fixtured with exact status-code/response-body assertions matching route.ts's Spanish error strings verbatim, and the invitations-accept regression test for commit 717bf03 asserts an exact from()-call count rather than a vague "didn't throw" check — genuinely real, meaningfully-branched tests, not padding. Independently re-ran `pnpm turbo run test` fresh: 145/145 pass, auth-server's 95 tests genuinely executed this run (cache miss, not replayed). Re-confirmed apps/admin-panel has zero route.ts/route.tsx anywhere and no app/api directory — PQ-TECH-001's scope was fully addressable by testing auth-server alone. Sanity-checked commit 07d8ec5's full diff: 16 files touched, all test files/vitest.config.ts/package.json's test script and vitest devDependency/pnpm-lock.yaml — zero implementation files modified, confirming the change was genuinely test-only. This is the first round of the entire 8-round Phase 2 sequence with zero open CRITICAL or HIGH findings anywhere. Technical Score revised 66->78, Overall Score 76 (up from 75). Verdict remains PROFESSIONAL BUT NEEDS POLISH under this skill's own rubric only because Overall (76) sits below the 85 threshold required for PRODUCTION QUALITY — driven entirely by 24 still-open, non-blocking MEDIUM findings across UX/accessibility/performance/maintainability, none new this round, none CRITICAL/HIGH. Per the quality gate's own simpler pass rule (zero open HIGH/CRITICAL), Phase 2 now cleanly PASSES for the first time across all 8 rounds run today) |
 | 2026-08-11T21:23:00 (scoped review — application registration/ownership lifecycle, ninth same-day round) | kontrolia-professional-review | PROFESSIONAL BUT NEEDS POLISH | — | 0 CRITICAL, 1 HIGH — new (PQ-TECH-010: `applications.owner_organization_id` is never written by any code path anywhere in the repo — `registerApplication()`'s INSERT omits it entirely, the CLI wizard never asks which org should own the app it's registering, and no INSERT or ownership-claim RLS policy exists on `kontrolia_auth.applications` for a regular authenticated user; the only existing UPDATE policy, migration 0022's, itself requires the column already be non-null, so it can never fire for a freshly-registered application either. Practical effect, confirmed live against the sandbox: migration 0022's owning-org UPDATE policy, admin-panel's rotate/revoke API-key UI [`INT-KEY-001`, marked VERIFIED earlier today], and this session's new `/api/applications/members` API are all correctly built and independently tested, but none is reachable by a real user in a genuinely fresh self-hosted deployment — the only application row with a non-NULL owner in the sandbox was set via a direct SQL UPDATE while preparing test data, not through any product flow. Not a security hole; fails closed, does not touch the Security dimension. This is exactly the "looks done but isn't" pattern this skill exists to catch, found not by a scheduled full audit but by directly answering a user's question about a missing admin-panel UI. Scope was deliberately narrow — the application-ownership lifecycle only, not a full-app re-walk — so UX/UI/Accessibility/Performance/Maintainability scores are carried forward unchanged from round 8. Technical Score revised 78->70, Overall 76->75. Verdict stays PROFESSIONAL BUT NEEDS POLISH under the rubric's own definition [no CRITICAL; a small number of HIGH in a non-core area], but this ends round 8's zero-HIGH streak, and per the quality gate's simpler pass rule [zero open HIGH/CRITICAL] Phase 2 no longer cleanly passes that rule until PQ-TECH-010 closes — worth flagging explicitly since the immediately preceding round reported the opposite) |
+| 2026-08-11T23:59:00 (closing verification — application-ownership-claim fix, tenth same-day round) | kontrolia-professional-review | PROFESSIONAL BUT NEEDS POLISH | — | 0 CRITICAL, 0 HIGH open — PQ-TECH-010 independently re-verified RESOLVED this round: `POST /api/applications/claim` (platform-admin-gated, service_role write), migration 0034 (audit logging for `application.ownership_claimed`/`application.ownership_transferred`, plus a `prevent_application_ownership_reassignment` trigger closing an adjacent dual-org-admin reassignment gap found while designing the fix — migration 0022's UPDATE policy let a caller who administers two orgs silently move an app between them, the same shape as this session's earlier PQ-SEC-005), and admin-panel's "Reclamar propiedad" UI were all built after the user approved the recommended fix shape. While live-verifying with a real platform-admin session, found and fixed a new CRITICAL, `PQ-SEC-010`: migration 0030's `create or replace` of `custom_access_token_hook` silently dropped the `is_platform_admin` claim that 0020's version set — every platform-admin-gated route (`/api/platform-admins`, `/api/oauth-clients`, and the new claim route) has been unusable for any real logged-in user since 0030 shipped earlier today, confirmed by decoding a genuinely fresh JWT and finding the claim entirely absent. Fails closed, no privilege escalation — but a real, previously-undiscovered regression in already-shipped functionality, found only because this round exercised a real credential instead of relying on service-role/direct-SQL testing the way every verification since 0030 shipped had. Fixed same-pass via migration 0035. Both findings independently re-verified with real commands, not taken on either fix's own message: decoded the JWT before (claim absent) and after (claim present, `true`) migration 0035; used that real post-fix token against the claim route end to end (200 claim / 409 re-claim / 401 unauthenticated / 404 unknown id); confirmed the reassignment-block trigger's live SQL rejection and the resulting `application.ownership_claimed` row in `kontrolia_auth.audit_logs`; confirmed in the live admin-panel UI that a non-platform-admin viewer correctly sees "Sin propietario" for an unowned application (the platform-admin button's own click wasn't separately browser-tested — cross-origin session sharing between the two local dev servers wasn't practical to set up this round, noted explicitly rather than glossed over). Fresh `pnpm build`/`test`/`lint` all rerun clean (129/129 tests, 16/16 build, 23/23 lint). Technical Score 70->79, Security Score held at 84 [the new CRITICAL is resolved, not open], Overall 75->76. Zero CRITICAL/HIGH open restores round 8's clean state — Phase 2 passes the quality gate's simpler rule again) |
 | 2026-08-11T22:30:00 | kontrolia-release-readiness | READY WITH WARNINGS | Release Score: 91/100 | 0 blockers, 0 critical (first release-readiness run on this project — full fresh re-verification, not trusting Phase 1/2's same-day results: `pnpm turbo run build/typecheck/lint/test --force` all re-run with 0 cache hits — 16/16 build, 19/19 typecheck, 23/23 lint (1 warning), 145/145 tests all pass. Independent deep-dive on this run's unique Phase 3 scope — migrations 0024-0030 and the CLI's fresh-install/incremental-upgrade paths — found zero destructive operations, correct filename-tracked ordering, full per-file transactional safety, and all 7 changesets accurate and complete. Independent security/authn/authz spot-check found zero exposed secrets, zero client-exposed server secrets, RLS enabled on all 14 kontrolia_auth tables, and real server-side authorization on every route checked. Independent backend/frontend/env/deploy/docs pass found no BLOCKER or FAIL. 11 WARNING-level findings recorded (REL-SEC-001, REL-DB-001/002/003, REL-DEPLOY-001/002, REL-ENV-001/002, REL-BE-001, REL-FE-001, REL-BUILD-001) — none match a release-blocker category. Zero BLOCKERs, zero FAILs in any core category -> READY WITH WARNINGS) |
 | 2026-08-11T23:45:00 (re-audit after commit 7080d4e, second same-day release-readiness run) | kontrolia-release-readiness | READY WITH WARNINGS | Release Score: 90/100 | 0 blockers, 0 critical (closing verification of commit 7080d4e, which claimed to close 8 of the first run's 11 WARNING findings. Fresh full-monorepo re-verification again, 0 cache hits: 16/16 build, 19/19 typecheck, 23/23 lint with 0 warnings (down from 1), 146/146 tests (up from 145, the new health.test.ts). Independently read every diff in the commit rather than trusting its message. 6 of 8 claimed fixes VERIFIED as genuine and complete: REL-DEPLOY-001's originally-described migrate/update confirmation gap (live-tested against 6 connection-string shapes), REL-DEPLOY-002 health endpoints (confirmed not interceptable by either app's middleware, specifically checked per this run's brief), REL-ENV-001/002 doc expansions, REL-FE-001's error-state fix (confirmed genuinely rendered, not just set), and REL-BUILD-001's lint fix. 2 of 8 (REL-SEC-001, REL-BE-001) found to be real but incomplete fixes, not full closures: REL-SEC-001's GOTRUE_RATE_LIMIT_HEADER addition is a genuine improvement for honest traffic, but independent research via WebSearch on Kong's and GoTrue's actual external behavior (neither is vendored in this repo) found this stack's kong.yml has no ip-restriction plugin and no trusted_ips/real_ip_header configured, so a deliberate attacker can still spoof X-Forwarded-For to defeat per-IP rate limiting on the Docker self-host deploy target; REL-BE-001's AbortSignal.timeout() fix covers only 2 of 4 GoTrue admin API call sites (the 2 raw fetch() calls), missing resolveEmails()'s SDK-mediated listUsers() calls on what are likely the highest-traffic admin-panel routes. Both stay OPEN with corrected, narrower descriptions. This same investigation surfaced 2 new WARNING findings: REL-DEPLOY-003 (grant-admin — more privileged than migrate/update — wasn't given the same confirmation gate) and REL-DEPLOY-004 (the new host-parser fails open, treating unparseable connection strings as local, for the libpq keyword/value format). REL-DB-001/002/003 re-confirmed unchanged and correctly still deferred (commit touched zero files under packages/db/). Net: 11 open WARNINGs -> 7 open WARNINGs. Zero BLOCKERs, zero FAILs in any core category throughout -> READY WITH WARNINGS, recommend ship) |
 
@@ -566,25 +579,27 @@ row, it doesn't replace the old one.
 
 ## Last Audit
 2026-08-11T23:59:00 (full AUDIT). Since then: GENERATE work on 2026-08-11 closed INT-KEY-001/
-INT-KEY-002/INT-SEC-001 (commit 585b646) and added a new endpoint family, `/api/applications/
-members` (this session) — see `.integration/api/api-catalog.md` and `history/integration-log.json`
-for the up-to-date record; this block reflects the last full re-audit pass, not every incremental
-change since.
+INT-KEY-002/INT-SEC-001 (commit 585b646), added a new endpoint family (`/api/applications/
+members`), and closed INT-API-007/008 (`/api/applications/claim`, migration 0034/0035) — see
+`.integration/api/api-catalog.md` and `history/integration-log.json` for the up-to-date record;
+this block reflects the last full re-audit pass, not every incremental change since.
 
 ## Overall Status
-INTEGRATION_INCOMPLETE (a scoped 2026-08-11T21:23 re-audit of the application-ownership lifecycle
-found 2 new HIGH gaps, INT-API-007/008 — see Missing Capabilities. INT-KEY-001 itself is VERIFIED,
-but is practically unreachable in a fresh self-hosted deployment until these close, since nothing
-ever sets the column its UI is gated on)
+INTEGRATION_INCOMPLETE (unchanged pending a fresh full AUDIT, but every HIGH finding raised since
+the original audit — INT-KEY-001, INT-API-007, INT-API-008 — is now VERIFIED. Remaining OPEN rows
+are all MEDIUM/LOW. `INT-KEY-001`'s rotate/revoke UI, previously flagged as practically
+unreachable, is now genuinely reachable via the new claim flow)
 
 ## API Readiness
-3 endpoint families exist and work: OAuth client admin proxy (GET/POST/PUT, still no DELETE —
+4 endpoint families exist and work: OAuth client admin proxy (GET/POST/PUT, still no DELETE —
 INT-API-001); application permission-catalog sync (rate-limited, key lifecycle now complete —
-INT-KEY-001/002 closed); and the new `/api/applications/members` (GET list, POST invite, DELETE
-remove, PATCH grant/revoke roles) — same `kapp_` key, scoped strictly to the calling application's
-own organization, rate-limited per operation, granting the Owner role rejected at the application
-layer since that's the one case the DB's own last-owner triggers exempt `service_role`. No OpenAPI
-spec or documentation page for it yet (INT-OPENAPI-001, INT-DOC-005).
+INT-KEY-001/002 closed); `/api/applications/members` (GET list, POST invite, DELETE remove, PATCH
+grant/revoke roles) — same `kapp_` key, scoped strictly to the calling application's own
+organization, rate-limited per operation, granting the Owner role rejected at the application
+layer since that's the one case the DB's own last-owner triggers exempt `service_role`; and the
+new `POST /api/applications/claim` — platform-admin-JWT-gated, the only way to assign an
+application's first owner, closing INT-API-007/008. No OpenAPI spec or documentation page for any
+of the four yet (INT-OPENAPI-001, INT-DOC-005).
 
 ## Webhooks Readiness
 Not built. Confirmed absent via exhaustive grep of all first-party code and all 31 migrations.
@@ -600,18 +615,14 @@ confirmation story ready). See `.integration/integration-manifest.md`.
 None.
 
 ## Missing Capabilities
-INT-API-007 (HIGH) — no self-service path anywhere lets an org register and own a new
-application; the only creation path (CLI) never asks which org should own it.
-INT-API-008 (HIGH) — `applications.owner_organization_id`, the tenant-isolation boundary
-`/api/applications/members` and admin-panel's key-rotation UI both depend on, is never written
-by any code path — only reachable via a DBA running raw SQL. Two sides of one root gap with
-INT-API-007.
 INT-WEBHOOK-001 (MEDIUM) — no webhook system anywhere.
 INT-API-001 (MEDIUM) — OAuth clients cannot be deleted/revoked.
-INT-OPENAPI-001 (LOW) — no OpenAPI spec (now covering 3 endpoint families, not 2).
-INT-DOC-005 (LOW) — new `/api/applications/members` API undocumented in apps/documentation.
-(INT-KEY-001 — application API key rotation/revocation/UI — VERIFIED 2026-08-11, commit 585b646;
-practically unreachable in a fresh deployment until INT-API-007/008 close — see note there.)
+INT-OPENAPI-001 (LOW) — no OpenAPI spec (now covering 4 endpoint families).
+INT-DOC-005 (LOW) — new `/api/applications/members` API undocumented in apps/documentation
+(now also covers `/api/applications/claim`).
+(INT-KEY-001, INT-API-007, INT-API-008 — application key lifecycle and the ownership-claim gap
+that made it practically unreachable — all VERIFIED 2026-08-11. See Audit History for the
+2026-08-11T23:59:00 entry.)
 
 ## Documentation Drift
 None found. Every spot-checked claim in `apps/documentation` (14 content pages) matched real

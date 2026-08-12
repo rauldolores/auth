@@ -1454,19 +1454,21 @@
       "category": "TECHNICAL",
       "description": "applications.owner_organization_id is never written by any code path in the entire repo — not registerApplication() (packages/db/src/register-application.ts, whose INSERT statement into kontrolia_auth.applications omits the column entirely), not any of the 33 migrations, not any RLS policy's WITH CHECK, not any route in apps/auth-server or apps/admin-panel. This column is the sole gate on three real, shipped capabilities: migration 0022's 'owning org admins can update their application' UPDATE policy, the rotate/revoke API-key UI on apps/admin-panel/app/applications/page.tsx (shipped and marked VERIFIED as INT-KEY-001 earlier today), and this session's new apps/auth-server/app/api/applications/members/* API. All three are correctly built and independently tested/verified, but none is reachable through the product itself in a genuinely fresh self-hosted deployment: an organization that registers an application via the CLI wizard and later tries to manage it in admin-panel will simply never see the key-management controls, because owner_organization_id stays NULL forever unless a DBA runs raw SQL. This is not a security hole (fails closed, nothing leaks) and not a broken happy path in the literal sense (the underlying permission-catalog-sync flow via /api/applications/sync works fine without owner_organization_id) — it's a shipped, tested feature area that a real user can never reach, which is exactly the class of 'looks done but isn't' this skill exists to catch. Root cause has two independent halves: (1) packages/cli/src/steps/application.ts's askApplicationStep() runs at install time, before any organization necessarily exists, and never asks which org should own the application it's registering; (2) there is also no separate 'claim ownership' flow an org could use afterward — no INSERT policy and no ownership-claim-specific UPDATE policy exists on kontrolia_auth.applications for a regular authenticated user.",
       "severity": "HIGH",
-      "lastAuditStatus": "HIGH",
-      "status": "OPEN",
-      "lastAudited": "2026-08-11T21:23:00",
+      "lastAuditStatus": "RESOLVED",
+      "status": "VERIFIED",
+      "lastAudited": "2026-08-11T23:59:00",
       "evidence": [
         "packages/db/src/register-application.ts:51-56 — the INSERT into kontrolia_auth.applications lists (name, slug, environment, api_key_hash) only; owner_organization_id is absent from both the column list and the values",
         "packages/cli/src/steps/application.ts:23 — askApplicationStep(db: DatabaseAnswer) takes only database/Supabase connection info as its parameter, no organization context, and its own comment (line 18-21) states plainly: 'kontrolia_auth.applications/permissions have no write policy for regular users... and no admin API exists yet for it, so this writes directly against Postgres'",
         "packages/db/migrations/0010_rls_policies.sql:25-30 and 0018_org_admins_manage_applications.sql:19-20 — the only two SELECT policies ever defined on this table; grepped all 33 migrations for 'insert' + 'applications' together and found zero INSERT policy of any kind",
         "packages/db/migrations/0022_application_homepage_url.sql:14-17 — the one UPDATE policy that exists requires `owner_organization_id is not null and kontrolia_auth.is_org_admin(owner_organization_id)` in both USING and WITH CHECK, so it can only ever apply to a row that already has an owner — chicken-and-egg, structurally identical in shape to the PQ-SEC-006-class org-bootstrap bugs found earlier this session, except here nothing ever breaks the cycle",
-        "apps/admin-panel/app/applications/page.tsx:323,351,360 — every owner-gated UI element (homepage URL edit, the whole 'Clave de sincronización' column with Rotar/Revocar) is conditioned on `app.owner_organization_id === organization.id`, which can never be true for any application registered through the product's own intended flow",
-        "Exhaustive grep for 'owner_organization_id' across apps/ and packages/db/src confirmed only read sites (RLS policies, admin-panel UI, the new members API) — zero write sites anywhere"
+        "apps/admin-panel/app/applications/page.tsx (current) — the 'Clave de sincronización' column now branches three ways: owned by this org (rotate/revoke), owned by null + platform admin (Reclamar propiedad), owned by null + non-admin (Sin propietario), owned by a different org (—)",
+        "apps/auth-server/app/api/applications/claim/route.ts (new) — platform-admin-gated POST, service_role write",
+        "packages/db/migrations/0034_application_ownership_claim.sql (new) — audit logging for ownership claim/transfer, plus prevent_application_ownership_reassignment trigger closing an adjacent dual-org-admin reassignment gap found while designing this fix"
       ],
       "verification": [
-        "Confirmed live against the running local Supabase sandbox: the one application with owner_organization_id set (facturacion -> CRM Demo) was set via a direct docker exec psql UPDATE statement earlier in this session while manually preparing test data for INT-KEY-001/the new members API — not through any product flow. No other application row in the sandbox has a non-NULL owner_organization_id."
+        "Confirmed live against the running local Supabase sandbox: the one application with owner_organization_id set (facturacion -> CRM Demo) was set via a direct docker exec psql UPDATE statement earlier in this session while manually preparing test data for INT-KEY-001/the new members API — not through any product flow. No other application row in the sandbox has a non-NULL owner_organization_id.",
+        "POST-FIX LIVE VERIFICATION (2026-08-11T23:59:00): generated a real magic-link session for the sandbox's genuine platform_admins row and decoded the resulting JWT to confirm is_platform_admin: true (only possible after also fixing PQ-SEC-010, see that entry). Claimed a real unowned application (inventarios-test) via POST /api/applications/claim with that real token -> 200, owner_organization_id set. Re-claiming the same application -> 409. Unauthenticated request -> 401. Unknown applicationId -> 404. Direct SQL attempt to reassign the now-claimed application as a plain authenticated (non-service_role) caller -> blocked by prevent_application_ownership_reassignment with the expected error. kontrolia_auth.audit_logs confirmed a new application.ownership_claimed row with the correct metadata. In the real admin-panel UI (unprivileged CRM Demo session), enabled a second unowned test application and confirmed the 'Sin propietario' branch renders correctly for a non-platform-admin viewer. The platform-admin 'Reclamar propiedad' button's own click was not separately click-tested in-browser (cross-origin session sharing between auth-server:3000 and admin-panel:3001 wasn't practical to set up in this local dev pass) — its handler calls the exact same claim endpoint already verified via direct HTTP, and follows the identical pattern (confirm() + fetch + Bearer token) as the already-shipped, previously-verified rotate/revoke buttons on the same page."
       ],
       "history": [
         {
@@ -1474,6 +1476,37 @@
           "auditStatus": "HIGH",
           "remediationStatus": "OPEN",
           "note": "New finding, discovered while answering a user question about why admin-panel's applications page has no 'create application' UI. Scoped review of the application registration/ownership lifecycle only, not a full-app re-walk — UX/UI/Accessibility/Performance/Maintainability scores below are carried forward unchanged from the eighth round (2026-08-11T21:00:00) and were not re-audited this round. Recommend a platform-admin-gated 'claim ownership' action (matching migration 0010's own comment that the application catalog is platform-level) as the most architecturally consistent fix, rather than opening self-service creation to any org."
+        },
+        {
+          "date": "2026-08-11T23:59:00",
+          "auditStatus": "RESOLVED",
+          "remediationStatus": "VERIFIED",
+          "note": "User approved the recommended fix shape. Built POST /api/applications/claim (platform-admin-gated, service_role write, migration 0034 for audit logging + a reassignment-block trigger closing an adjacent dual-org-admin gap found while designing it) and the admin-panel 'Reclamar propiedad' UI. While live-verifying, found and fixed a separate CRITICAL regression that was blocking verification itself — see PQ-SEC-010 — without which no platform-admin-gated route in the app (including this new one) could ever be used by a real logged-in user. Live-verified the claim route's full contract (200/409/401/404, audit log, reassignment-block trigger) with a real platform-admin JWT against the real sandbox. 129/129 tests, 16/16 build, 23/23 lint clean."
+        }
+      ]
+    },
+    {
+      "id": "PQ-SEC-010",
+      "category": "SECURITY",
+      "description": "Migration 0030's `create or replace function kontrolia_auth.custom_access_token_hook` fully replaced the function body introduced in 0020, and its new jsonb_set calls only covered organization_id/roles/permissions — it silently dropped the is_platform_admin claim that 0020's version set (`create or replace` replaces the whole body; nothing merges the old one). This means every platform-admin-gated route in the app — POST/DELETE /api/platform-admins, GET/POST/PUT /api/oauth-clients, and (at implementation time) the new POST /api/applications/claim — has been checking claims.is_platform_admin, which has been undefined for every real user since migration 0030 shipped earlier today (2026-08-11T19:30:00). This fails closed (undefined is falsy, so the check still correctly denies access — no privilege escalation, no data exposure) but is a genuine, live, previously-undiscovered regression that silently broke real, shipped, previously-'VERIFIED' functionality for the rest of the day. Nothing caught it because every verification pass on oauth-clients/platform-admins since 0030 shipped used direct-SQL or service-role-equivalent testing rather than a real fresh browser login — this is the first point in the session a genuinely fresh JWT was decoded and inspected.",
+      "severity": "CRITICAL",
+      "lastAuditStatus": "RESOLVED",
+      "status": "VERIFIED",
+      "lastAudited": "2026-08-11T23:59:00",
+      "evidence": [
+        "packages/db/migrations/0030_anchor_authority_to_system_roles.sql:71-148 — the full create-or-replace of custom_access_token_hook; its three jsonb_set calls (organization_id, roles, permissions) never mention is_platform_admin at all",
+        "packages/db/migrations/0020_rename_schema_to_kontrolia_auth.sql:284 — the prior version's jsonb_set(claims, '{is_platform_admin}', ...) call, confirming it existed before 0030 and was never carried forward",
+        "Live reproduction: generated a real magic-link session via POST /auth/v1/admin/generate_link + GET /auth/v1/verify for raul.dolores@gmail.com (a genuine kontrolia_auth.platform_admins row), decoded the resulting JWT payload — no is_platform_admin key present at all in the claims object"
+      ],
+      "verification": [
+        "Applied migration 0035 (restores the platform_admins lookup + jsonb_set call, otherwise identical to 0030's version) against the running local sandbox. Generated a fresh magic-link session for the same user post-fix and decoded the new JWT: is_platform_admin: true, confirmed present and correct. Successfully used that real token to authenticate against POST /api/applications/claim (200), proving the fix restores real platform-admin-gated access end to end, not just the claim's literal presence in the token."
+      ],
+      "history": [
+        {
+          "date": "2026-08-11T23:59:00",
+          "auditStatus": "CRITICAL",
+          "remediationStatus": "VERIFIED",
+          "note": "Found live while testing the newly-built POST /api/applications/claim route with a real platform-admin session — the route correctly returned 403 for a token that should have had is_platform_admin: true, which led to decoding the JWT and discovering the claim was entirely absent. Root-caused to migration 0030's function-body replacement dropping it. Fixed same-pass via migration 0035, since this blocked verification of the very feature in progress and was itself a genuine regression in already-shipped functionality. Not found by a scheduled audit — found by directly exercising the feature with a real credential instead of relying on service-role/direct-SQL testing, which is the same discipline gap the finding's own root-cause note calls out."
         }
       ]
     }

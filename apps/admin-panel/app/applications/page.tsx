@@ -5,6 +5,8 @@ import { Badge, Card } from "@kontrolia/ui";
 import { useEffect, useState } from "react";
 import { createKontroliaSchemaClient } from "@/lib/supabase-browser";
 
+const AUTH_SERVER_URL = process.env.NEXT_PUBLIC_AUTH_SERVER_URL;
+
 interface ApplicationRow {
   id: string;
   name: string;
@@ -37,7 +39,7 @@ async function generateAndHashApiKey(): Promise<{ plaintext: string; hashHex: st
 }
 
 export default function ApplicationsPage() {
-  const { organization, hasRole } = useAuth();
+  const { organization, hasRole, isPlatformAdmin, getToken } = useAuth();
   const [enabled, setEnabled] = useState<ApplicationRow[] | null>(null);
   const [available, setAvailable] = useState<ApplicationRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -48,7 +50,13 @@ export default function ApplicationsPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [newApiKey, setNewApiKey] = useState<{ appId: string; plaintext: string } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [platformAdmin, setPlatformAdmin] = useState(false);
   const canManage = hasRole(["owner", "admin"]);
+
+  useEffect(() => {
+    void (async () => setPlatformAdmin(await isPlatformAdmin()))();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function loadApplications(orgId: string, offset = 0, append = false) {
     const supabase = createKontroliaSchemaClient();
@@ -167,6 +175,36 @@ export default function ApplicationsPage() {
       if (organization) await loadApplications(organization.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo guardar la URL.");
+    } finally {
+      setPendingId(null);
+    }
+  }
+
+  async function handleClaim(app: ApplicationRow) {
+    if (!organization) return;
+    if (
+      !window.confirm(
+        `¿Reclamar "${app.name}" para ${organization.name}? Esta organización pasará a controlar su clave de sincronización — no se puede deshacer ni transferir después.`,
+      )
+    ) {
+      return;
+    }
+    setError(null);
+    setPendingId(app.id);
+    try {
+      const token = await getToken();
+      const response = await fetch(`${AUTH_SERVER_URL}/api/applications/claim`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ applicationId: app.id, organizationId: organization.id }),
+      });
+      if (!response.ok) {
+        const data = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(data?.error ?? "No se pudo reclamar la aplicación.");
+      }
+      await loadApplications(organization.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo reclamar la aplicación.");
     } finally {
       setPendingId(null);
     }
@@ -348,9 +386,7 @@ export default function ApplicationsPage() {
                     )}
                   </td>
                   <td className="k-px-5 k-py-3">
-                    {app.owner_organization_id !== organization.id ? (
-                      <span className="k-text-sm k-text-muted-foreground">—</span>
-                    ) : (
+                    {app.owner_organization_id === organization.id ? (
                       <div className="k-flex k-flex-col k-gap-1">
                         <span className="k-text-xs k-text-muted-foreground">
                           {app.api_key_last_used_at
@@ -378,6 +414,19 @@ export default function ApplicationsPage() {
                           </div>
                         )}
                       </div>
+                    ) : app.owner_organization_id === null && platformAdmin ? (
+                      <button
+                        type="button"
+                        disabled={pendingId === app.id}
+                        onClick={() => void handleClaim(app)}
+                        className="k-text-sm k-font-medium k-text-primary hover:k-underline disabled:k-opacity-60"
+                      >
+                        Reclamar propiedad
+                      </button>
+                    ) : app.owner_organization_id === null ? (
+                      <span className="k-text-sm k-text-muted-foreground">Sin propietario</span>
+                    ) : (
+                      <span className="k-text-sm k-text-muted-foreground">—</span>
                     )}
                   </td>
                   {canManage && (

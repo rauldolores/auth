@@ -2,7 +2,7 @@
 
 ## API
 
-Three real endpoint families, all in `apps/auth-server/app/api/`:
+Four real endpoint families, all in `apps/auth-server/app/api/`:
 
 - **`/api/oauth-clients`** (`route.ts`) — GET/POST/PUT, platform-admin-JWT-gated proxy in front
   of GoTrue's admin OAuth-client API (`{SUPABASE_URL}/auth/v1/admin/oauth/clients`). No DELETE.
@@ -18,21 +18,33 @@ Three real endpoint families, all in `apps/auth-server/app/api/`:
   client bypasses RLS and this route's explicit `.eq("organization_id", ...)` filter is the actual
   tenant boundary. Built to complement `/sync`, not replace anything — no pre-existing general
   member-management API existed for external callers before this.
+- **`/api/applications/claim`** (`route.ts`, GENERATE, 2026-08-11) — POST only, platform-admin-JWT
+  gated. The only way `applications.owner_organization_id` can ever be assigned; closed
+  INT-API-007/008 (no product-driven path to application ownership existed before this — see
+  `history/integration-log.json` for the full original finding).
 
 No API versioning scheme exists or is currently warranted at this surface's size.
 
 ## Authentication
 
-- OAuth clients endpoint: session-based, `is_platform_admin` JWT claim verified via
-  `@kontrolia/auth/server`'s `verifyRequest()` (real JWKS-backed verification).
+- OAuth clients and applications/claim endpoints: session-based, `is_platform_admin` JWT claim
+  verified via `@kontrolia/auth/server`'s `verifyRequest()` (real JWKS-backed verification).
 - Applications/sync and applications/members endpoints: per-application Bearer API key
   (`kapp_...`), SHA-256-hashed at rest, compared with `node:crypto.timingSafeEqual`
   (constant-time) — shared via `apps/auth-server/lib/application-auth.ts`.
-- All three reuse the platform's real authentication/authorization primitives — no parallel/
+- All four reuse the platform's real authentication/authorization primitives — no parallel/
   weaker path found for any of them. Where the application-authenticated routes run as
   `service_role` (bypassing RLS), tenant isolation and the last-owner/owner-grant invariants that
   RLS/triggers normally provide are instead enforced explicitly in application code — see
   `/api/applications/members` above and `packages/db/migrations/0033_prevent_owner_role_invitation.sql`.
+- **CRITICAL regression found and fixed 2026-08-11** while live-verifying the new claim route with
+  a real platform-admin session: migration 0030's `create or replace` of
+  `custom_access_token_hook` silently dropped the `is_platform_admin` claim that 0020's version
+  set, so every `is_platform_admin`-gated route above (`oauth-clients`, `applications/claim`, and
+  the non-integration-surface `/api/platform-admins`) has been unusable for any real logged-in
+  user since 0030 shipped earlier that day. Fails closed — no privilege escalation, just a broken
+  feature. Fixed via migration 0035; re-verified with a fresh decoded JWT and a real authenticated
+  request. Full detail: `.audit/review/issues.json`'s `PQ-SEC-010`.
 
 ## API Keys
 
@@ -43,6 +55,9 @@ anywhere in the codebase). Lifecycle management (`INT-KEY-001`) is closed: rotat
 `api_key_last_used_at` tracking, and an admin-panel UI all shipped 2026-08-11 (migration 0032,
 commit 585b646) — live-verified end to end. Failed-auth-attempt logging (`INT-KEY-002`) is also
 closed: `logSecurityEvent()` fires on every rejection branch across both key-gated route families.
+That UI was practically unreachable until `INT-API-007/008` closed (2026-08-11T23:59:00) — an
+application only shows key-management controls once it has an owner, and nothing ever assigned
+one; `POST /api/applications/claim` is now the real path to that state.
 
 ## Scopes
 
@@ -140,24 +155,11 @@ GENERATE request.
 
 ## Known Limitations
 
-- **No self-service application registration/ownership path exists anywhere** (`INT-API-007`,
-  HIGH). The only way to create an application row is the CLI wizard's `registerApplication()`
-  (raw Postgres connection string), which runs before any organization necessarily exists and
-  never asks which org should own the app — `owner_organization_id` is simply omitted from its
-  INSERT.
-- **`applications.owner_organization_id` is never written by any code path** (`INT-API-008`,
-  HIGH — the other side of `INT-API-007`'s root cause). Not by `registerApplication()`, not by
-  any migration, not by any RLS policy's `WITH CHECK`, not by any route — confirmed by exhaustive
-  grep. `INT-KEY-001`'s rotate/revoke UI and the new `/api/applications/members` API are both
-  correctly built but gated entirely on this column, so **neither is reachable in a genuinely
-  fresh self-hosted deployment** without a DBA manually running SQL — which is how the sandbox
-  data used to build and verify both was actually set up. A real fix needs a "claim ownership"
-  flow (most plausibly platform-admin-gated, matching migration 0010's own comment that the
-  application catalog is "platform-level, managed via service_role"), not just a form.
-- No OpenAPI spec for any of the 3 endpoint families (`INT-OPENAPI-001`, LOW — low urgency given
+- No OpenAPI spec for any of the 4 endpoint families (`INT-OPENAPI-001`, LOW — low urgency given
   the narrow current surface).
-- The new `/api/applications/members` API has no page in `apps/documentation` yet (`INT-DOC-005`,
-  LOW — a DOCUMENT-mode follow-up, deliberately not done as part of this GENERATE request).
+- The new `/api/applications/members` and `/api/applications/claim` APIs have no page in
+  `apps/documentation` yet (`INT-DOC-005`, LOW — a DOCUMENT-mode follow-up, deliberately not done
+  as part of the GENERATE requests that shipped them).
 - `apps/playground` is an empty single-page stub despite being described in the root README as a
   working sandbox (`INT-DX-001`, LOW).
 - All 4 examples pin `@kontrolia/*` via `workspace:*`, so none demonstrate real registry semver

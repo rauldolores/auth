@@ -475,5 +475,20 @@
       "PQ-TECH-010"
     ],
     "note": "Scoped review (not a full-app re-walk), prompted by a user question about why admin-panel's applications page has no 'create application' UI. Found and recorded a new HIGH, PQ-TECH-010: applications.owner_organization_id is never written by any code path in the repo (registerApplication()'s INSERT omits it, the CLI wizard never asks which org should own the app, and no INSERT/ownership-claim RLS policy exists on kontrolia_auth.applications for a regular user). Confirmed live against the sandbox that the only application row with a non-NULL owner_organization_id was set via a direct SQL UPDATE while preparing test data earlier this session, not through any product flow. Practical effect: migration 0022's owning-org UPDATE policy, the admin-panel rotate/revoke API-key UI (INT-KEY-001, marked VERIFIED earlier today), and the new /api/applications/members API (shipped this session) are all correctly built and independently tested, but none is reachable by a real user in a genuinely fresh self-hosted deployment. Not a security hole (fails closed) and does not affect the Security dimension. Technical score revised 78->70 to reflect the newly-open HIGH; Overall 76->75. UX/UI/Accessibility/Performance/Maintainability not re-walked this round, carried forward unchanged from round 8. Recommended fix shape: a platform-admin-gated 'claim ownership' action, not open self-service creation, consistent with migration 0010's own comment that the application catalog is platform-level. Per this skill's diagnose-first discipline, no code was modified — the finding is recorded and the user will be asked whether to fix it."
+  },
+  {
+    "date": "2026-08-11T23:59:00",
+    "skill": "kontrolia-professional-review",
+    "auditFile": ".audit/audits/2026-08-11-professional-review-7.md",
+    "result": "PROFESSIONAL BUT NEEDS POLISH",
+    "overallScore": 76,
+    "critical": 0,
+    "high": 0,
+    "medium": 24,
+    "issuesInScope": [
+      "PQ-TECH-010",
+      "PQ-SEC-010"
+    ],
+    "note": "Closing verification for PQ-TECH-010's fix (POST /api/applications/claim + migration 0034 + admin-panel UI, built after the user approved the recommended fix shape). While live-verifying with a real platform-admin session, found a new CRITICAL, PQ-SEC-010: migration 0030's custom_access_token_hook replacement silently dropped the is_platform_admin JWT claim 0020 had set, breaking every platform-admin-gated route (platform-admins, oauth-clients, and the new claim route) for any real logged-in user since 0030 shipped earlier today. Fails closed, no privilege escalation. Fixed same-pass via migration 0035. Both findings independently re-verified with real commands: decoded a fresh JWT pre-fix (claim absent) and post-fix (claim present, true), then used that real token against the claim route end to end (200/409/401/404), confirmed the reassignment-block trigger and the ownership_claimed audit_logs entry, and confirmed the admin-panel UI's non-admin 'Sin propietario' branch in a live browser session. The platform-admin button's own click was not separately browser-tested (cross-origin session sharing between the two local dev servers wasn't practical to set up), noted explicitly rather than claimed. Technical Score 70->79, Security Score held at 84 since the new CRITICAL is already resolved not open, Overall 75->76. Zero CRITICAL/HIGH open restores round 8's clean state; Phase 2 passes the quality gate's simpler rule again. Fresh pnpm build/test/lint all rerun and clean (129/129 tests, 16/16 build, 23/23 lint)."
   }
 ]

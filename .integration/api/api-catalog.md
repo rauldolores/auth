@@ -167,3 +167,36 @@
   paths live-verified against the sandbox: granting Owner to a non-Owner member returns 403;
   revoking Owner from the organization's sole active Owner returns 400 with the database's own
   message.
+
+## POST /api/applications/claim
+
+- **Method:** POST
+- **Path:** `/api/applications/claim`
+- **Purpose:** Assigns the first owner to an application — the only way
+  `applications.owner_organization_id` can ever be set (closes INT-API-007/008; nothing else in
+  the product, including the CLI's own registration flow, ever writes this column).
+- **Authentication:** Session JWT, `is_platform_admin` claim required (same gate as
+  `/api/oauth-clients`) — not self-service for any org, matching migration 0010's own design
+  comment that the application catalog is "platform-level, managed via service_role".
+- **Scopes:** N/A.
+- **Request:** `{ applicationId: string (required), organizationId: string (required) }`.
+- **Response:** `{ application: { id, slug, owner_organization_id } }`.
+- **Errors:** 401 unauthenticated; 403 non-platform-admin; 400 missing fields; 404 unknown
+  `applicationId` or `organizationId`; 409 the application already has an owner (this route never
+  reassigns — see Security below); 429 rate limited.
+- **Pagination:** N/A.
+- **Rate limiting:** 30 req/5 min per IP, independently keyed.
+- **Idempotency:** Not idempotent by design — a second claim attempt on the same application
+  returns 409 rather than silently succeeding, since ownership is meant to be a one-time
+  assignment.
+- **Security:** Runs as `service_role` since no RLS policy permits this write for any other
+  caller. Migration 0034's `prevent_application_ownership_reassignment` trigger blocks any
+  non-`service_role` change to an already-set `owner_organization_id` — closing an adjacent gap
+  found while designing this route: migration 0022's UPDATE policy let a caller who administers
+  two different organizations silently reassign an application between them (same shape as this
+  session's earlier `PQ-SEC-005`). Live-verified: a direct SQL attempt to reassign an
+  already-claimed application as a plain `authenticated` role was blocked with the expected error.
+- **Observability:** `application.ownership_claimed`/`application.ownership_transferred` logged to
+  `audit_logs` via a trigger (migration 0034), the same "the database logs it" pattern as every
+  other security-relevant event in this schema — confirmed firing correctly via a live query
+  after exercising the route.
