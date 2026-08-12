@@ -87,28 +87,6 @@ function IconClock({ className }: IconProps) {
   );
 }
 
-function IconSearch({ className }: IconProps) {
-  return (
-    <svg viewBox="0 0 16 16" fill="none" className={className} aria-hidden="true">
-      <circle cx="6.75" cy="6.75" r="4.25" stroke="currentColor" strokeWidth="1.4" />
-      <path d="m9.9 9.9 3.6 3.6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function IconStar({ className }: IconProps) {
-  return (
-    <svg viewBox="0 0 16 16" fill="none" className={className} aria-hidden="true">
-      <path
-        d="M8 1.8 9.7 5.6l4.1.4-3.1 2.8.9 4-3.6-2.1-3.6 2.1.9-4-3.1-2.8 4.1-.4L8 1.8Z"
-        stroke="currentColor"
-        strokeWidth="1.3"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
 function IconMenu({ className }: IconProps) {
   return (
     <svg viewBox="0 0 16 16" fill="none" className={className} aria-hidden="true">
@@ -157,14 +135,6 @@ const NAV_GROUPS: NavGroup[] = [
   { label: "Configuración", items: [{ href: "/audit-logs", label: "Audit log", icon: IconClock }] },
 ];
 
-const PLATFORM_NAV_GROUP: NavGroup = {
-  label: "Plataforma",
-  items: [
-    { href: "/platform-admins", label: "Platform admins", icon: IconStar },
-    { href: "/user-access", label: "Acceso de usuarios", icon: IconSearch },
-  ],
-};
-
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const {
     organization,
@@ -186,9 +156,10 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     setMobileNavOpen(false);
   }, [pathname]);
 
-  // Only visible to platform admins — registering an OAuth client affects
-  // every organization, not just the active one. The page itself checks
-  // this again independently (a hidden nav link isn't access control).
+  // Drives canAccessAdmin below, and several pages (Aplicaciones's OAuth-client
+  // controls, Usuarios's platform-admin section/cross-org search) that check
+  // this same status again independently server-side — the client-side value
+  // here is only ever used for what to render, never treated as the real gate.
   useEffect(() => {
     if (!isAuthenticated) {
       setPlatformAdmin(false);
@@ -201,8 +172,6 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     });
   }, [isAuthenticated, isPlatformAdmin]);
 
-  const navGroups = platformAdmin ? [...NAV_GROUPS, PLATFORM_NAV_GROUP] : NAV_GROUPS;
-
   // admin-panel manages access to every application, not just one — a
   // "Member" of the active organization has no business seeing (let alone
   // touching) that surface just because they're authenticated. Only the
@@ -210,7 +179,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   // custom roles (e.g. "Administrador de Facturación") intentionally don't
   // count here — those grant permissions inside that one app, not access to
   // this cross-app control plane. Platform admins bypass this per-org check
-  // entirely, same as they already bypass it for the Plataforma pages.
+  // entirely — they may need to reach Aplicaciones/Usuarios even as a plain
+  // Member (or non-member) of the active organization.
   const isOrgAdmin = hasRole(["owner", "admin"]);
   const canAccessAdmin = platformAdmin || isOrgAdmin;
   // Wait for the platform-admin check to resolve at least once before
@@ -322,7 +292,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               </div>
 
               <nav className="k-flex k-flex-1 k-flex-col k-gap-4 k-overflow-y-auto">
-                {navGroups.map((group, index) => (
+                {NAV_GROUPS.map((group, index) => (
                   <div key={group.label ?? `group-${index}`}>
                     {group.label && (
                       <p className="k-mb-1 k-px-3 k-text-[10px] k-font-semibold k-uppercase k-tracking-wide k-text-sidebar-muted">

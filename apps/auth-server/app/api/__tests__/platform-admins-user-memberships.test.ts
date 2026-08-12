@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { resetRateLimitsForTests } from "@/lib/rate-limit";
-import { makeSchemaClient } from "./test-helpers";
+import { makeAdminClient, makeSchemaClient } from "./test-helpers";
 
 // Cross-organization view for platform admins: organization creation is
 // self-service (anyone can create one and become its Owner), but there was
@@ -140,6 +140,53 @@ describe("GET /api/platform-admins/user-memberships", () => {
         },
       ],
     });
+  });
+});
+
+describe("GET /api/platform-admins/user-memberships?userId= (alternative to ?email=)", () => {
+  it("resolves the user directly by id, skipping the email search round-trip", async () => {
+    verifyRequestMock.mockResolvedValue({ claims: { is_platform_admin: true } });
+    const admin = makeAdminClient({
+      memberships: [
+        {
+          data: [
+            {
+              id: "m1",
+              status: "active",
+              created_at: "2026-01-01T00:00:00.000Z",
+              organization: { id: "org-1", name: "Acme" },
+              membership_roles: [{ role: { name: "Owner", slug: "owner" } }],
+            },
+          ],
+          error: null,
+        },
+      ],
+    });
+    admin.auth.admin = {
+      ...admin.auth.admin,
+      getUserById: vi.fn().mockResolvedValue({ data: { user: { id: "user-1", email: "byid@example.com" } }, error: null }),
+    } as unknown as typeof admin.auth.admin;
+    createSupabaseAdminClientMock.mockReturnValue(admin);
+
+    const response = await GET(requestWithAuth(`${BASE_URL}?userId=user-1`));
+    expect(response.status).toBe(200);
+    expect(fetchMock).not.toHaveBeenCalled();
+    const body = await response.json();
+    expect(body.user).toEqual({ id: "user-1", email: "byid@example.com" });
+    expect(body.memberships).toHaveLength(1);
+  });
+
+  it("returns 404 when the id doesn't resolve to a user", async () => {
+    verifyRequestMock.mockResolvedValue({ claims: { is_platform_admin: true } });
+    const admin = makeAdminClient();
+    admin.auth.admin = {
+      ...admin.auth.admin,
+      getUserById: vi.fn().mockResolvedValue({ data: { user: null }, error: null }),
+    } as unknown as typeof admin.auth.admin;
+    createSupabaseAdminClientMock.mockReturnValue(admin);
+
+    const response = await GET(requestWithAuth(`${BASE_URL}?userId=missing`));
+    expect(response.status).toBe(404);
   });
 });
 

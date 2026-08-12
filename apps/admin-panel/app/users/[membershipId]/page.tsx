@@ -30,18 +30,58 @@ interface AppRoleGroup {
   roles: { id: string; name: string }[];
 }
 
+interface OtherMembership {
+  membershipId: string;
+  organizationId: string;
+  organizationName: string;
+  status: string;
+  roles: { name: string; slug: string }[];
+}
+
+type ConfirmAction =
+  | { kind: "remove" | "suspend" | "revoke-platform-admin" }
+  | { kind: "remove-other-membership"; membership: OtherMembership };
+
 const AUTH_SERVER_URL = process.env.NEXT_PUBLIC_AUTH_SERVER_URL;
 
 export default function UserDetailPage() {
   const { membershipId } = useParams<{ membershipId: string }>();
   const router = useRouter();
-  const { organization, hasRole, getToken } = useAuth();
+  const { organization, hasRole, isPlatformAdmin, getToken } = useAuth();
   const [member, setMember] = useState<MemberRow | null | undefined>(undefined);
   const [appGroups, setAppGroups] = useState<AppRoleGroup[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const canManage = hasRole(["owner", "admin"]);
-  const [confirmAction, setConfirmAction] = useState<"remove" | "suspend" | null>(null);
+  const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
+  const [viewerIsPlatformAdmin, setViewerIsPlatformAdmin] = useState(false);
+  const [targetIsPlatformAdmin, setTargetIsPlatformAdmin] = useState<boolean | null>(null);
+  const [otherMemberships, setOtherMemberships] = useState<OtherMembership[] | null>(null);
+  const [platformAdminPending, setPlatformAdminPending] = useState(false);
+  const [platformAdminError, setPlatformAdminError] = useState<string | null>(null);
+
+  useEffect(() => {
+    void (async () => setViewerIsPlatformAdmin(await isPlatformAdmin()))();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function loadPlatformAdminInfo(userId: string) {
+    const token = await getToken();
+    const [statusResponse, membershipsResponse] = await Promise.all([
+      fetch(`${AUTH_SERVER_URL}/api/platform-admins?userId=${userId}`, { headers: { Authorization: `Bearer ${token}` } }),
+      fetch(`${AUTH_SERVER_URL}/api/platform-admins/user-memberships?userId=${userId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+    ]);
+    if (statusResponse.ok) {
+      const data = (await statusResponse.json()) as { isPlatformAdmin: boolean };
+      setTargetIsPlatformAdmin(data.isPlatformAdmin);
+    }
+    if (membershipsResponse.ok) {
+      const data = (await membershipsResponse.json()) as { memberships: OtherMembership[] };
+      setOtherMemberships(data.memberships.filter((m) => m.organizationId !== organization?.id));
+    }
+  }
 
   async function loadMember(orgId: string) {
     const token = await getToken();
@@ -86,6 +126,61 @@ export default function UserDetailPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organization?.id, membershipId]);
+
+  useEffect(() => {
+    if (viewerIsPlatformAdmin && member) void loadPlatformAdminInfo(member.userId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewerIsPlatformAdmin, member?.userId]);
+
+  async function handleTogglePlatformAdmin() {
+    if (!member) return;
+    setPlatformAdminError(null);
+    setPlatformAdminPending(true);
+    try {
+      const token = await getToken();
+      const response = targetIsPlatformAdmin
+        ? await fetch(`${AUTH_SERVER_URL}/api/platform-admins?userId=${member.userId}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${token}` },
+          })
+        : await fetch(`${AUTH_SERVER_URL}/api/platform-admins`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ email: member.email }),
+          });
+      if (!response.ok) {
+        const data = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(data?.error ?? "No se pudo actualizar el estado de platform admin.");
+      }
+      setTargetIsPlatformAdmin((current) => !current);
+    } catch (err) {
+      setPlatformAdminError(err instanceof Error ? err.message : "No se pudo actualizar el estado de platform admin.");
+    } finally {
+      setPlatformAdminPending(false);
+    }
+  }
+
+  async function handleRemoveOtherMembership(membership: OtherMembership) {
+    if (!member) return;
+    setPlatformAdminError(null);
+    setPlatformAdminPending(true);
+    try {
+      const token = await getToken();
+      const response = await fetch(
+        `${AUTH_SERVER_URL}/api/platform-admins/user-memberships?membershipId=${membership.membershipId}`,
+        { method: "DELETE", headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (!response.ok) {
+        const data = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(data?.error ?? "No se pudo quitar al usuario de esa organización.");
+      }
+      setOtherMemberships((current) => (current ?? []).filter((m) => m.membershipId !== membership.membershipId));
+    } catch (err) {
+      setPlatformAdminError(err instanceof Error ? err.message : "No se pudo quitar al usuario de esa organización.");
+    } finally {
+      setPlatformAdminPending(false);
+    }
+  }
 
   async function handleToggleStatus() {
     if (!organization || !member) return;
@@ -183,6 +278,31 @@ export default function UserDetailPage() {
     );
   }
 
+  function confirmActionCopy(action: ConfirmAction): { title: string; description: string } {
+    switch (action.kind) {
+      case "remove":
+        return {
+          title: "Quitar de la organización",
+          description: `¿Quitar a ${member!.email} de ${organization!.name}? Perderá acceso a la organización.`,
+        };
+      case "suspend":
+        return {
+          title: "Suspender miembro",
+          description: `¿Suspender a ${member!.email}? Perderá acceso a ${organization!.name} hasta que lo reactives.`,
+        };
+      case "revoke-platform-admin":
+        return {
+          title: "Quitar platform admin",
+          description: `¿Quitarle el rol de platform admin a ${member!.email}? Perderá acceso a las pantallas administrativas de toda la instalación.`,
+        };
+      case "remove-other-membership":
+        return {
+          title: "Quitar de la organización",
+          description: `¿Quitar a ${member!.email} de "${action.membership.organizationName}"? Perderá acceso a esa organización.`,
+        };
+    }
+  }
+
   const orgWideRoles = member.roles.filter((role) => role.application_id === null);
   const appRoleByApp = new Map(
     member.roles.filter((role) => role.application_id !== null).map((role) => [role.application_id, role]),
@@ -211,7 +331,7 @@ export default function UserDetailPage() {
               <button
                 type="button"
                 disabled={pending}
-                onClick={() => (member.status === "suspended" ? void handleToggleStatus() : setConfirmAction("suspend"))}
+                onClick={() => (member.status === "suspended" ? void handleToggleStatus() : setConfirmAction({ kind: "suspend" }))}
                 className="k-rounded-md k-border k-border-border k-px-3 k-py-1.5 k-text-sm hover:k-bg-muted disabled:k-opacity-60"
               >
                 {member.status === "suspended" ? "Reactivar" : "Suspender"}
@@ -219,7 +339,7 @@ export default function UserDetailPage() {
               <button
                 type="button"
                 disabled={pending}
-                onClick={() => setConfirmAction("remove")}
+                onClick={() => setConfirmAction({ kind: "remove" })}
                 className="k-rounded-md k-border k-border-destructive k-px-3 k-py-1.5 k-text-sm k-text-destructive hover:k-bg-destructive/10 disabled:k-opacity-60"
               >
                 Quitar de la organización
@@ -272,20 +392,99 @@ export default function UserDetailPage() {
         </Card>
       )}
 
+      {viewerIsPlatformAdmin && (
+        <Card className="k-flex k-flex-col k-gap-4 k-p-5">
+          <div>
+            <span className="k-text-sm k-font-semibold">Plataforma</span>
+            <p className="k-text-xs k-text-muted-foreground">
+              Solo visible para platform admins — el acceso de este usuario a través de toda la instalación, no solo{" "}
+              {organization.name}.
+            </p>
+          </div>
+
+          {platformAdminError && <p className="k-text-sm k-text-destructive">{platformAdminError}</p>}
+
+          <div className="k-flex k-items-center k-justify-between">
+            <div className="k-flex k-items-center k-gap-3">
+              <span className="k-text-sm k-font-medium">Platform admin</span>
+              {targetIsPlatformAdmin === null ? (
+                <span className="k-text-sm k-text-muted-foreground">Cargando…</span>
+              ) : (
+                <Badge variant={targetIsPlatformAdmin ? "primary" : "neutral"}>{targetIsPlatformAdmin ? "Sí" : "No"}</Badge>
+              )}
+            </div>
+            {targetIsPlatformAdmin !== null && (
+              <button
+                type="button"
+                disabled={platformAdminPending}
+                onClick={() =>
+                  targetIsPlatformAdmin ? setConfirmAction({ kind: "revoke-platform-admin" }) : void handleTogglePlatformAdmin()
+                }
+                className="k-rounded-md k-border k-border-border k-px-3 k-py-1.5 k-text-sm hover:k-bg-muted disabled:k-opacity-60"
+              >
+                {targetIsPlatformAdmin ? "Quitar" : "Otorgar"}
+              </button>
+            )}
+          </div>
+
+          <div>
+            <span className="k-text-sm k-font-medium">Otras organizaciones</span>
+            {otherMemberships === null ? (
+              <p className="k-mt-1 k-text-sm k-text-muted-foreground">Cargando…</p>
+            ) : otherMemberships.length === 0 ? (
+              <p className="k-mt-1 k-text-sm k-text-muted-foreground">No pertenece a ninguna otra organización.</p>
+            ) : (
+              <div className="k-mt-2 k-flex k-flex-col k-gap-2">
+                {otherMemberships.map((m) => (
+                  <div key={m.membershipId} className="k-flex k-items-center k-justify-between k-gap-3 k-text-sm">
+                    <div className="k-flex k-items-center k-gap-2">
+                      <span className="k-font-medium">{m.organizationName}</span>
+                      {m.roles.map((role) => (
+                        <Badge key={role.slug} variant="neutral">
+                          {role.name}
+                        </Badge>
+                      ))}
+                      <Badge variant={m.status === "active" ? "success" : "neutral"}>{m.status}</Badge>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={platformAdminPending}
+                      onClick={() => setConfirmAction({ kind: "remove-other-membership", membership: m })}
+                      className="k-text-sm k-text-destructive hover:k-underline disabled:k-opacity-60"
+                    >
+                      Quitar
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
+
       <ConfirmDialog
         open={confirmAction !== null}
         onOpenChange={(open) => !open && setConfirmAction(null)}
         destructive
-        title={confirmAction === "remove" ? "Quitar de la organización" : "Suspender miembro"}
-        description={
-          confirmAction === "remove"
-            ? `¿Quitar a ${member.email} de ${organization.name}? Perderá acceso a la organización.`
-            : `¿Suspender a ${member.email}? Perderá acceso a ${organization.name} hasta que lo reactives.`
-        }
-        confirmLabel={confirmAction === "remove" ? "Quitar" : "Suspender"}
+        title={confirmAction ? confirmActionCopy(confirmAction).title : ""}
+        description={confirmAction ? confirmActionCopy(confirmAction).description : ""}
+        confirmLabel={confirmAction?.kind === "suspend" ? "Suspender" : "Quitar"}
         onConfirm={async () => {
-          if (confirmAction === "remove") await handleRemove();
-          else if (confirmAction === "suspend") await handleToggleStatus();
+          if (!confirmAction) return;
+          switch (confirmAction.kind) {
+            case "remove":
+              await handleRemove();
+              break;
+            case "suspend":
+              await handleToggleStatus();
+              break;
+            case "revoke-platform-admin":
+              await handleTogglePlatformAdmin();
+              break;
+            case "remove-other-membership":
+              await handleRemoveOtherMembership(confirmAction.membership);
+              break;
+          }
         }}
       />
     </div>

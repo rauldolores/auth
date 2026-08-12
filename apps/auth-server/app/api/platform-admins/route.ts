@@ -77,7 +77,31 @@ export async function GET(request: Request) {
   const authResult = await authorizePlatformAdmin(request);
   if (authResult instanceof NextResponse) return authResult;
 
-  const offset = Number(new URL(request.url).searchParams.get("offset") ?? "0") || 0;
+  const url = new URL(request.url);
+  const userId = url.searchParams.get("userId");
+
+  // Single existence check for one user — used to show a "Platform admin"
+  // badge/toggle on a specific person's profile without paging through the
+  // whole (potentially large) list just to answer a yes/no.
+  if (userId) {
+    const admin = createSupabaseAdminClient();
+    const { data, error } = await admin
+      .schema("kontrolia_auth")
+      .from("platform_admins")
+      .select("granted_at")
+      .eq("user_id", userId)
+      .maybeSingle<{ granted_at: string }>();
+    if (error) {
+      logError("GET /api/platform-admins?userId=", error, { userId });
+      return NextResponse.json({ error: error.message }, { status: 500, headers: corsHeaders() });
+    }
+    return NextResponse.json(
+      { isPlatformAdmin: data !== null, grantedAt: data?.granted_at ?? null },
+      { headers: corsHeaders() },
+    );
+  }
+
+  const offset = Number(url.searchParams.get("offset") ?? "0") || 0;
 
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin

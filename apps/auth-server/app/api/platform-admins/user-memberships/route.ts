@@ -68,17 +68,25 @@ export async function GET(request: Request) {
   const denied = await authorizePlatformAdmin(request);
   if (denied) return denied;
 
-  const email = new URL(request.url).searchParams.get("email")?.trim();
-  if (!email) {
-    return NextResponse.json({ error: "email es requerido" }, { status: 400, headers: corsHeaders() });
-  }
-
-  const user = await findUserByEmail(email);
-  if (!user) {
-    return NextResponse.json({ error: "No hay ningún usuario registrado con ese correo." }, { status: 404, headers: corsHeaders() });
+  const params = new URL(request.url).searchParams;
+  const email = params.get("email")?.trim();
+  const userId = params.get("userId")?.trim();
+  if (!email && !userId) {
+    return NextResponse.json({ error: "email o userId es requerido" }, { status: 400, headers: corsHeaders() });
   }
 
   const admin = createSupabaseAdminClient();
+
+  // The detail page already knows the user's id (it came from
+  // organization-members) — skip the GoTrue email-search round-trip
+  // findUserByEmail() would otherwise need, and just resolve the id's email
+  // directly for the response shape below.
+  const user = userId
+    ? await admin.auth.admin.getUserById(userId).then(({ data }) => (data.user ? { id: data.user.id, email: data.user.email ?? "" } : null))
+    : await findUserByEmail(email!);
+  if (!user) {
+    return NextResponse.json({ error: "No hay ningún usuario registrado con ese correo." }, { status: 404, headers: corsHeaders() });
+  }
   const { data, error } = await admin
     .schema("kontrolia_auth")
     .from("memberships")

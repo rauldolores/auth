@@ -114,6 +114,28 @@ describe("GET /api/platform-admins", () => {
   });
 });
 
+describe("GET /api/platform-admins?userId= (single existence check)", () => {
+  it("returns isPlatformAdmin: true with the grant date when the user is one", async () => {
+    verifyRequestMock.mockResolvedValue(claimsFor("caller", true));
+    createSupabaseAdminClientMock.mockReturnValue(
+      makeAdminClient({ platform_admins: [{ data: { granted_at: "2026-01-01T00:00:00Z" }, error: null }] }),
+    );
+
+    const response = await GET(requestWithAuth(`${BASE_URL}?userId=user-1`));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ isPlatformAdmin: true, grantedAt: "2026-01-01T00:00:00Z" });
+  });
+
+  it("returns isPlatformAdmin: false when the user isn't one", async () => {
+    verifyRequestMock.mockResolvedValue(claimsFor("caller", true));
+    createSupabaseAdminClientMock.mockReturnValue(makeAdminClient({ platform_admins: [{ data: null, error: null }] }));
+
+    const response = await GET(requestWithAuth(`${BASE_URL}?userId=user-1`));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ isPlatformAdmin: false, grantedAt: null });
+  });
+});
+
 describe("POST /api/platform-admins", () => {
   it("returns 400 when email is missing", async () => {
     verifyRequestMock.mockResolvedValue(claimsFor("admin-1", true));

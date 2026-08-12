@@ -3,6 +3,7 @@
 import { useAuth } from "@kontrolia/react";
 import { Badge, Card, ConfirmDialog } from "@kontrolia/ui";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Fragment, useEffect, useState } from "react";
 import { createKontroliaSchemaClient } from "@/lib/supabase-browser";
 
@@ -32,7 +33,8 @@ interface AppRoleGroup {
 const AUTH_SERVER_URL = process.env.NEXT_PUBLIC_AUTH_SERVER_URL;
 
 export default function UsersPage() {
-  const { organization, hasRole, getToken } = useAuth();
+  const router = useRouter();
+  const { organization, hasRole, isPlatformAdmin, getToken } = useAuth();
   const [members, setMembers] = useState<MemberRow[] | null>(null);
   const [appGroups, setAppGroups] = useState<AppRoleGroup[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -42,6 +44,59 @@ export default function UsersPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const canManage = hasRole(["owner", "admin"]);
   const [confirmAction, setConfirmAction] = useState<{ kind: "remove" | "suspend"; member: MemberRow } | null>(null);
+  const [platformAdmin, setPlatformAdmin] = useState(false);
+  const [platformAdminIds, setPlatformAdminIds] = useState<Set<string>>(new Set());
+  const [searchEmail, setSearchEmail] = useState("");
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [searching, setSearching] = useState(false);
+
+  useEffect(() => {
+    void (async () => {
+      const isAdmin = await isPlatformAdmin();
+      setPlatformAdmin(isAdmin);
+      if (isAdmin) await loadPlatformAdminIds();
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function loadPlatformAdminIds() {
+    const token = await getToken();
+    const response = await fetch(`${AUTH_SERVER_URL}/api/platform-admins`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) return;
+    const data = (await response.json()) as { admins: { userId: string }[] };
+    setPlatformAdminIds(new Set(data.admins.map((a) => a.userId)));
+  }
+
+  async function handleSearch(event: React.FormEvent) {
+    event.preventDefault();
+    const trimmed = searchEmail.trim();
+    if (!trimmed) return;
+    setSearchError(null);
+    setSearching(true);
+    try {
+      const token = await getToken();
+      const response = await fetch(
+        `${AUTH_SERVER_URL}/api/platform-admins/user-memberships?email=${encodeURIComponent(trimmed)}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      const data = (await response.json().catch(() => ({}))) as {
+        user?: { id: string };
+        memberships?: { membershipId: string; organizationId: string }[];
+        error?: string;
+      };
+      if (!response.ok) throw new Error(data.error ?? "No se pudo buscar el usuario.");
+
+      const inActiveOrg = data.memberships?.find((m) => m.organizationId === organization?.id);
+      if (inActiveOrg) router.push(`/users/${inActiveOrg.membershipId}`);
+      else router.push(`/users/by-user/${data.user!.id}`);
+    } catch (err) {
+      setSearchError(err instanceof Error ? err.message : "No se pudo buscar el usuario.");
+    } finally {
+      setSearching(false);
+    }
+  }
 
   async function loadMembers(orgId: string, offset = 0, append = false) {
     const token = await getToken();
@@ -192,6 +247,38 @@ export default function UsersPage() {
 
       {error && <p className="k-text-sm k-text-destructive">{error}</p>}
 
+      {platformAdmin && (
+        <Card>
+          <form onSubmit={handleSearch} className="k-flex k-max-w-lg k-items-end k-gap-3">
+            <div className="k-flex k-flex-1 k-flex-col k-gap-1.5">
+              <label htmlFor="k-users-search-email" className="k-text-sm k-font-medium">
+                Buscar cualquier usuario por correo
+              </label>
+              <p className="k-text-xs k-text-muted-foreground">
+                En toda la instalación, no solo {organization.name} — solo visible para platform admins.
+              </p>
+              <input
+                id="k-users-search-email"
+                type="email"
+                required
+                value={searchEmail}
+                onChange={(e) => setSearchEmail(e.target.value)}
+                placeholder="usuario@ejemplo.com"
+                className="k-rounded-md k-border k-border-border k-bg-background k-px-3 k-py-2 k-text-sm"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={searching || !searchEmail.trim()}
+              className="k-rounded-md k-bg-primary k-px-4 k-py-2 k-text-sm k-font-medium k-text-primary-foreground disabled:k-opacity-60"
+            >
+              {searching ? "Buscando..." : "Buscar"}
+            </button>
+          </form>
+          {searchError && <p className="k-mt-2 k-text-sm k-text-destructive">{searchError}</p>}
+        </Card>
+      )}
+
       <Card className="k-p-0">
         <div className="k-overflow-x-auto">
         <table className="k-w-full k-text-sm">
@@ -214,7 +301,12 @@ export default function UsersPage() {
               return (
                 <Fragment key={member.membershipId}>
                   <tr className="k-border-b k-border-border last:k-border-0">
-                    <td className="k-px-5 k-py-3 k-font-medium">{member.email}</td>
+                    <td className="k-px-5 k-py-3 k-font-medium">
+                      <div className="k-flex k-items-center k-gap-2">
+                        {member.email}
+                        {platformAdminIds.has(member.userId) && <Badge variant="primary">Platform admin</Badge>}
+                      </div>
+                    </td>
                     <td className="k-px-5 k-py-3">
                       <div className="k-flex k-flex-wrap k-gap-1">
                         {orgWideRoles.length === 0 && appRoleByApp.size === 0 && (
