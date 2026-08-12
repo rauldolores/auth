@@ -1,5 +1,25 @@
 # create-kontrolia-auth
 
+## 2.4.3
+
+### Patch Changes
+
+- 7080d4e: `migrate` and `update` now ask for confirmation before applying migrations to a connection string that doesn't look like a local database, so a pasted-in-error production connection string doesn't get migrated silently.
+- 8a05162: The install/deploy wizard now opens the auth-server and admin-panel URLs in the browser once setup finishes, instead of only printing them.
+- Updated dependencies [51ff10f]
+- Updated dependencies [1549077]
+- Updated dependencies [585b646]
+- Updated dependencies [ee1db05]
+- Updated dependencies [4579870]
+- Updated dependencies [717bf03]
+- Updated dependencies [b45ab5d]
+- Updated dependencies [f44d3eb]
+- Updated dependencies [d1bf2cb]
+- Updated dependencies [2326859]
+- Updated dependencies [ee1db05]
+- Updated dependencies [0e615d9]
+  - @kontrolia/db@2.1.1
+
 ## 2.4.2
 
 ### Patch Changes
