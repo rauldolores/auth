@@ -602,8 +602,8 @@ export default function UserDetailPage() {
       {/* --- CARD: APPLICATION ROLES --- */}
       {appGroups.length > 0 && (
         <Card className="k-p-5 k-flex k-flex-col k-gap-4">
-          <div className="k-flex k-items-center k-gap-2 k-text-sm k-font-semibold k-border-b k-border-border/60 k-pb-3">
-            <AppIcon className="k-text-amber-600" />
+          <div className="k-flex k-items-center k-gap-2 k-text-sm k-font-semibold k-border-b k-border-border/60 k-pb-3">        
+            <AppIcon className="k-w-4 k-h-4 k-text-primary" />
             <span>Matriz de Accesos por Aplicación</span>
           </div>
 
