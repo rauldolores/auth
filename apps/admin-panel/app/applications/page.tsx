@@ -45,6 +45,180 @@ async function generateAndHashApiKey(): Promise<{ plaintext: string; hashHex: st
   return { plaintext, hashHex };
 }
 
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2 && parts[0] && parts[1]) {
+    const first = parts[0][0] ?? "";
+    const second = parts[1][0] ?? "";
+    return (first + second).toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase();
+}
+
+const GRADIENTS = [
+  "k-bg-gradient-to-br k-from-indigo-600 k-to-violet-700 k-text-white",
+  "k-bg-gradient-to-br k-from-blue-600 k-to-cyan-600 k-text-white",
+  "k-bg-gradient-to-br k-from-emerald-600 k-to-teal-700 k-text-white",
+  "k-bg-gradient-to-br k-from-purple-600 k-to-pink-600 k-text-white",
+  "k-bg-gradient-to-br k-from-amber-500 k-to-orange-600 k-text-white",
+  "k-bg-gradient-to-br k-from-rose-600 k-to-red-700 k-text-white",
+];
+
+function getAvatarGradient(id: string): string {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = id.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % GRADIENTS.length;
+  return GRADIENTS[index] ?? "k-bg-gradient-to-br k-from-indigo-600 k-to-violet-700 k-text-white";
+}
+
+// --- Inline SVG Icons ---
+function AppIcon({ className = "k-w-5 k-h-5" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+    </svg>
+  );
+}
+
+function CheckCircleIcon({ className = "k-w-5 k-h-5" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  );
+}
+
+function PlusCircleIcon({ className = "k-w-5 k-h-5" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  );
+}
+
+function KeyIcon({ className = "k-w-4 k-h-4" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+    </svg>
+  );
+}
+
+function ShieldCheckIcon({ className = "k-w-4 k-h-4" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+    </svg>
+  );
+}
+
+function ExternalLinkIcon({ className = "k-w-3.5 k-h-3.5" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+    </svg>
+  );
+}
+
+function SearchIcon({ className = "k-w-4 k-h-4" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+    </svg>
+  );
+}
+
+function CopyIcon({ className = "k-w-3.5 k-h-3.5" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+    </svg>
+  );
+}
+
+function CheckIcon({ className = "k-w-3.5 k-h-3.5" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+    </svg>
+  );
+}
+
+function EditIcon({ className = "k-w-3.5 k-h-3.5" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+    </svg>
+  );
+}
+
+function RefreshIcon({ className = "k-w-3.5 k-h-3.5" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+    </svg>
+  );
+}
+
+function XIcon({ className = "k-w-4 k-h-4" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+    </svg>
+  );
+}
+
+function AlertTriangleIcon({ className = "k-w-5 k-h-5" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+    </svg>
+  );
+}
+
+function InfoIcon({ className = "k-w-4 k-h-4" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  );
+}
+
+function LayoutGridIcon({ className = "k-w-4 k-h-4" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+    </svg>
+  );
+}
+
+function ListIcon({ className = "k-w-4 k-h-4" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+    </svg>
+  );
+}
+
+function LockIcon({ className = "k-w-4 k-h-4" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+    </svg>
+  );
+}
+
+function SpinnerIcon({ className = "k-w-4 k-h-4" }: { className?: string }) {
+  return (
+    <svg className={`k-animate-spin ${className}`} fill="none" viewBox="0 0 24 24">
+      <circle className="k-opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path className="k-opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+    </svg>
+  );
+}
+
 export default function ApplicationsPage() {
   const { organization, hasRole, isPlatformAdmin, getToken } = useAuth();
   const [enabled, setEnabled] = useState<ApplicationRow[] | null>(null);
@@ -68,6 +242,12 @@ export default function ApplicationsPage() {
   const [oauthRedirectUris, setOauthRedirectUris] = useState("");
   const [oauthError, setOauthError] = useState<string | null>(null);
   const [oauthSaving, setOauthSaving] = useState(false);
+
+  // Filters & UI view state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterTab, setFilterRoleTab] = useState<"enabled" | "available" | "all">("enabled");
+  const [viewMode, setViewMode] = useState<"grid" | "table">("table");
+  const [showInfoBanner, setShowInfoBanner] = useState(true);
 
   useEffect(() => {
     void (async () => {
@@ -316,32 +496,105 @@ export default function ApplicationsPage() {
   }
 
   if (!organization) {
-    return <p className="k-text-sm k-text-muted-foreground">Selecciona una organización primero.</p>;
+    return (
+      <Card className="k-p-12 k-text-center k-flex k-flex-col k-items-center k-justify-center k-my-8">
+        <div className="k-w-16 k-h-16 k-rounded-2xl k-bg-primary/10 k-flex k-items-center k-justify-center k-text-primary k-mb-4">
+          <AppIcon className="k-w-8 k-h-8" />
+        </div>
+        <h3 className="k-text-lg k-font-semibold">Selecciona una Organización</h3>
+        <p className="k-text-sm k-text-muted-foreground k-mt-1 k-max-w-md">
+          Para ver y administrar las aplicaciones disponibles y sus permisos, selecciona una organización en el menú superior.
+        </p>
+      </Card>
+    );
   }
 
+  // Filter application lists
+  const filterList = (list: ApplicationRow[] | null) => {
+    if (!list) return null;
+    const query = searchQuery.toLowerCase().trim();
+    if (!query) return list;
+    return list.filter((app) => app.name.toLowerCase().includes(query) || app.slug.toLowerCase().includes(query));
+  };
+
+  const filteredEnabled = filterList(enabled);
+  const filteredAvailable = filterList(available);
+
+  const enabledCount = enabled?.length ?? 0;
+  const availableCount = available?.length ?? 0;
+  const totalCount = enabledCount + availableCount;
+
   return (
-    <div className="k-flex k-flex-col k-gap-5">
-      <div>
-        <h1 className="k-text-2xl k-font-bold">Aplicaciones</h1>
-        <p className="k-mt-1 k-text-sm k-text-muted-foreground">
-          Aplicaciones habilitadas para {organization.name} y el catálogo de permisos que cada una declara. Cada
-          aplicación mantiene su propio catálogo sincronizado desde su pipeline de despliegue (ver la guía
-          "Registro de aplicaciones" en la documentación) — lo que se ve aquí se actualiza solo, sin que nadie lo
-          edite a mano. Solo las aplicaciones habilitadas aquí aparecen en Permisos y se pueden asignar a un rol.
-          Si necesitas que otra app use el login de auth-server (SSO), registra su cliente OAuth desde la fila de
-          esa aplicación abajo (solo platform admins).
-        </p>
+    <div className="k-flex k-flex-col k-gap-6 k-pb-12">
+      {/* --- HERO BANNER --- */}
+      <div className="k-relative k-overflow-hidden k-rounded-2xl k-bg-[linear-gradient(135deg,#1b1030,#2b1a52_45%,#4c2a8c)] k-p-6 sm:k-p-8 k-shadow-md k-text-white">
+        <div className="k-relative k-z-10 k-flex k-flex-col md:k-flex-row md:k-items-center md:k-justify-between k-gap-4">
+          <div>
+            <span className="k-inline-flex k-items-center k-gap-2 k-rounded-full k-bg-white/10 k-px-3.5 k-py-1 k-text-xs k-font-semibold k-text-white/80 k-backdrop-blur-sm">
+              <AppIcon className="k-w-3.5 k-h-3.5" />
+              <span>Catálogo y Servicios SSO</span>
+            </span>
+            <h1 className="k-mt-3 k-text-3xl sm:k-text-4xl k-font-extrabold k-tracking-tight k-text-white">
+              Aplicaciones
+            </h1>
+            <p className="k-mt-1.5 k-text-sm sm:k-text-base k-text-white/70 k-max-w-2xl">
+              Gestión de aplicaciones habilitadas y permisos para{" "}
+              <strong className="k-text-white k-font-semibold">{organization.name}</strong>.
+            </p>
+          </div>
+        </div>
+        <div className="k-absolute -k-right-10 -k-top-10 k-w-64 k-h-64 k-rounded-full k-bg-white/5 k-blur-2xl k-pointer-events-none" />
       </div>
 
-      {error && <p className="k-text-sm k-text-destructive">{error}</p>}
-
-      {newApiKey && (
-        <Card className="k-flex k-items-center k-justify-between k-gap-3 k-border-primary/40 k-bg-primary/5 k-p-4">
-          <div className="k-min-w-0">
-            <p className="k-text-sm k-font-medium">
-              Nueva clave de sincronización — cópiala ahora, no se puede volver a mostrar
+      {/* --- INFO EXPLANATION BANNER --- */}
+      {showInfoBanner && (
+        <div className="k-relative k-rounded-xl k-border k-border-primary/20 k-bg-primary/5 k-p-4 k-text-sm k-flex k-items-start k-gap-3.5">
+          <InfoIcon className="k-w-5 k-h-5 k-text-primary k-shrink-0 k-mt-0.5" />
+          <div className="k-flex-1 k-pr-6">
+            <p className="k-font-semibold k-text-foreground">Sincronización Automática de Permisos</p>
+            <p className="k-text-xs k-text-muted-foreground k-mt-1 k-leading-relaxed">
+              Cada aplicación mantiene su propio catálogo sincronizado automáticamente desde su pipeline de despliegue (CI/CD).
+              Solo las aplicaciones habilitadas aquí aparecen en la sección de Permisos para su asignación a roles. Si deseas habilitar SSO de Auth-Server, configura su cliente OAuth.
             </p>
-            <p className="k-truncate k-font-mono k-text-sm k-text-muted-foreground">{newApiKey.plaintext}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowInfoBanner(false)}
+            className="k-absolute k-top-3.5 k-right-3.5 k-text-muted-foreground hover:k-text-foreground"
+          >
+            <XIcon className="k-w-4 k-h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* --- ERROR NOTICE --- */}
+      {error && (
+        <div className="k-flex k-items-start k-gap-3 k-rounded-xl k-border k-border-destructive/30 k-bg-destructive/10 k-p-4 k-text-sm k-text-destructive">
+          <AlertTriangleIcon className="k-w-5 k-h-5 k-shrink-0 k-mt-0.5" />
+          <div className="k-flex-1">
+            <p className="k-font-semibold">Error</p>
+            <p className="k-mt-0.5">{error}</p>
+          </div>
+          <button type="button" onClick={() => setError(null)} className="k-text-destructive hover:k-opacity-70">
+            <XIcon />
+          </button>
+        </div>
+      )}
+
+      {/* --- NEW API KEY BANNER --- */}
+      {newApiKey && (
+        <Card className="k-flex k-flex-col sm:k-flex-row sm:k-items-center sm:k-justify-between k-gap-4 k-border-emerald-500/40 k-bg-emerald-500/10 k-p-4">
+          <div className="k-min-w-0 k-flex-1">
+            <div className="k-flex k-items-center k-gap-2 k-text-emerald-700 dark:k-text-emerald-300 k-font-semibold k-text-sm">
+              <KeyIcon className="k-w-4 k-h-4" />
+              <span>Nueva clave de sincronización generada</span>
+            </div>
+            <p className="k-text-xs k-text-muted-foreground k-mt-0.5">
+              Cópiala ahora. Por seguridad no se guardará en texto plano y no podrá mostrarse nuevamente.
+            </p>
+            <div className="k-mt-2 k-rounded-lg k-bg-background/80 k-border k-border-emerald-500/30 k-px-3 k-py-2 k-font-mono k-text-xs k-text-foreground k-truncate select-all">
+              {newApiKey.plaintext}
+            </div>
           </div>
           <button
             type="button"
@@ -350,264 +603,308 @@ export default function ApplicationsPage() {
               setCopied(true);
               setTimeout(() => setCopied(false), 2000);
             }}
-            className="k-shrink-0 k-rounded-md k-border k-border-border k-px-3 k-py-1.5 k-text-sm hover:k-bg-muted"
+            className="k-shrink-0 k-inline-flex k-items-center k-justify-center k-gap-2 k-rounded-lg k-bg-emerald-600 k-px-4 k-py-2 k-text-sm k-font-medium k-text-white hover:k-bg-emerald-700 k-transition-all"
           >
-            {copied ? "¡Copiado!" : "Copiar"}
+            {copied ? (
+              <>
+                <CheckIcon />
+                <span>¡Copiada!</span>
+              </>
+            ) : (
+              <>
+                <CopyIcon />
+                <span>Copiar clave</span>
+              </>
+            )}
           </button>
         </Card>
       )}
 
-      <div>
-        <h2 className="k-mb-2 k-text-sm k-font-semibold">Habilitadas</h2>
-        <Card className="k-p-0">
-          <div className="k-overflow-x-auto">
-          <table className="k-w-full k-text-sm">
-            <thead>
-              <tr className="k-border-b k-border-border k-text-left k-text-xs k-uppercase k-tracking-wide k-text-muted-foreground">
-                <th className="k-px-5 k-py-3 k-font-semibold">Nombre</th>
-                <th className="k-px-5 k-py-3 k-font-semibold">Slug</th>
-                <th className="k-px-5 k-py-3 k-font-semibold">Entorno</th>
-                <th className="k-px-5 k-py-3 k-font-semibold">Permisos</th>
-                <th className="k-px-5 k-py-3 k-font-semibold">
-                  URL
-                  <span className="k-block k-text-[10.5px] k-font-normal k-normal-case k-text-muted-foreground">
-                    dónde acceden los usuarios a esta app
-                  </span>
-                </th>
-                <th className="k-px-5 k-py-3 k-font-semibold">
-                  Clave de sincronización
-                  <span className="k-block k-text-[10.5px] k-font-normal k-normal-case k-text-muted-foreground">
-                    usada por su pipeline de despliegue para actualizar su catálogo de permisos
-                  </span>
-                </th>
-                {platformAdmin && (
-                  <th className="k-px-5 k-py-3 k-font-semibold">
-                    Cliente OAuth
-                    <span className="k-block k-text-[10.5px] k-font-normal k-normal-case k-text-muted-foreground">
-                      para que esta app use el login de auth-server
-                    </span>
-                  </th>
-                )}
-                {canManage && <th className="k-px-5 k-py-3 k-font-semibold" />}
-              </tr>
-            </thead>
-            <tbody>
-              {enabled?.map((app) => (
-                <tr key={app.id} className="k-border-b k-border-border last:k-border-0">
-                  <td className="k-px-5 k-py-3 k-font-medium">{app.name}</td>
-                  <td className="k-px-5 k-py-3 k-text-muted-foreground">{app.slug}</td>
-                  <td className="k-px-5 k-py-3">
-                    <Badge variant={app.environment === "production" ? "success" : "neutral"}>{app.environment}</Badge>
-                  </td>
-                  <td className="k-px-5 k-py-3 k-text-muted-foreground">{app.permissionCount}</td>
-                  <td className="k-px-5 k-py-3">
-                    {editingUrlId === app.id ? (
-                      <div className="k-flex k-items-center k-gap-2">
-                        <input
-                          type="url"
-                          autoFocus
-                          placeholder="https://..."
-                          value={urlDraft}
-                          onChange={(e) => setUrlDraft(e.target.value)}
-                          className="k-w-48 k-rounded-md k-border k-border-border k-bg-background k-px-2 k-py-1 k-text-sm"
-                        />
-                        <button
-                          type="button"
-                          disabled={pendingId === app.id}
-                          onClick={() => void handleSaveUrl(app.id)}
-                          className="k-text-sm k-font-medium k-text-primary hover:k-underline disabled:k-opacity-60"
-                        >
-                          Guardar
-                        </button>
-                        <button type="button" onClick={() => setEditingUrlId(null)} className="k-text-sm k-text-muted-foreground">
-                          Cancelar
-                        </button>
-                      </div>
-                    ) : app.homepage_url ? (
-                      <a href={app.homepage_url} target="_blank" rel="noreferrer" className="k-text-sm k-text-primary hover:k-underline">
-                        {app.homepage_url}
-                      </a>
-                    ) : app.owner_organization_id === organization.id ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingUrlId(app.id);
-                          setUrlDraft("");
-                        }}
-                        className="k-text-sm k-text-muted-foreground hover:k-underline"
-                      >
-                        Configurar URL
-                      </button>
-                    ) : (
-                      <span className="k-text-sm k-text-muted-foreground">—</span>
-                    )}
-                    {app.owner_organization_id === organization.id && app.homepage_url && editingUrlId !== app.id && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingUrlId(app.id);
-                          setUrlDraft(app.homepage_url ?? "");
-                        }}
-                        className="k-ml-2 k-text-sm k-text-muted-foreground hover:k-underline"
-                      >
-                        Editar
-                      </button>
-                    )}
-                  </td>
-                  <td className="k-px-5 k-py-3">
-                    {app.owner_organization_id === organization.id ? (
-                      <div className="k-flex k-flex-col k-gap-1">
-                        <span className="k-text-xs k-text-muted-foreground">
-                          {app.api_key_last_used_at
-                            ? `Última sincronización: ${new Date(app.api_key_last_used_at).toLocaleDateString()}`
-                            : "Nunca sincronizada"}
-                        </span>
-                        {canManage && (
-                          <div className="k-flex k-gap-3">
-                            <button
-                              type="button"
-                              disabled={pendingId === app.id}
-                              onClick={() => setConfirmAction({ kind: "rotate", app })}
-                              className="k-text-sm k-text-muted-foreground hover:k-underline disabled:k-opacity-60"
-                            >
-                              Rotar
-                            </button>
-                            <button
-                              type="button"
-                              disabled={pendingId === app.id}
-                              onClick={() => setConfirmAction({ kind: "revoke", app })}
-                              className="k-text-sm k-text-destructive hover:k-underline disabled:k-opacity-60"
-                            >
-                              Revocar
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    ) : app.owner_organization_id === null && platformAdmin ? (
-                      <div className="k-flex k-flex-col k-gap-1">
-                        <span className="k-text-xs k-text-muted-foreground">
-                          Sin dueño — nadie puede rotar su clave ni registrar su cliente OAuth todavía
-                        </span>
-                        <button
-                          type="button"
-                          disabled={pendingId === app.id}
-                          onClick={() => setConfirmAction({ kind: "claim", app })}
-                          className="k-self-start k-text-sm k-font-medium k-text-primary hover:k-underline disabled:k-opacity-60"
-                        >
-                          Reclamar propiedad
-                        </button>
-                      </div>
-                    ) : app.owner_organization_id === null ? (
-                      <span className="k-text-sm k-text-muted-foreground">Sin propietario</span>
-                    ) : (
-                      <span className="k-text-sm k-text-muted-foreground">—</span>
-                    )}
-                  </td>
-                  {platformAdmin && (
-                    <td className="k-px-5 k-py-3">
-                      {app.owner_organization_id !== organization.id ? (
-                        <span className="k-text-sm k-text-muted-foreground">—</span>
-                      ) : app.oauth_client_id ? (
-                        <div className="k-flex k-flex-col k-gap-1">
-                          <code className="k-text-xs k-text-muted-foreground">{app.oauth_client_id}</code>
-                          <button
-                            type="button"
-                            onClick={() => openOauthDialog(app)}
-                            className="k-self-start k-text-sm k-text-muted-foreground hover:k-underline"
-                          >
-                            Editar
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => openOauthDialog(app)}
-                          className="k-text-sm k-font-medium k-text-primary hover:k-underline"
-                        >
-                          Crear cliente OAuth
-                        </button>
-                      )}
-                    </td>
-                  )}
-                  {canManage && (
-                    <td className="k-px-5 k-py-3 k-text-right">
-                      <button
-                        type="button"
-                        disabled={pendingId === app.id}
-                        onClick={() => setConfirmAction({ kind: "disable", app })}
-                        className="k-text-sm k-text-destructive hover:k-underline disabled:k-opacity-60"
-                      >
-                        Deshabilitar
-                      </button>
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* --- METRICS STATS BAR --- */}
+      <div className="k-grid k-grid-cols-1 sm:k-grid-cols-3 k-gap-4">
+        <Card className="k-p-4 k-flex k-items-center k-gap-4">
+          <div className="k-flex k-h-12 k-w-12 k-items-center k-justify-center k-rounded-xl k-bg-primary/10 k-text-primary">
+            <AppIcon className="k-w-6 k-h-6" />
           </div>
-          {enabled?.length === 0 && (
-            <p className="k-px-5 k-py-6 k-text-sm k-text-muted-foreground">Sin aplicaciones habilitadas para esta organización.</p>
-          )}
+          <div>
+            <p className="k-text-2xl k-font-bold">{enabled === null ? "—" : totalCount}</p>
+            <p className="k-text-xs k-font-medium k-text-muted-foreground">Catálogo Total</p>
+          </div>
+        </Card>
+
+        <Card className="k-p-4 k-flex k-items-center k-gap-4">
+          <div className="k-flex k-h-12 k-w-12 k-items-center k-justify-center k-rounded-xl k-bg-emerald-500/10 k-text-emerald-600 dark:k-text-emerald-400">
+            <CheckCircleIcon className="k-w-6 k-h-6" />
+          </div>
+          <div>
+            <p className="k-text-2xl k-font-bold">{enabled === null ? "—" : enabledCount}</p>
+            <p className="k-text-xs k-font-medium k-text-muted-foreground">Habilitadas en Org</p>
+          </div>
+        </Card>
+
+        <Card className="k-p-4 k-flex k-items-center k-gap-4">
+          <div className="k-flex k-h-12 k-w-12 k-items-center k-justify-center k-rounded-xl k-bg-amber-500/10 k-text-amber-600 dark:k-text-amber-400">
+            <PlusCircleIcon className="k-w-6 k-h-6" />
+          </div>
+          <div>
+            <p className="k-text-2xl k-font-bold">{available === null ? "—" : availableCount}</p>
+            <p className="k-text-xs k-font-medium k-text-muted-foreground">Disponibles</p>
+          </div>
         </Card>
       </div>
 
-      {canManage && (available?.length ?? 0) > 0 && (
-        <div>
-          <h2 className="k-mb-2 k-text-sm k-font-semibold">Disponibles para habilitar</h2>
-          <Card className="k-p-0">
-            <div className="k-overflow-x-auto">
-            <table className="k-w-full k-text-sm">
-              <thead>
-                <tr className="k-border-b k-border-border k-text-left k-text-xs k-uppercase k-tracking-wide k-text-muted-foreground">
-                  <th className="k-px-5 k-py-3 k-font-semibold">Nombre</th>
-                  <th className="k-px-5 k-py-3 k-font-semibold">Slug</th>
-                  <th className="k-px-5 k-py-3 k-font-semibold">Entorno</th>
-                  <th className="k-px-5 k-py-3 k-font-semibold">Permisos</th>
-                  <th className="k-px-5 k-py-3 k-font-semibold" />
-                </tr>
-              </thead>
-              <tbody>
-                {available?.map((app) => (
-                  <tr key={app.id} className="k-border-b k-border-border last:k-border-0">
-                    <td className="k-px-5 k-py-3 k-font-medium">{app.name}</td>
-                    <td className="k-px-5 k-py-3 k-text-muted-foreground">{app.slug}</td>
-                    <td className="k-px-5 k-py-3">
-                      <Badge variant={app.environment === "production" ? "success" : "neutral"}>{app.environment}</Badge>
-                    </td>
-                    <td className="k-px-5 k-py-3 k-text-muted-foreground">{app.permissionCount}</td>
-                    <td className="k-px-5 k-py-3 k-text-right">
-                      <button
-                        type="button"
-                        disabled={pendingId === app.id}
-                        onClick={() => void handleEnable(app.id)}
-                        className="k-text-sm k-font-medium k-text-primary hover:k-underline disabled:k-opacity-60"
-                      >
-                        Habilitar
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {/* --- CONTROL TOOLBAR (Search & View toggles) --- */}
+      <div className="k-flex k-flex-col sm:k-flex-row sm:k-items-center sm:k-justify-between k-gap-3 k-bg-card k-p-3 k-rounded-xl k-border k-border-border">
+        {/* Search Input */}
+        <div className="k-relative k-flex-1">
+          <SearchIcon className="k-absolute k-left-3 k-top-1/2 -k-translate-y-1/2 k-text-muted-foreground k-w-4 k-h-4" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Buscar aplicación por nombre o slug..."
+            className="k-w-full k-rounded-lg k-border k-border-border k-bg-background k-pl-9 k-pr-8 k-py-2 k-text-sm focus:k-outline-none focus:k-ring-2 focus:k-ring-primary/20 focus:k-border-primary k-transition-all"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery("")}
+              className="k-absolute k-right-2.5 k-top-1/2 -k-translate-y-1/2 k-text-muted-foreground hover:k-text-foreground"
+            >
+              <XIcon className="k-w-3.5 k-h-3.5" />
+            </button>
+          )}
+        </div>
+
+        <div className="k-flex k-items-center k-gap-2">
+          {/* Status Tabs */}
+          <div className="k-inline-flex k-items-center k-rounded-lg k-bg-muted k-p-1 k-text-xs k-font-medium">
+            <button
+              type="button"
+              onClick={() => setFilterRoleTab("enabled")}
+              className={`k-px-3 k-py-1.5 k-rounded-md k-transition-all ${
+                filterTab === "enabled"
+                  ? "k-bg-background k-text-foreground k-shadow-sm k-font-semibold"
+                  : "k-text-muted-foreground hover:k-text-foreground"
+              }`}
+            >
+              Habilitadas ({enabledCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterRoleTab("available")}
+              className={`k-px-3 k-py-1.5 k-rounded-md k-transition-all ${
+                filterTab === "available"
+                  ? "k-bg-background k-text-foreground k-shadow-sm k-font-semibold"
+                  : "k-text-muted-foreground hover:k-text-foreground"
+              }`}
+            >
+              Disponibles ({availableCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterRoleTab("all")}
+              className={`k-px-3 k-py-1.5 k-rounded-md k-transition-all ${
+                filterTab === "all"
+                  ? "k-bg-background k-text-foreground k-shadow-sm k-font-semibold"
+                  : "k-text-muted-foreground hover:k-text-foreground"
+              }`}
+            >
+              Todas ({totalCount})
+            </button>
+          </div>
+
+          {/* Grid/Table Switcher */}
+          <div className="k-inline-flex k-items-center k-rounded-lg k-bg-muted k-p-1">
+            <button
+              type="button"
+              onClick={() => setViewMode("grid")}
+              title="Vista de cuadrícula"
+              className={`k-p-1.5 k-rounded-md k-transition-all ${
+                viewMode === "grid" ? "k-bg-background k-text-foreground k-shadow-sm" : "k-text-muted-foreground hover:k-text-foreground"
+              }`}
+            >
+              <LayoutGridIcon />
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("table")}
+              title="Vista de lista"
+              className={`k-p-1.5 k-rounded-md k-transition-all ${
+                viewMode === "table" ? "k-bg-background k-text-foreground k-shadow-sm" : "k-text-muted-foreground hover:k-text-foreground"
+              }`}
+            >
+              <ListIcon />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* --- CONTENT AREA --- */}
+      {enabled === null ? (
+        /* LOADING SKELETON */
+        <div className="k-grid k-grid-cols-1 md:k-grid-cols-2 k-gap-5">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i} className="k-p-5 k-flex k-flex-col k-gap-4 k-animate-pulse">
+              <div className="k-flex k-items-center k-gap-3">
+                <div className="k-w-10 k-h-10 k-rounded-xl k-bg-muted" />
+                <div className="k-flex-1 k-flex k-flex-col k-gap-1.5">
+                  <div className="k-h-4 k-w-1/2 k-bg-muted k-rounded" />
+                  <div className="k-h-3 k-w-1/4 k-bg-muted k-rounded" />
+                </div>
+              </div>
+              <div className="k-h-16 k-w-full k-bg-muted/60 k-rounded-md" />
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <div className="k-flex k-flex-col k-gap-8">
+          {/* SECTION: HABILITADAS */}
+          {(filterTab === "enabled" || filterTab === "all") && (
+            <div>
+              <div className="k-flex k-items-center k-justify-between k-mb-3">
+                <h2 className="k-text-base k-font-semibold k-flex k-items-center k-gap-2">
+                  <CheckCircleIcon className="k-w-4 k-h-4 k-text-emerald-600" />
+                  <span>Aplicaciones Habilitadas ({filteredEnabled?.length ?? 0})</span>
+                </h2>
+              </div>
+
+              {!filteredEnabled || filteredEnabled.length === 0 ? (
+                <Card className="k-p-8 k-text-center k-flex k-flex-col k-items-center k-justify-center">
+                  <p className="k-text-sm k-text-muted-foreground">
+                    {searchQuery ? "No se encontraron aplicaciones habilitadas con ese filtro." : "Sin aplicaciones habilitadas para esta organización."}
+                  </p>
+                </Card>
+              ) : viewMode === "grid" ? (
+                /* GRID VIEW - HABILITADAS */
+                <div className="k-grid k-grid-cols-1 lg:k-grid-cols-2 k-gap-5">
+                  {filteredEnabled.map((app) => (
+                    <AppCardItem
+                      key={app.id}
+                      app={app}
+                      organizationId={organization.id}
+                      canManage={canManage}
+                      platformAdmin={platformAdmin}
+                      pendingId={pendingId}
+                      editingUrlId={editingUrlId}
+                      urlDraft={urlDraft}
+                      setUrlDraft={setUrlDraft}
+                      setEditingUrlId={setEditingUrlId}
+                      handleSaveUrl={handleSaveUrl}
+                      setConfirmAction={setConfirmAction}
+                      openOauthDialog={openOauthDialog}
+                      isEnabled={true}
+                      handleEnable={handleEnable}
+                    />
+                  ))}
+                </div>
+              ) : (
+                /* TABLE VIEW - HABILITADAS */
+                <AppTableView
+                  apps={filteredEnabled}
+                  organizationId={organization.id}
+                  canManage={canManage}
+                  platformAdmin={platformAdmin}
+                  pendingId={pendingId}
+                  editingUrlId={editingUrlId}
+                  urlDraft={urlDraft}
+                  setUrlDraft={setUrlDraft}
+                  setEditingUrlId={setEditingUrlId}
+                  handleSaveUrl={handleSaveUrl}
+                  setConfirmAction={setConfirmAction}
+                  openOauthDialog={openOauthDialog}
+                  isEnabled={true}
+                  handleEnable={handleEnable}
+                />
+              )}
             </div>
-          </Card>
+          )}
+
+          {/* SECTION: DISPONIBLES */}
+          {(filterTab === "available" || filterTab === "all") && (
+            <div>
+              <div className="k-flex k-items-center k-justify-between k-mb-3">
+                <h2 className="k-text-base k-font-semibold k-flex k-items-center k-gap-2">
+                  <PlusCircleIcon className="k-w-4 k-h-4 k-text-amber-600" />
+                  <span>Disponibles para Habilitar ({filteredAvailable?.length ?? 0})</span>
+                </h2>
+              </div>
+
+              {!filteredAvailable || filteredAvailable.length === 0 ? (
+                <Card className="k-p-8 k-text-center k-flex k-flex-col k-items-center k-justify-center">
+                  <p className="k-text-sm k-text-muted-foreground">
+                    {searchQuery ? "No se encontraron aplicaciones disponibles con ese filtro." : "No hay más aplicaciones disponibles en el catálogo."}
+                  </p>
+                </Card>
+              ) : viewMode === "grid" ? (
+                /* GRID VIEW - DISPONIBLES */
+                <div className="k-grid k-grid-cols-1 lg:k-grid-cols-2 k-gap-5">
+                  {filteredAvailable.map((app) => (
+                    <AppCardItem
+                      key={app.id}
+                      app={app}
+                      organizationId={organization.id}
+                      canManage={canManage}
+                      platformAdmin={platformAdmin}
+                      pendingId={pendingId}
+                      editingUrlId={editingUrlId}
+                      urlDraft={urlDraft}
+                      setUrlDraft={setUrlDraft}
+                      setEditingUrlId={setEditingUrlId}
+                      handleSaveUrl={handleSaveUrl}
+                      setConfirmAction={setConfirmAction}
+                      openOauthDialog={openOauthDialog}
+                      isEnabled={false}
+                      handleEnable={handleEnable}
+                    />
+                  ))}
+                </div>
+              ) : (
+                /* TABLE VIEW - DISPONIBLES */
+                <AppTableView
+                  apps={filteredAvailable}
+                  organizationId={organization.id}
+                  canManage={canManage}
+                  platformAdmin={platformAdmin}
+                  pendingId={pendingId}
+                  editingUrlId={editingUrlId}
+                  urlDraft={urlDraft}
+                  setUrlDraft={setUrlDraft}
+                  setEditingUrlId={setEditingUrlId}
+                  handleSaveUrl={handleSaveUrl}
+                  setConfirmAction={setConfirmAction}
+                  openOauthDialog={openOauthDialog}
+                  isEnabled={false}
+                  handleEnable={handleEnable}
+                />
+              )}
+            </div>
+          )}
         </div>
       )}
 
+      {/* --- LOAD MORE --- */}
       {hasMore && (
-        <div className="k-text-center">
+        <div className="k-text-center k-pt-4">
           <button
             type="button"
             disabled={loadingMore}
             onClick={() => void handleLoadMore()}
-            className="k-text-sm k-text-muted-foreground hover:k-underline disabled:k-opacity-60"
+            className="k-inline-flex k-items-center k-gap-2 k-rounded-lg k-border k-border-border k-bg-background k-px-4 k-py-2 k-text-sm k-font-medium hover:k-bg-muted disabled:k-opacity-60 k-transition-all"
           >
-            {loadingMore ? "Cargando..." : "Cargar más"}
+            {loadingMore ? (
+              <>
+                <SpinnerIcon />
+                <span>Cargando...</span>
+              </>
+            ) : (
+              <span>Cargar más aplicaciones</span>
+            )}
           </button>
         </div>
       )}
 
+      {/* --- CONFIRM DIALOG --- */}
       <ConfirmDialog
         open={confirmAction !== null}
         onOpenChange={(open) => !open && setConfirmAction(null)}
@@ -651,17 +948,18 @@ export default function ApplicationsPage() {
         }}
       />
 
+      {/* --- OAUTH CLIENT DIALOG --- */}
       <Dialog
         open={oauthDialogApp !== null}
         onOpenChange={(open) => !open && setOauthDialogApp(null)}
         title={oauthDialogApp?.oauth_client_id ? "Editar cliente OAuth" : "Crear cliente OAuth"}
         description={
           oauthDialogApp
-            ? `Permite que "${oauthDialogApp.name}" use el login de auth-server (SSO) — no tiene relación con el catálogo de permisos ni con la clave de sincronización.`
+            ? `Permite que "${oauthDialogApp.name}" use el login centralizado de auth-server (SSO).`
             : undefined
         }
       >
-        <div className="k-flex k-flex-col k-gap-3">
+        <div className="k-flex k-flex-col k-gap-4 k-pt-1">
           <div className="k-flex k-flex-col k-gap-1.5">
             <label htmlFor="k-oauth-app-name" className="k-text-sm k-font-medium">
               Nombre de la aplicación
@@ -672,9 +970,10 @@ export default function ApplicationsPage() {
               required
               value={oauthName}
               onChange={(e) => setOauthName(e.target.value)}
-              className="k-rounded-md k-border k-border-border k-bg-background k-px-3 k-py-2 k-text-sm"
+              className="k-rounded-lg k-border k-border-border k-bg-background k-px-3.5 k-py-2.5 k-text-sm focus:k-outline-none focus:k-ring-2 focus:k-ring-primary/20 focus:k-border-primary"
             />
           </div>
+
           <div className="k-flex k-flex-col k-gap-1.5">
             <label htmlFor="k-oauth-app-redirects" className="k-text-sm k-font-medium">
               Redirect URIs (una por línea)
@@ -686,16 +985,25 @@ export default function ApplicationsPage() {
               value={oauthRedirectUris}
               onChange={(e) => setOauthRedirectUris(e.target.value)}
               placeholder="https://facturacion.tuempresa.com/oauth/callback"
-              className="k-rounded-md k-border k-border-border k-bg-background k-px-3 k-py-2 k-font-mono k-text-sm"
+              className="k-rounded-lg k-border k-border-border k-bg-background k-px-3.5 k-py-2.5 k-font-mono k-text-sm focus:k-outline-none focus:k-ring-2 focus:k-ring-primary/20 focus:k-border-primary"
             />
+            <p className="k-text-xs k-text-muted-foreground">
+              Direcciones URIs autorizadas para recibir tokens de autenticación OAuth 2.1 tras iniciar sesión.
+            </p>
           </div>
-          {oauthError && <p className="k-text-sm k-text-destructive">{oauthError}</p>}
-          <div className="k-flex k-justify-end k-gap-3">
+
+          {oauthError && (
+            <p className="k-text-sm k-text-destructive k-bg-destructive/10 k-border k-border-destructive/20 k-p-3 k-rounded-lg">
+              {oauthError}
+            </p>
+          )}
+
+          <div className="k-flex k-justify-end k-gap-3 k-pt-2">
             <button
               type="button"
               onClick={() => setOauthDialogApp(null)}
               disabled={oauthSaving}
-              className="k-rounded-md k-px-4 k-py-2 k-text-sm k-font-medium k-text-muted-foreground hover:k-bg-muted disabled:k-opacity-60"
+              className="k-rounded-lg k-px-4 k-py-2 k-text-sm k-font-medium k-text-muted-foreground hover:k-bg-muted disabled:k-opacity-60 k-transition-all"
             >
               Cancelar
             </button>
@@ -703,9 +1011,16 @@ export default function ApplicationsPage() {
               type="button"
               onClick={() => void handleSaveOauthClient()}
               disabled={oauthSaving || !oauthName.trim() || !oauthRedirectUris.trim()}
-              className="k-rounded-md k-bg-primary k-px-4 k-py-2 k-text-sm k-font-medium k-text-primary-foreground disabled:k-opacity-60"
+              className="k-inline-flex k-items-center k-gap-2 k-rounded-lg k-bg-primary k-px-4 k-py-2 k-text-sm k-font-medium k-text-primary-foreground disabled:k-opacity-60 hover:k-opacity-90 k-transition-all"
             >
-              {oauthSaving ? "Guardando..." : "Guardar"}
+              {oauthSaving ? (
+                <>
+                  <SpinnerIcon />
+                  <span>Guardando...</span>
+                </>
+              ) : (
+                <span>Guardar Cliente</span>
+              )}
             </button>
           </div>
         </div>
@@ -713,3 +1028,420 @@ export default function ApplicationsPage() {
     </div>
   );
 }
+
+{/* --- SUB-COMPONENT: SINGLE APP CARD ITEM --- */}
+function AppCardItem({
+  app,
+  organizationId,
+  canManage,
+  platformAdmin,
+  pendingId,
+  editingUrlId,
+  urlDraft,
+  setUrlDraft,
+  setEditingUrlId,
+  handleSaveUrl,
+  setConfirmAction,
+  openOauthDialog,
+  isEnabled,
+  handleEnable,
+}: {
+  app: ApplicationRow;
+  organizationId: string;
+  canManage: boolean;
+  platformAdmin: boolean;
+  pendingId: string | null;
+  editingUrlId: string | null;
+  urlDraft: string;
+  setUrlDraft: (v: string) => void;
+  setEditingUrlId: (id: string | null) => void;
+  handleSaveUrl: (id: string) => void;
+  setConfirmAction: (action: { kind: "disable" | "claim" | "rotate" | "revoke"; app: ApplicationRow } | null) => void;
+  openOauthDialog: (app: ApplicationRow) => void;
+  isEnabled: boolean;
+  handleEnable: (id: string) => void;
+}) {
+  const isOwnerOrg = app.owner_organization_id === organizationId;
+  const isUnowned = app.owner_organization_id === null;
+
+  return (
+    <Card className="k-p-5 k-flex k-flex-col k-justify-between k-gap-4 hover:k-border-primary/40 hover:k-shadow-md k-transition-all k-duration-200">
+      {/* Top Header */}
+      <div className="k-flex k-items-start k-justify-between k-gap-3">
+        <div className="k-flex k-items-center k-gap-3 k-min-w-0">
+          <div
+            className={`k-w-11 k-h-11 k-rounded-xl k-flex k-items-center k-justify-center k-font-bold k-text-sm k-shrink-0 k-shadow-sm ${getAvatarGradient(
+              app.id
+            )}`}
+          >
+            {getInitials(app.name)}
+          </div>
+          <div className="k-min-w-0">
+            <h3 className="k-font-semibold k-text-base k-truncate" title={app.name}>
+              {app.name}
+            </h3>
+            <div className="k-flex k-items-center k-gap-2 k-mt-0.5">
+              <code className="k-text-xs k-font-mono k-text-muted-foreground">{app.slug}</code>
+              <Badge variant={app.environment === "production" ? "success" : "neutral"}>
+                {app.environment}
+              </Badge>
+            </div>
+          </div>
+        </div>
+
+        {/* Permissions Count Badge */}
+        <div className="k-shrink-0">
+          <span className="k-inline-flex k-items-center k-gap-1 k-rounded-md k-bg-muted k-px-2.5 k-py-1 k-text-xs k-font-semibold k-text-muted-foreground">
+            <ShieldCheckIcon />
+            <span>{app.permissionCount} permisos</span>
+          </span>
+        </div>
+      </div>
+
+      {/* Details Section */}
+      <div className="k-flex k-flex-col k-gap-2.5 k-rounded-xl k-bg-muted/40 k-p-3.5 k-text-xs">
+        {/* Homepage URL */}
+        <div className="k-flex k-items-center k-justify-between k-gap-2">
+          <span className="k-text-muted-foreground k-font-medium">URL de acceso:</span>
+          {editingUrlId === app.id ? (
+            <div className="k-flex k-items-center k-gap-1.5">
+              <input
+                type="url"
+                autoFocus
+                placeholder="https://..."
+                value={urlDraft}
+                onChange={(e) => setUrlDraft(e.target.value)}
+                className="k-w-40 k-rounded k-border k-border-border k-bg-background k-px-2 k-py-0.5 k-text-xs"
+              />
+              <button
+                type="button"
+                disabled={pendingId === app.id}
+                onClick={() => void handleSaveUrl(app.id)}
+                className="k-font-medium k-text-primary hover:k-underline"
+              >
+                Guardar
+              </button>
+              <button type="button" onClick={() => setEditingUrlId(null)} className="k-text-muted-foreground">
+                <XIcon className="k-w-3.5 k-h-3.5" />
+              </button>
+            </div>
+          ) : app.homepage_url ? (
+            <div className="k-flex k-items-center k-gap-1.5 k-min-w-0">
+              <a
+                href={app.homepage_url}
+                target="_blank"
+                rel="noreferrer"
+                className="k-text-primary hover:k-underline k-truncate k-font-mono"
+              >
+                {app.homepage_url}
+              </a>
+              <ExternalLinkIcon className="k-text-primary k-shrink-0" />
+              {isOwnerOrg && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingUrlId(app.id);
+                    setUrlDraft(app.homepage_url ?? "");
+                  }}
+                  className="k-text-muted-foreground hover:k-text-foreground k-ml-1"
+                >
+                  <EditIcon />
+                </button>
+              )}
+            </div>
+          ) : isOwnerOrg ? (
+            <button
+              type="button"
+              onClick={() => {
+                setEditingUrlId(app.id);
+                setUrlDraft("");
+              }}
+              className="k-text-primary hover:k-underline k-font-medium"
+            >
+              + Configurar URL
+            </button>
+          ) : (
+            <span className="k-text-muted-foreground">—</span>
+          )}
+        </div>
+
+        {/* Ownership & Sync key status */}
+        <div className="k-flex k-items-center k-justify-between k-gap-2 k-border-t k-border-border/50 k-pt-2">
+          <span className="k-text-muted-foreground k-font-medium">Sincronización:</span>
+          {isOwnerOrg ? (
+            <div className="k-flex k-items-center k-gap-2">
+              <span className="k-text-muted-foreground">
+                {app.api_key_last_used_at
+                  ? `Última: ${new Date(app.api_key_last_used_at).toLocaleDateString()}`
+                  : "Nunca sincronizada"}
+              </span>
+              {canManage && (
+                <div className="k-flex k-items-center k-gap-1.5 k-ml-1">
+                  <button
+                    type="button"
+                    disabled={pendingId === app.id}
+                    onClick={() => setConfirmAction({ kind: "rotate", app })}
+                    className="k-inline-flex k-items-center k-gap-0.5 k-px-1.5 k-py-0.5 k-rounded k-bg-background k-border k-border-border k-font-medium hover:k-bg-muted"
+                    title="Rotar clave"
+                  >
+                    <RefreshIcon /> Rotar
+                  </button>
+                  <button
+                    type="button"
+                    disabled={pendingId === app.id}
+                    onClick={() => setConfirmAction({ kind: "revoke", app })}
+                    className="k-inline-flex k-items-center k-gap-0.5 k-px-1.5 k-py-0.5 k-rounded k-bg-destructive/10 k-text-destructive k-font-medium hover:k-bg-destructive/20"
+                    title="Revocar clave"
+                  >
+                    Revocar
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : isUnowned && platformAdmin ? (
+            <button
+              type="button"
+              disabled={pendingId === app.id}
+              onClick={() => setConfirmAction({ kind: "claim", app })}
+              className="k-text-primary k-font-semibold hover:k-underline"
+            >
+              Reclamar propiedad
+            </button>
+          ) : isUnowned ? (
+            <span className="k-text-muted-foreground">Sin propietario</span>
+          ) : (
+            <span className="k-text-muted-foreground">Controlada por otra org</span>
+          )}
+        </div>
+
+        {/* OAuth Client Status (Platform Admins) */}
+        {platformAdmin && isOwnerOrg && (
+          <div className="k-flex k-items-center k-justify-between k-gap-2 k-border-t k-border-border/50 k-pt-2">
+            <span className="k-text-muted-foreground k-font-medium">Cliente OAuth (SSO):</span>
+            {app.oauth_client_id ? (
+              <div className="k-flex k-items-center k-gap-2">
+                <code className="k-font-mono k-text-[11px] k-text-muted-foreground">{app.oauth_client_id}</code>
+                <button
+                  type="button"
+                  onClick={() => openOauthDialog(app)}
+                  className="k-text-primary hover:k-underline k-font-medium"
+                >
+                  Editar
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => openOauthDialog(app)}
+                className="k-text-primary hover:k-underline k-font-semibold"
+              >
+                + Crear Cliente OAuth
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Card Footer Actions */}
+      <div className="k-flex k-items-center k-justify-between k-pt-2 k-border-t k-border-border/60">
+        <div>
+          {isEnabled ? (
+            <span className="k-inline-flex k-items-center k-gap-1.5 k-text-xs k-font-medium k-text-emerald-600 dark:k-text-emerald-400">
+              <CheckIcon /> Habilitada para {app.owner_organization_id === organizationId ? "tu org" : "esta org"}
+            </span>
+          ) : (
+            <span className="k-inline-flex k-items-center k-gap-1.5 k-text-xs k-text-muted-foreground">
+              <LockIcon /> No habilitada
+            </span>
+          )}
+        </div>
+
+        {canManage && (
+          <div>
+            {isEnabled ? (
+              <button
+                type="button"
+                disabled={pendingId === app.id}
+                onClick={() => setConfirmAction({ kind: "disable", app })}
+                className="k-inline-flex k-items-center k-gap-1 k-px-3 k-py-1.5 k-rounded-lg k-text-xs k-font-medium k-text-destructive hover:k-bg-destructive/10 k-transition-all disabled:k-opacity-50"
+              >
+                {pendingId === app.id ? <SpinnerIcon /> : null}
+                <span>Deshabilitar</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled={pendingId === app.id}
+                onClick={() => void handleEnable(app.id)}
+                className="k-inline-flex k-items-center k-gap-1.5 k-px-3.5 k-py-1.5 k-rounded-lg k-bg-primary k-text-xs k-font-medium k-text-primary-foreground hover:k-opacity-90 k-transition-all disabled:k-opacity-50"
+              >
+                {pendingId === app.id ? <SpinnerIcon /> : <PlusCircleIcon className="k-w-3.5 k-h-3.5" />}
+                <span>Habilitar</span>
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+{/* --- SUB-COMPONENT: TABLE VIEW FOR APPS --- */}
+function AppTableView({
+  apps,
+  organizationId,
+  canManage,
+  platformAdmin,
+  pendingId,
+  editingUrlId,
+  urlDraft,
+  setUrlDraft,
+  handleSaveUrl,
+  setConfirmAction,
+  openOauthDialog,
+  isEnabled,
+  handleEnable,
+}: {
+  apps: ApplicationRow[];
+  organizationId: string;
+  canManage: boolean;
+  platformAdmin: boolean;
+  pendingId: string | null;
+  editingUrlId: string | null;
+  urlDraft: string;
+  setUrlDraft: (v: string) => void;
+  setEditingUrlId?: (id: string | null) => void;
+  handleSaveUrl: (id: string) => void;
+  setConfirmAction: (action: { kind: "disable" | "claim" | "rotate" | "revoke"; app: ApplicationRow } | null) => void;
+  openOauthDialog: (app: ApplicationRow) => void;
+  isEnabled: boolean;
+  handleEnable: (id: string) => void;
+}) {
+  return (
+    <Card className="k-p-0 k-overflow-hidden">
+      <div className="k-overflow-x-auto">
+        <table className="k-w-full k-text-sm">
+          <thead>
+            <tr className="k-border-b k-border-border k-bg-muted/40 k-text-left k-text-xs k-uppercase k-tracking-wider k-text-muted-foreground">
+              <th className="k-px-5 k-py-3.5 k-font-semibold">Aplicación</th>
+              <th className="k-px-5 k-py-3.5 k-font-semibold">Slug</th>
+              <th className="k-px-5 k-py-3.5 k-font-semibold">Entorno</th>
+              <th className="k-px-5 k-py-3.5 k-font-semibold">Permisos</th>
+              <th className="k-px-5 k-py-3.5 k-font-semibold">URL</th>
+              {platformAdmin && <th className="k-px-5 k-py-3.5 k-font-semibold">OAuth SSO</th>}
+              <th className="k-px-5 k-py-3.5 k-font-semibold k-text-right">Acción</th>
+            </tr>
+          </thead>
+          <tbody className="k-divide-y k-divide-border">
+            {apps.map((app) => {
+              const isOwnerOrg = app.owner_organization_id === organizationId;
+              return (
+                <tr key={app.id} className="hover:k-bg-muted/30 k-transition-colors">
+                  {/* Name & Avatar */}
+                  <td className="k-px-5 k-py-3.5">
+                    <div className="k-flex k-items-center k-gap-3">
+                      <div
+                        className={`k-w-8 k-h-8 k-rounded-lg k-flex k-items-center k-justify-center k-font-bold k-text-xs k-shrink-0 ${getAvatarGradient(
+                          app.id
+                        )}`}
+                      >
+                        {getInitials(app.name)}
+                      </div>
+                      <span className="k-font-semibold k-text-foreground">{app.name}</span>
+                    </div>
+                  </td>
+
+                  {/* Slug */}
+                  <td className="k-px-5 k-py-3.5 k-text-xs k-font-mono k-text-muted-foreground">{app.slug}</td>
+
+                  {/* Environment */}
+                  <td className="k-px-5 k-py-3.5">
+                    <Badge variant={app.environment === "production" ? "success" : "neutral"}>{app.environment}</Badge>
+                  </td>
+
+                  {/* Permissions count */}
+                  <td className="k-px-5 k-py-3.5 k-text-xs k-font-medium">{app.permissionCount} permisos</td>
+
+                  {/* URL */}
+                  <td className="k-px-5 k-py-3.5 k-text-xs">
+                    {editingUrlId === app.id ? (
+                      <div className="k-flex k-items-center k-gap-1.5">
+                        <input
+                          type="url"
+                          autoFocus
+                          placeholder="https://..."
+                          value={urlDraft}
+                          onChange={(e) => setUrlDraft(e.target.value)}
+                          className="k-w-36 k-rounded k-border k-border-border k-bg-background k-px-2 k-py-0.5 k-text-xs"
+                        />
+                        <button
+                          type="button"
+                          disabled={pendingId === app.id}
+                          onClick={() => void handleSaveUrl(app.id)}
+                          className="k-font-medium k-text-primary hover:k-underline"
+                        >
+                          Guardar
+                        </button>
+                      </div>
+                    ) : app.homepage_url ? (
+                      <a href={app.homepage_url} target="_blank" rel="noreferrer" className="k-text-primary hover:k-underline k-font-mono">
+                        {app.homepage_url}
+                      </a>
+                    ) : (
+                      <span className="k-text-muted-foreground">—</span>
+                    )}
+                  </td>
+
+                  {/* OAuth */}
+                  {platformAdmin && (
+                    <td className="k-px-5 k-py-3.5 k-text-xs">
+                      {isOwnerOrg ? (
+                        app.oauth_client_id ? (
+                          <button type="button" onClick={() => openOauthDialog(app)} className="k-font-mono k-text-primary hover:k-underline">
+                            {app.oauth_client_id}
+                          </button>
+                        ) : (
+                          <button type="button" onClick={() => openOauthDialog(app)} className="k-text-primary hover:k-underline">
+                            + Crear
+                          </button>
+                        )
+                      ) : (
+                        <span className="k-text-muted-foreground">—</span>
+                      )}
+                    </td>
+                  )}
+
+                  {/* Action */}
+                  <td className="k-px-5 k-py-3.5 k-text-right">
+                    {canManage && (
+                      isEnabled ? (
+                        <button
+                          type="button"
+                          disabled={pendingId === app.id}
+                          onClick={() => setConfirmAction({ kind: "disable", app })}
+                          className="k-text-xs k-font-medium k-text-destructive hover:k-underline disabled:k-opacity-50"
+                        >
+                          Deshabilitar
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={pendingId === app.id}
+                          onClick={() => void handleEnable(app.id)}
+                          className="k-text-xs k-font-medium k-text-primary hover:k-underline disabled:k-opacity-50"
+                        >
+                          Habilitar
+                        </button>
+                      )
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  );
+}
+

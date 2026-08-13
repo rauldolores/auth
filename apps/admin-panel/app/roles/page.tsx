@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@kontrolia/react";
-import { Badge, Card } from "@kontrolia/ui";
+import { Badge, Card, Dialog } from "@kontrolia/ui";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { createKontroliaSchemaClient } from "@/lib/supabase-browser";
@@ -37,26 +37,174 @@ function slugify(name: string): string {
     .replace(/(^-+|-+$)/g, "");
 }
 
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2 && parts[0] && parts[1]) {
+    const first = parts[0][0] ?? "";
+    const second = parts[1][0] ?? "";
+    return (first + second).toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase();
+}
+
+const GRADIENTS = [
+  "k-bg-gradient-to-br k-from-indigo-600 k-to-violet-700 k-text-white",
+  "k-bg-gradient-to-br k-from-blue-600 k-to-cyan-600 k-text-white",
+  "k-bg-gradient-to-br k-from-emerald-600 k-to-teal-700 k-text-white",
+  "k-bg-gradient-to-br k-from-purple-600 k-to-pink-600 k-text-white",
+  "k-bg-gradient-to-br k-from-amber-500 k-to-orange-600 k-text-white",
+  "k-bg-gradient-to-br k-from-rose-600 k-to-red-700 k-text-white",
+];
+
+function getAvatarGradient(id: string): string {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = id.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % GRADIENTS.length;
+  return GRADIENTS[index] ?? "k-bg-gradient-to-br k-from-indigo-600 k-to-violet-700 k-text-white";
+}
+
+// --- Inline SVG Icons ---
+function KeyIcon({ className = "k-w-5 k-h-5" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+    </svg>
+  );
+}
+
+function ShieldCheckIcon({ className = "k-w-5 k-h-5" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+    </svg>
+  );
+}
+
+function AppIcon({ className = "k-w-5 k-h-5" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+    </svg>
+  );
+}
+
+function SearchIcon({ className = "k-w-4 k-h-4" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+    </svg>
+  );
+}
+
+function PlusIcon({ className = "k-w-4 k-h-4" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v16m7.5-8.5h-15" />
+    </svg>
+  );
+}
+
+function LockIcon({ className = "k-w-4 k-h-4" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+    </svg>
+  );
+}
+
+function ExternalLinkIcon({ className = "k-w-3.5 k-h-3.5" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+    </svg>
+  );
+}
+
+function LayoutGridIcon({ className = "k-w-4 k-h-4" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+    </svg>
+  );
+}
+
+function ListIcon({ className = "k-w-4 k-h-4" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+    </svg>
+  );
+}
+
+function AlertTriangleIcon({ className = "k-w-5 k-h-5" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+    </svg>
+  );
+}
+
+function CheckIcon({ className = "k-w-4 k-h-4" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+    </svg>
+  );
+}
+
+function XIcon({ className = "k-w-4 k-h-4" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+    </svg>
+  );
+}
+
+function SpinnerIcon({ className = "k-w-4 k-h-4" }: { className?: string }) {
+  return (
+    <svg className={`k-animate-spin ${className}`} fill="none" viewBox="0 0 24 24">
+      <circle className="k-opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path className="k-opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+    </svg>
+  );
+}
+
 const ROLES_PAGE_SIZE = 50;
 
 export default function RolesPage() {
   const { organization } = useAuth();
-  const [allRoles, setAllRoles] = useState<(RoleRow & { application: { name: string } | null })[]>([]);
+  const [allRoles, setAllRoles] = useState<(RoleRow & { application: { name: string } | null })[] | null>(null);
   const [availableApps, setAvailableApps] = useState<ApplicationOption[]>([]);
-  const [name, setName] = useState("");
-  const [applicationId, setApplicationId] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [successNotice, setSuccessNotice] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
 
-  const generalRoles = allRoles
+  // Modal & Form state
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createRoleName, setCreateRoleName] = useState("");
+  const [createAppId, setCreateAppId] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // View & Filter states
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterGroup, setFilterGroup] = useState<"all" | "general" | "apps">("all");
+  const [viewMode, setViewMode] = useState<"grid" | "table">("table");
+
+  function triggerSuccessNotice(msg: string) {
+    setSuccessNotice(msg);
+    setTimeout(() => setSuccessNotice(null), 4000);
+  }
+
+  const generalRoles = (allRoles ?? [])
     .filter((role) => role.application_id === null)
     .sort((a, b) => a.name.localeCompare(b.name));
 
   const appGroups: ApplicationGroup[] = (() => {
     const byApplication = new Map<string, ApplicationGroup>();
-    for (const role of allRoles) {
+    for (const role of allRoles ?? []) {
       if (role.application_id === null) continue;
       const group = byApplication.get(role.application_id) ?? {
         applicationId: role.application_id,
@@ -86,7 +234,7 @@ export default function RolesPage() {
       .returns<(RoleRow & { application: { name: string } | null })[]>();
 
     const page = roleRows ?? [];
-    setAllRoles((current) => (append ? [...current, ...page] : page));
+    setAllRoles((current) => (append ? [...(current ?? []), ...page] : page));
     setHasMore(page.length === ROLES_PAGE_SIZE);
 
     if (!append) {
@@ -97,7 +245,7 @@ export default function RolesPage() {
         .returns<{ application: ApplicationOption | null }[]>();
       const apps = (enabledRows ?? []).map((row) => row.application).filter((app): app is ApplicationOption => app !== null);
       setAvailableApps(apps);
-      if (apps.length && !applicationId) setApplicationId(apps[0]!.id);
+      if (apps.length && !createAppId) setCreateAppId(apps[0]!.id);
     }
   }
 
@@ -109,22 +257,30 @@ export default function RolesPage() {
   async function handleLoadMore() {
     if (!organization) return;
     setLoadingMore(true);
-    await loadRoles(organization.id, allRoles.length, true);
+    await loadRoles(organization.id, (allRoles ?? []).length, true);
     setLoadingMore(false);
   }
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    if (!organization || !applicationId) return;
+    if (!organization || !createAppId || !createRoleName.trim()) return;
     setError(null);
     setIsSubmitting(true);
     try {
       const supabase = createKontroliaSchemaClient();
       const { error: insertError } = await supabase
         .from("roles")
-        .insert({ organization_id: organization.id, application_id: applicationId, name, slug: slugify(name) });
+        .insert({
+          organization_id: organization.id,
+          application_id: createAppId,
+          name: createRoleName.trim(),
+          slug: slugify(createRoleName),
+        });
       if (insertError) throw insertError;
-      setName("");
+
+      triggerSuccessNotice(`Rol "${createRoleName.trim()}" creado exitosamente.`);
+      setCreateRoleName("");
+      setShowCreateModal(false);
       await loadRoles(organization.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo crear el rol.");
@@ -133,147 +289,500 @@ export default function RolesPage() {
     }
   }
 
-  function roleRow(role: RoleRow) {
+  if (!organization) {
     return (
-      <tr key={role.id} className="k-border-b k-border-border last:k-border-0">
-        <td className="k-px-5 k-py-3">
-          <Link href={`/roles/${role.id}`} className="k-font-medium hover:k-underline">
-            {role.name}
-          </Link>
-        </td>
-        <td className="k-px-5 k-py-3 k-text-muted-foreground">{role.slug}</td>
-        <td className="k-px-5 k-py-3">
-          {role.grants_all_permissions ? (
-            <Badge variant="primary">Automático (todos los permisos)</Badge>
-          ) : (
-            <Badge variant={role.is_system_role ? "primary" : "neutral"}>
-              {role.is_system_role ? "Sistema" : "Personalizado"}
-            </Badge>
-          )}
-        </td>
-      </tr>
+      <Card className="k-p-12 k-text-center k-flex k-flex-col k-items-center k-justify-center k-my-8">
+        <div className="k-w-16 k-h-16 k-rounded-2xl k-bg-primary/10 k-flex k-items-center k-justify-center k-text-primary k-mb-4">
+          <KeyIcon className="k-w-8 k-h-8" />
+        </div>
+        <h3 className="k-text-lg k-font-semibold">Selecciona una Organización</h3>
+        <p className="k-text-sm k-text-muted-foreground k-mt-1 k-max-w-md">
+          Para ver y administrar la matriz de roles y permisos, selecciona un espacio de trabajo activo.
+        </p>
+      </Card>
     );
   }
 
-  if (!organization) {
-    return <p className="k-text-sm k-text-muted-foreground">Selecciona una organización primero.</p>;
-  }
+  // Filter roles list
+  const filterList = (roles: RoleRow[]) => {
+    const query = searchQuery.toLowerCase().trim();
+    if (!query) return roles;
+    return roles.filter((r) => r.name.toLowerCase().includes(query) || r.slug.toLowerCase().includes(query));
+  };
+
+  const filteredGeneralRoles = filterList(generalRoles);
+  const totalRolesCount = (allRoles ?? []).length;
+  const generalRolesCount = generalRoles.length;
+  const appRolesCount = totalRolesCount - generalRolesCount;
 
   return (
-    <div className="k-flex k-flex-col k-gap-5">
-      <div>
-        <h1 className="k-text-2xl k-font-bold">Roles</h1>
-        <p className="k-text-sm k-text-muted-foreground">
-          Los roles de sistema (Owner/Admin/Member) son generales de la instalación. Cada aplicación habilitada
-          tiene su propio "Administrador" (con todos sus permisos, siempre al día) y puede tener roles
-          personalizados adicionales — un usuario puede tener un rol distinto en cada aplicación.
-        </p>
+    <div className="k-flex k-flex-col k-gap-6 k-pb-12">
+      {/* --- HERO BANNER --- */}
+      <div className="k-relative k-overflow-hidden k-rounded-2xl k-bg-[linear-gradient(135deg,#1b1030,#2b1a52_45%,#4c2a8c)] k-p-6 sm:k-p-8 k-shadow-md k-text-white">
+        <div className="k-relative k-z-10 k-flex k-flex-col md:k-flex-row md:k-items-center md:k-justify-between k-gap-4">
+          <div>
+            <span className="k-inline-flex k-items-center k-gap-2 k-rounded-full k-bg-white/10 k-px-3.5 k-py-1 k-text-xs k-font-semibold k-text-white/80 k-backdrop-blur-sm">
+              <KeyIcon className="k-w-3.5 k-h-3.5" />
+              <span>Matriz de Accesos y Permisos</span>
+            </span>
+            <h1 className="k-mt-3 k-text-3xl sm:k-text-4xl k-font-extrabold k-tracking-tight k-text-white">
+              Roles
+            </h1>
+            <p className="k-mt-1.5 k-text-sm sm:k-text-base k-text-white/70 k-max-w-2xl">
+              Gestión de perfiles de acceso generales y personalizados para{" "}
+              <strong className="k-text-white k-font-semibold">{organization.name}</strong>.
+            </p>
+          </div>
+
+          <div className="k-shrink-0">
+            <button
+              type="button"
+              disabled={availableApps.length === 0}
+              onClick={() => setShowCreateModal(true)}
+              className="k-inline-flex k-items-center k-gap-2 k-rounded-xl k-bg-white k-px-4 k-py-2.5 k-text-sm k-font-semibold k-text-slate-900 k-shadow-lg hover:k-bg-slate-100 disabled:k-opacity-50 k-transition-all active:k-scale-[0.98]"
+            >
+              <PlusIcon />
+              <span>Nuevo Rol Personalizado</span>
+            </button>
+          </div>
+        </div>
+        <div className="k-absolute -k-right-10 -k-top-10 k-w-64 k-h-64 k-rounded-full k-bg-white/5 k-blur-2xl k-pointer-events-none" />
       </div>
 
-      <Card>
-        {availableApps.length === 0 ? (
-          <p className="k-text-sm k-text-muted-foreground">
-            Habilita al menos una aplicación en{" "}
-            <Link href="/applications" className="k-underline">
-              Aplicaciones
-            </Link>{" "}
-            para poder crear roles personalizados.
-          </p>
-        ) : (
-          <form onSubmit={handleSubmit} className="k-flex k-max-w-2xl k-flex-wrap k-items-end k-gap-3">
-            <div className="k-flex k-flex-1 k-min-w-[12rem] k-flex-col k-gap-1.5">
-              <label htmlFor="k-role-name" className="k-text-sm k-font-medium">
-                Nuevo rol personalizado
-              </label>
-              <input
-                id="k-role-name"
-                type="text"
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="p. ej. Contador"
-                className="k-rounded-md k-border k-border-border k-bg-background k-px-3 k-py-2 k-text-sm"
-              />
-            </div>
-            <div className="k-flex k-flex-col k-gap-1.5">
-              <label htmlFor="k-role-app" className="k-text-sm k-font-medium">
-                Aplicación
-              </label>
-              <select
-                id="k-role-app"
-                value={applicationId}
-                onChange={(e) => setApplicationId(e.target.value)}
-                className="k-rounded-md k-border k-border-border k-bg-background k-px-3 k-py-2 k-text-sm"
-              >
-                {availableApps.map((app) => (
-                  <option key={app.id} value={app.id}>
-                    {app.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <button
-              type="submit"
-              disabled={isSubmitting || !name.trim()}
-              className="k-rounded-md k-bg-primary k-px-4 k-py-2 k-text-sm k-font-medium k-text-primary-foreground disabled:k-opacity-60"
-            >
-              Crear
-            </button>
-          </form>
-        )}
-        {error && <p className="k-mt-2 k-text-sm k-text-destructive">{error}</p>}
-      </Card>
+      {/* --- NOTIFICATIONS / ALERTS --- */}
+      {error && (
+        <div className="k-flex k-items-start k-gap-3 k-rounded-xl k-border k-border-destructive/30 k-bg-destructive/10 k-p-4 k-text-sm k-text-destructive">
+          <AlertTriangleIcon className="k-w-5 k-h-5 k-shrink-0 k-mt-0.5" />
+          <div className="k-flex-1">
+            <p className="k-font-semibold">Error</p>
+            <p className="k-mt-0.5">{error}</p>
+          </div>
+          <button type="button" onClick={() => setError(null)} className="k-text-destructive hover:k-opacity-70">
+            <XIcon />
+          </button>
+        </div>
+      )}
 
-      <div className="k-flex k-flex-col k-gap-2">
-        <h2 className="k-text-sm k-font-semibold">General</h2>
-        <Card className="k-p-0">
-          <div className="k-overflow-x-auto">
-          <table className="k-w-full k-text-sm">
-            <thead>
-              <tr className="k-border-b k-border-border k-text-left k-text-xs k-uppercase k-tracking-wide k-text-muted-foreground">
-                <th className="k-px-5 k-py-3 k-font-semibold">Nombre</th>
-                <th className="k-px-5 k-py-3 k-font-semibold">Slug</th>
-                <th className="k-px-5 k-py-3 k-font-semibold">Tipo</th>
-              </tr>
-            </thead>
-            <tbody>{generalRoles.map(roleRow)}</tbody>
-          </table>
+      {successNotice && (
+        <div className="k-flex k-items-center k-gap-3 k-rounded-xl k-border k-border-emerald-500/30 k-bg-emerald-500/10 k-p-4 k-text-sm k-text-emerald-700 dark:k-text-emerald-300">
+          <CheckIcon className="k-w-5 k-h-5 k-text-emerald-600 k-shrink-0" />
+          <p className="k-flex-1 k-font-medium">{successNotice}</p>
+          <button type="button" onClick={() => setSuccessNotice(null)} className="k-text-emerald-600 hover:k-opacity-70">
+            <XIcon />
+          </button>
+        </div>
+      )}
+
+      {/* --- METRICS STATS BAR --- */}
+      <div className="k-grid k-grid-cols-1 sm:k-grid-cols-3 k-gap-4">
+        <Card className="k-p-4 k-flex k-items-center k-gap-4">
+          <div className="k-flex k-h-12 k-w-12 k-items-center k-justify-center k-rounded-xl k-bg-primary/10 k-text-primary">
+            <KeyIcon className="k-w-6 k-h-6" />
+          </div>
+          <div>
+            <p className="k-text-2xl k-font-bold">{allRoles === null ? "—" : totalRolesCount}</p>
+            <p className="k-text-xs k-font-medium k-text-muted-foreground">Total Roles Configurados</p>
+          </div>
+        </Card>
+
+        <Card className="k-p-4 k-flex k-items-center k-gap-4">
+          <div className="k-flex k-h-12 k-w-12 k-items-center k-justify-center k-rounded-xl k-bg-emerald-500/10 k-text-emerald-600 dark:k-text-emerald-400">
+            <ShieldCheckIcon className="k-w-6 k-h-6" />
+          </div>
+          <div>
+            <p className="k-text-2xl k-font-bold">{allRoles === null ? "—" : generalRolesCount}</p>
+            <p className="k-text-xs k-font-medium k-text-muted-foreground">Roles Globales (Sistema)</p>
+          </div>
+        </Card>
+
+        <Card className="k-p-4 k-flex k-items-center k-gap-4">
+          <div className="k-flex k-h-12 k-w-12 k-items-center k-justify-center k-rounded-xl k-bg-amber-500/10 k-text-amber-600 dark:k-text-amber-400">
+            <AppIcon className="k-w-6 k-h-6" />
+          </div>
+          <div>
+            <p className="k-text-2xl k-font-bold">{allRoles === null ? "—" : appRolesCount}</p>
+            <p className="k-text-xs k-font-medium k-text-muted-foreground">Roles por Aplicación</p>
           </div>
         </Card>
       </div>
 
-      {appGroups.map((group) => (
-        <div key={group.applicationId} className="k-flex k-flex-col k-gap-2">
-          <h2 className="k-text-sm k-font-semibold">{group.applicationName}</h2>
-          <Card className="k-p-0">
-            <div className="k-overflow-x-auto">
-            <table className="k-w-full k-text-sm">
-              <thead>
-                <tr className="k-border-b k-border-border k-text-left k-text-xs k-uppercase k-tracking-wide k-text-muted-foreground">
-                  <th className="k-px-5 k-py-3 k-font-semibold">Nombre</th>
-                  <th className="k-px-5 k-py-3 k-font-semibold">Slug</th>
-                  <th className="k-px-5 k-py-3 k-font-semibold">Tipo</th>
-                </tr>
-              </thead>
-              <tbody>{group.roles.map(roleRow)}</tbody>
-            </table>
-            </div>
-          </Card>
+      {/* --- CONTROL TOOLBAR --- */}
+      <div className="k-flex k-flex-col sm:k-flex-row sm:k-items-center sm:k-justify-between k-gap-3 k-bg-card k-p-3 k-rounded-xl k-border k-border-border">
+        {/* Search Input */}
+        <div className="k-relative k-flex-1">
+          <SearchIcon className="k-absolute k-left-3 k-top-1/2 -k-translate-y-1/2 k-text-muted-foreground k-w-4 k-h-4" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Buscar rol por nombre o slug..."
+            className="k-w-full k-rounded-lg k-border k-border-border k-bg-background k-pl-9 k-pr-8 k-py-2 k-text-sm focus:k-outline-none focus:k-ring-2 focus:k-ring-primary/20 focus:k-border-primary k-transition-all"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery("")}
+              className="k-absolute k-right-2.5 k-top-1/2 -k-translate-y-1/2 k-text-muted-foreground hover:k-text-foreground"
+            >
+              <XIcon className="k-w-3.5 k-h-3.5" />
+            </button>
+          )}
         </div>
-      ))}
 
+        <div className="k-flex k-items-center k-gap-2">
+          {/* Group Filter Tabs */}
+          <div className="k-inline-flex k-items-center k-rounded-lg k-bg-muted k-p-1 k-text-xs k-font-medium">
+            <button
+              type="button"
+              onClick={() => setFilterGroup("all")}
+              className={`k-px-3 k-py-1.5 k-rounded-md k-transition-all ${
+                filterGroup === "all"
+                  ? "k-bg-background k-text-foreground k-shadow-sm k-font-semibold"
+                  : "k-text-muted-foreground hover:k-text-foreground"
+              }`}
+            >
+              Todos ({totalRolesCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterGroup("general")}
+              className={`k-px-3 k-py-1.5 k-rounded-md k-transition-all ${
+                filterGroup === "general"
+                  ? "k-bg-background k-text-foreground k-shadow-sm k-font-semibold"
+                  : "k-text-muted-foreground hover:k-text-foreground"
+              }`}
+            >
+              Globales ({generalRolesCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterGroup("apps")}
+              className={`k-px-3 k-py-1.5 k-rounded-md k-transition-all ${
+                filterGroup === "apps"
+                  ? "k-bg-background k-text-foreground k-shadow-sm k-font-semibold"
+                  : "k-text-muted-foreground hover:k-text-foreground"
+              }`}
+            >
+              Por App ({appRolesCount})
+            </button>
+          </div>
+
+          {/* Grid/Table View Switcher */}
+          <div className="k-inline-flex k-items-center k-rounded-lg k-bg-muted k-p-1">
+            <button
+              type="button"
+              onClick={() => setViewMode("grid")}
+              title="Vista de cuadrícula"
+              className={`k-p-1.5 k-rounded-md k-transition-all ${
+                viewMode === "grid" ? "k-bg-background k-text-foreground k-shadow-sm" : "k-text-muted-foreground hover:k-text-foreground"
+              }`}
+            >
+              <LayoutGridIcon />
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("table")}
+              title="Vista de lista"
+              className={`k-p-1.5 k-rounded-md k-transition-all ${
+                viewMode === "table" ? "k-bg-background k-text-foreground k-shadow-sm" : "k-text-muted-foreground hover:k-text-foreground"
+              }`}
+            >
+              <ListIcon />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* --- CONTENT AREA --- */}
+      {allRoles === null ? (
+        /* LOADING SKELETON */
+        <div className="k-grid k-grid-cols-1 md:k-grid-cols-2 lg:k-grid-cols-3 k-gap-5">
+          {[1, 2, 3].map((i) => (
+            <Card key={i} className="k-p-5 k-flex k-flex-col k-gap-4 k-animate-pulse">
+              <div className="k-flex k-items-center k-gap-3">
+                <div className="k-w-10 k-h-10 k-rounded-xl k-bg-muted" />
+                <div className="k-flex-1 k-flex k-flex-col k-gap-1.5">
+                  <div className="k-h-4 k-w-2/3 k-bg-muted k-rounded" />
+                  <div className="k-h-3 k-w-1/3 k-bg-muted k-rounded" />
+                </div>
+              </div>
+              <div className="k-h-8 k-w-full k-bg-muted/60 k-rounded-md" />
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <div className="k-flex k-flex-col k-gap-8">
+          {/* SECTION: GENERAL ROLES */}
+          {(filterGroup === "general" || filterGroup === "all") && (
+            <div>
+              <div className="k-flex k-items-center k-justify-between k-mb-3">
+                <h2 className="k-text-base k-font-semibold k-flex k-items-center k-gap-2">
+                  <ShieldCheckIcon className="k-w-4 k-h-4 k-text-primary" />
+                  <span>Roles Globales del Sistema ({filteredGeneralRoles.length})</span>
+                </h2>
+              </div>
+
+              {filteredGeneralRoles.length === 0 ? (
+                <Card className="k-p-6 k-text-center k-text-sm k-text-muted-foreground">
+                  No se encontraron roles globales con el filtro actual.
+                </Card>
+              ) : viewMode === "grid" ? (
+                <div className="k-grid k-grid-cols-1 md:k-grid-cols-2 lg:k-grid-cols-3 k-gap-5">
+                  {filteredGeneralRoles.map((role) => (
+                    <RoleCardItem key={role.id} role={role} />
+                  ))}
+                </div>
+              ) : (
+                <RoleTableView roles={filteredGeneralRoles} />
+              )}
+            </div>
+          )}
+
+          {/* SECTION: APPLICATION ROLES */}
+          {(filterGroup === "apps" || filterGroup === "all") && (
+            <div className="k-flex k-flex-col k-gap-6">
+              {appGroups.map((group) => {
+                const groupRoles = filterList(group.roles);
+                if (filterGroup === "apps" && groupRoles.length === 0) return null;
+
+                return (
+                  <div key={group.applicationId}>
+                    <div className="k-flex k-items-center k-justify-between k-mb-3">
+                      <h2 className="k-text-base k-font-semibold k-flex k-items-center k-gap-2">
+                        <AppIcon className="k-w-4 k-h-4 k-text-amber-600" />
+                        <span>{group.applicationName} ({groupRoles.length})</span>
+                      </h2>
+                    </div>
+
+                    {groupRoles.length === 0 ? (
+                      <Card className="k-p-6 k-text-center k-text-sm k-text-muted-foreground">
+                        No se encontraron roles para esta aplicación con el filtro actual.
+                      </Card>
+                    ) : viewMode === "grid" ? (
+                      <div className="k-grid k-grid-cols-1 md:k-grid-cols-2 lg:k-grid-cols-3 k-gap-5">
+                        {groupRoles.map((role) => (
+                          <RoleCardItem key={role.id} role={role} />
+                        ))}
+                      </div>
+                    ) : (
+                      <RoleTableView roles={groupRoles} />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* --- LOAD MORE --- */}
       {hasMore && (
-        <div className="k-text-center">
+        <div className="k-text-center k-pt-4">
           <button
             type="button"
             disabled={loadingMore}
             onClick={() => void handleLoadMore()}
-            className="k-text-sm k-text-muted-foreground hover:k-underline disabled:k-opacity-60"
+            className="k-inline-flex k-items-center k-gap-2 k-rounded-lg k-border k-border-border k-bg-background k-px-4 k-py-2 k-text-sm k-font-medium hover:k-bg-muted disabled:k-opacity-60 k-transition-all"
           >
-            {loadingMore ? "Cargando..." : "Cargar más"}
+            {loadingMore ? (
+              <>
+                <SpinnerIcon />
+                <span>Cargando...</span>
+              </>
+            ) : (
+              <span>Cargar más roles</span>
+            )}
           </button>
         </div>
       )}
+
+      {/* --- CREATE ROLE DIALOG --- */}
+      <Dialog open={showCreateModal} onOpenChange={(val) => !val && setShowCreateModal(false)} title="Crear Nuevo Rol Personalizado">
+        <form onSubmit={handleSubmit} className="k-flex k-flex-col k-gap-4 k-pt-1">
+          <div className="k-flex k-flex-col k-gap-1.5">
+            <label htmlFor="modal-role-name" className="k-text-sm k-font-medium">
+              Nombre del Rol
+            </label>
+            <input
+              id="modal-role-name"
+              type="text"
+              required
+              autoFocus
+              placeholder="ej. Auditor Financiero"
+              value={createRoleName}
+              onChange={(e) => setCreateRoleName(e.target.value)}
+              className="k-rounded-lg k-border k-border-border k-bg-background k-px-3.5 k-py-2.5 k-text-sm focus:k-outline-none focus:k-ring-2 focus:k-ring-primary/20 focus:k-border-primary"
+            />
+          </div>
+
+          <div className="k-flex k-flex-col k-gap-1.5">
+            <label htmlFor="modal-role-app" className="k-text-sm k-font-medium">
+              Aplicación destino
+            </label>
+            <select
+              id="modal-role-app"
+              value={createAppId}
+              onChange={(e) => setCreateAppId(e.target.value)}
+              className="k-rounded-lg k-border k-border-border k-bg-background k-px-3.5 k-py-2.5 k-text-sm focus:k-outline-none focus:k-ring-2 focus:k-ring-primary/20 focus:k-border-primary"
+            >
+              {availableApps.map((app) => (
+                <option key={app.id} value={app.id}>
+                  {app.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Live Slug Preview */}
+          {createRoleName.trim() && (
+            <div className="k-rounded-lg k-border k-border-border/80 k-bg-muted/50 k-p-3 k-text-xs">
+              <span className="k-text-muted-foreground k-font-medium">Identificador único (Slug): </span>
+              <code className="k-font-mono k-font-semibold k-text-primary">{slugify(createRoleName)}</code>
+            </div>
+          )}
+
+          <div className="k-flex k-items-center k-justify-end k-gap-3 k-pt-2">
+            <button
+              type="button"
+              onClick={() => setShowCreateModal(false)}
+              className="k-rounded-lg k-px-4 k-py-2 k-text-sm k-font-medium k-text-muted-foreground hover:k-bg-muted k-transition-all"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting || !createRoleName.trim() || !createAppId}
+              className="k-inline-flex k-items-center k-gap-2 k-rounded-lg k-bg-primary k-px-4 k-py-2 k-text-sm k-font-medium k-text-primary-foreground hover:k-opacity-90 disabled:k-opacity-50 k-transition-all"
+            >
+              {isSubmitting ? (
+                <>
+                  <SpinnerIcon />
+                  <span>Creando...</span>
+                </>
+              ) : (
+                <>
+                  <PlusIcon />
+                  <span>Crear Rol</span>
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </Dialog>
     </div>
   );
 }
+
+{/* --- SUB-COMPONENT: ROLE CARD ITEM --- */}
+function RoleCardItem({ role }: { role: RoleRow }) {
+  return (
+    <Card className="k-p-5 k-flex k-flex-col k-justify-between k-gap-4 hover:k-border-primary/40 hover:k-shadow-md k-transition-all k-duration-200">
+      {/* Top Details */}
+      <div className="k-flex k-items-start k-justify-between k-gap-3">
+        <div className="k-flex k-items-center k-gap-3 k-min-w-0">
+          <div
+            className={`k-w-10 k-h-10 k-rounded-xl k-flex k-items-center k-justify-center k-font-bold k-text-xs k-shrink-0 ${getAvatarGradient(
+              role.id
+            )}`}
+          >
+            {getInitials(role.name)}
+          </div>
+          <div className="k-min-w-0">
+            <h3 className="k-font-semibold k-text-base k-truncate" title={role.name}>
+              {role.name}
+            </h3>
+            <code className="k-text-xs k-font-mono k-text-muted-foreground">{role.slug}</code>
+          </div>
+        </div>
+      </div>
+
+      {/* Badges & Properties */}
+      <div className="k-flex k-flex-col k-gap-2 k-rounded-lg k-bg-muted/40 k-p-3 k-text-xs">
+        <span className="k-text-muted-foreground k-font-medium">Atributos del rol:</span>
+        <div className="k-flex k-flex-wrap k-gap-1.5">
+          {role.grants_all_permissions ? (
+            <Badge variant="primary">
+              <ShieldCheckIcon className="k-w-3 k-h-3 k-mr-1" />
+              Automático (Todos los permisos)
+            </Badge>
+          ) : role.is_system_role ? (
+            <Badge variant="primary">
+              <LockIcon className="k-w-3 k-h-3 k-mr-1" />
+              Sistema
+            </Badge>
+          ) : (
+            <Badge variant="neutral">Personalizado</Badge>
+          )}
+        </div>
+      </div>
+
+      {/* Action Footer */}
+      <div className="k-flex k-items-center k-justify-end k-pt-2 k-border-t k-border-border/60">
+        <Link
+          href={`/roles/${role.id}`}
+          className="k-inline-flex k-items-center k-gap-1 k-text-xs k-font-medium k-text-primary hover:k-underline"
+        >
+          <span>Editar Permisos</span>
+          <ExternalLinkIcon />
+        </Link>
+      </div>
+    </Card>
+  );
+}
+
+{/* --- SUB-COMPONENT: ROLE TABLE VIEW --- */}
+function RoleTableView({ roles }: { roles: RoleRow[] }) {
+  return (
+    <Card className="k-p-0 k-overflow-hidden">
+      <div className="k-overflow-x-auto">
+        <table className="k-w-full k-text-sm">
+          <thead>
+            <tr className="k-border-b k-border-border k-bg-muted/40 k-text-left k-text-xs k-uppercase k-tracking-wider k-text-muted-foreground">
+              <th className="k-px-5 k-py-3.5 k-font-semibold">Nombre del Rol</th>
+              <th className="k-px-5 k-py-3.5 k-font-semibold">Slug</th>
+              <th className="k-px-5 k-py-3.5 k-font-semibold">Tipo</th>
+              <th className="k-px-5 k-py-3.5 k-font-semibold k-text-right">Acción</th>
+            </tr>
+          </thead>
+          <tbody className="k-divide-y k-divide-border">
+            {roles.map((role) => (
+              <tr key={role.id} className="hover:k-bg-muted/30 k-transition-colors">
+                <td className="k-px-5 k-py-3.5 font-medium">
+                  <div className="k-flex k-items-center k-gap-2.5">
+                    <div
+                      className={`k-w-8 k-h-8 k-rounded-lg k-flex k-items-center k-justify-center k-font-bold k-text-xs k-shrink-0 ${getAvatarGradient(
+                        role.id
+                      )}`}
+                    >
+                      {getInitials(role.name)}
+                    </div>
+                    <span className="k-font-semibold k-text-foreground">{role.name}</span>
+                  </div>
+                </td>
+                <td className="k-px-5 k-py-3.5 k-text-xs k-font-mono k-text-muted-foreground">{role.slug}</td>
+                <td className="k-px-5 k-py-3.5">
+                  {role.grants_all_permissions ? (
+                    <Badge variant="primary">Automático (Todos los permisos)</Badge>
+                  ) : role.is_system_role ? (
+                    <Badge variant="primary">Sistema</Badge>
+                  ) : (
+                    <Badge variant="neutral">Personalizado</Badge>
+                  )}
+                </td>
+                <td className="k-px-5 k-py-3.5 k-text-right">
+                  <Link
+                    href={`/roles/${role.id}`}
+                    className="k-text-xs k-font-medium k-text-primary hover:k-underline"
+                  >
+                    Editar Permisos
+                  </Link>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  );
+}
+
