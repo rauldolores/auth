@@ -26,6 +26,10 @@ const ACTION_LABELS: Record<string, string> = {
   "invitation.resent": "Invitación reenviada",
   "role.assigned": "Rol asignado",
   "role.unassigned": "Rol removido",
+  "role.created": "Rol creado",
+  "role.deleted": "Rol eliminado",
+  "role_permission.granted": "Permiso otorgado a rol",
+  "role_permission.revoked": "Permiso revocado de rol",
   "device.revoked": "Sesión revocada",
 };
 
