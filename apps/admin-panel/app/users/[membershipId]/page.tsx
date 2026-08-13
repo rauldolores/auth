@@ -562,7 +562,7 @@ export default function UserDetailPage() {
       {/* --- CARD: GENERAL MEMBER INFO --- */}
       <Card className="k-p-5 k-flex k-flex-col k-gap-4">
         <div className="k-flex k-items-center k-gap-2 k-text-sm k-font-semibold k-border-b k-border-border/60 k-pb-3">
-          <UserIcon className="k-text-primary" />
+          <UserIcon className="k-w-4 k-h-4 k-text-primary" />
           <span>Información General del Miembro</span>
         </div>
 
