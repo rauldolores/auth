@@ -30,6 +30,13 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    title: "API y MCP",
+    items: [
+      { href: "/docs/guides/admin-api", label: "API de administración" },
+      { href: "/docs/mcp", label: "MCP: conecta un agente de IA" },
+    ],
+  },
+  {
     title: "Referencia",
     items: [
       { href: "/docs/examples", label: "Ejemplos" },

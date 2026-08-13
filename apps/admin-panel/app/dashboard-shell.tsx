@@ -158,7 +158,8 @@ function buildHelpGroup(docsUrl: string | undefined): NavGroup | null {
     label: "Ayuda",
     items: [
       { href: docsUrl, label: "Documentación", icon: IconHelp, external: true },
-      { href: `${docsUrl}/docs/guides/connect-your-app`, label: "Cómo usar el API", icon: IconKey, external: true },
+      { href: `${docsUrl}/docs/guides/admin-api`, label: "Cómo usar el API", icon: IconKey, external: true },
+      { href: `${docsUrl}/docs/mcp`, label: "Conectar un agente de IA (MCP)", icon: IconApps, external: true },
       { href: `${docsUrl}/docs/faq`, label: "Preguntas frecuentes", icon: IconMail, external: true },
       { href: `${docsUrl}/docs/troubleshooting`, label: "Solución de problemas", icon: IconClock, external: true },
     ],
