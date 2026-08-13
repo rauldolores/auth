@@ -242,6 +242,8 @@ export default function ApplicationsPage() {
   const [oauthRedirectUris, setOauthRedirectUris] = useState("");
   const [oauthError, setOauthError] = useState<string | null>(null);
   const [oauthSaving, setOauthSaving] = useState(false);
+  const [oauthLinkClientId, setOauthLinkClientId] = useState("");
+  const [oauthLinking, setOauthLinking] = useState(false);
 
   // Filters & UI view state
   const [searchQuery, setSearchQuery] = useState("");
@@ -451,7 +453,39 @@ export default function ApplicationsPage() {
     setOauthName(existing?.client_name ?? app.name);
     setOauthRedirectUris(existing?.redirect_uris.join("\n") ?? "");
     setOauthError(null);
+    setOauthLinkClientId("");
     setOauthDialogApp(app);
+  }
+
+  /**
+   * Migration 0036 added applications.oauth_client_id but any GoTrue OAuth
+   * client created earlier (via the old standalone /oauth-clients page)
+   * predates the link and stays unlinked — the dialog would otherwise always
+   * offer "create new" even when a matching client already exists, leaving
+   * an app with two separate OAuth clients if the operator didn't notice.
+   * Lets an admin point an application at an already-existing, unlinked
+   * client instead of registering a duplicate one.
+   */
+  async function handleLinkExistingOauthClient() {
+    if (!oauthDialogApp || !oauthLinkClientId) return;
+    setOauthError(null);
+    setOauthLinking(true);
+    try {
+      const supabase = createKontroliaSchemaClient();
+      const { error: updateError } = await supabase
+        .from("applications")
+        .update({ oauth_client_id: oauthLinkClientId })
+        .eq("id", oauthDialogApp.id);
+      if (updateError) throw updateError;
+
+      await loadOauthClients();
+      if (organization) await loadApplications(organization.id);
+      setOauthDialogApp(null);
+    } catch (err) {
+      setOauthError(err instanceof Error ? err.message : "No se pudo vincular el cliente OAuth.");
+    } finally {
+      setOauthLinking(false);
+    }
   }
 
   async function handleSaveOauthClient() {
@@ -508,6 +542,13 @@ export default function ApplicationsPage() {
       </Card>
     );
   }
+
+  // GoTrue OAuth clients no application row points at yet — created before
+  // migration 0036 introduced the link, or otherwise never linked.
+  const linkedOauthClientIds = new Set(
+    [...(enabled ?? []), ...(available ?? [])].map((app) => app.oauth_client_id).filter((id): id is string => id !== null),
+  );
+  const unlinkedOauthClients = [...oauthClients.values()].filter((client) => !linkedOauthClientIds.has(client.client_id));
 
   // Filter application lists
   const filterList = (list: ApplicationRow[] | null) => {
@@ -960,6 +1001,46 @@ export default function ApplicationsPage() {
         }
       >
         <div className="k-flex k-flex-col k-gap-4 k-pt-1">
+          {!oauthDialogApp?.oauth_client_id && unlinkedOauthClients.length > 0 && (
+            <div className="k-flex k-flex-col k-gap-2 k-rounded-lg k-border k-border-primary/20 k-bg-primary/5 k-p-3.5">
+              <p className="k-text-sm k-font-medium">¿Ya tienes un cliente OAuth para esta app?</p>
+              <p className="k-text-xs k-text-muted-foreground">
+                Encontramos {unlinkedOauthClients.length === 1 ? "un cliente" : "clientes"} sin vincular a ninguna
+                aplicación — probablemente creado antes de que esta pantalla existiera. Vincúlalo en vez de crear uno nuevo.
+              </p>
+              <select
+                value={oauthLinkClientId}
+                onChange={(e) => setOauthLinkClientId(e.target.value)}
+                className="k-rounded-lg k-border k-border-border k-bg-background k-px-3.5 k-py-2 k-text-sm focus:k-outline-none focus:k-ring-2 focus:k-ring-primary/20 focus:k-border-primary"
+              >
+                <option value="">Selecciona un cliente existente…</option>
+                {unlinkedOauthClients.map((client) => (
+                  <option key={client.client_id} value={client.client_id}>
+                    {client.client_name} — {client.redirect_uris.join(", ")}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => void handleLinkExistingOauthClient()}
+                disabled={oauthLinking || !oauthLinkClientId}
+                className="k-inline-flex k-w-fit k-items-center k-gap-2 k-rounded-lg k-bg-primary k-px-3.5 k-py-1.5 k-text-sm k-font-medium k-text-primary-foreground disabled:k-opacity-60 hover:k-opacity-90 k-transition-all"
+              >
+                {oauthLinking ? (
+                  <>
+                    <SpinnerIcon />
+                    <span>Vinculando...</span>
+                  </>
+                ) : (
+                  <span>Vincular cliente existente</span>
+                )}
+              </button>
+              <p className="k-text-xs k-text-muted-foreground k-pt-1 k-border-t k-border-border/60">
+                O crea uno nuevo abajo:
+              </p>
+            </div>
+          )}
+
           <div className="k-flex k-flex-col k-gap-1.5">
             <label htmlFor="k-oauth-app-name" className="k-text-sm k-font-medium">
               Nombre de la aplicación
