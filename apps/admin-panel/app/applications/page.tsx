@@ -1409,6 +1409,7 @@ function AppTableView({
               <th className="k-px-5 k-py-3.5 k-font-semibold">Entorno</th>
               <th className="k-px-5 k-py-3.5 k-font-semibold">Permisos</th>
               <th className="k-px-5 k-py-3.5 k-font-semibold">URL</th>
+              <th className="k-px-5 k-py-3.5 k-font-semibold">Sincronización</th>
               {platformAdmin && <th className="k-px-5 k-py-3.5 k-font-semibold">OAuth SSO</th>}
               <th className="k-px-5 k-py-3.5 k-font-semibold k-text-right">Acción</th>
             </tr>
@@ -1470,6 +1471,54 @@ function AppTableView({
                       </a>
                     ) : (
                       <span className="k-text-muted-foreground">—</span>
+                    )}
+                  </td>
+
+                  {/* Sync key / ownership */}
+                  <td className="k-px-5 k-py-3.5 k-text-xs">
+                    {isOwnerOrg ? (
+                      <div className="k-flex k-items-center k-gap-2">
+                        <span className="k-text-muted-foreground">
+                          {app.api_key_last_used_at
+                            ? `Última: ${new Date(app.api_key_last_used_at).toLocaleDateString()}`
+                            : "Nunca sincronizada"}
+                        </span>
+                        {canManage && (
+                          <div className="k-flex k-items-center k-gap-1.5">
+                            <button
+                              type="button"
+                              disabled={pendingId === app.id}
+                              onClick={() => setConfirmAction({ kind: "rotate", app })}
+                              className="k-inline-flex k-items-center k-gap-0.5 k-px-1.5 k-py-0.5 k-rounded k-bg-background k-border k-border-border k-font-medium hover:k-bg-muted"
+                              title="Rotar clave"
+                            >
+                              Rotar
+                            </button>
+                            <button
+                              type="button"
+                              disabled={pendingId === app.id}
+                              onClick={() => setConfirmAction({ kind: "revoke", app })}
+                              className="k-inline-flex k-items-center k-gap-0.5 k-px-1.5 k-py-0.5 k-rounded k-bg-destructive/10 k-text-destructive k-font-medium hover:k-bg-destructive/20"
+                              title="Revocar clave"
+                            >
+                              Revocar
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ) : app.owner_organization_id === null && platformAdmin ? (
+                      <button
+                        type="button"
+                        disabled={pendingId === app.id}
+                        onClick={() => setConfirmAction({ kind: "claim", app })}
+                        className="k-text-primary k-font-semibold hover:k-underline"
+                      >
+                        Reclamar propiedad
+                      </button>
+                    ) : app.owner_organization_id === null ? (
+                      <span className="k-text-muted-foreground">Sin propietario</span>
+                    ) : (
+                      <span className="k-text-muted-foreground">Controlada por otra org</span>
                     )}
                   </td>
 
