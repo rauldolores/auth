@@ -2,6 +2,21 @@ import { authenticateCookieOrBearer } from "@/lib/bearer-auth";
 import { logError } from "@/lib/logger";
 import { NextResponse } from "next/server";
 
+function corsHeaders(): HeadersInit {
+  const origin = process.env.NEXT_PUBLIC_ADMIN_PANEL_URL;
+  return origin
+    ? {
+        "Access-Control-Allow-Origin": origin,
+        "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers": "Authorization, Content-Type",
+      }
+    : {};
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: corsHeaders() });
+}
+
 interface RoleRow {
   slug: string;
   application_id: string | null;
@@ -81,4 +96,50 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     .sort((a, b) => a.name.localeCompare(b.name));
 
   return NextResponse.json({ applications });
+}
+
+/** Enables an application for this organization. RLS "org admins enable/disable applications for their org" (migration 0018) is the actual gate. */
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id: organizationId } = await params;
+  const { caller: supabase } = await authenticateCookieOrBearer(request);
+
+  const body = (await request.json().catch(() => null)) as { applicationId?: string } | null;
+  if (!body?.applicationId) {
+    return NextResponse.json({ error: "applicationId es requerido" }, { status: 400, headers: corsHeaders() });
+  }
+
+  const { error } = await supabase
+    .schema("kontrolia_auth")
+    .from("application_organizations")
+    .insert({ application_id: body.applicationId, organization_id: organizationId });
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 400, headers: corsHeaders() });
+
+  return new NextResponse(null, { status: 201, headers: corsHeaders() });
+}
+
+/** Disables an application for this organization. Same RLS as POST. */
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id: organizationId } = await params;
+  const { caller: supabase } = await authenticateCookieOrBearer(request);
+
+  const url = new URL(request.url);
+  const applicationId = url.searchParams.get("applicationId");
+  if (!applicationId) {
+    return NextResponse.json({ error: "applicationId es requerido" }, { status: 400, headers: corsHeaders() });
+  }
+
+  const { error } = await supabase
+    .schema("kontrolia_auth")
+    .from("application_organizations")
+    .delete()
+    .eq("application_id", applicationId)
+    .eq("organization_id", organizationId);
+
+  if (error) {
+    logError("DELETE /api/organizations/[id]/applications", error, { organizationId, applicationId });
+    return NextResponse.json({ error: error.message }, { status: 500, headers: corsHeaders() });
+  }
+
+  return new NextResponse(null, { status: 204, headers: corsHeaders() });
 }
