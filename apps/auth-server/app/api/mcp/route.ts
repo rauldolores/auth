@@ -2,6 +2,8 @@ import { getUserFromClaims, verifyRequest } from "@kontrolia/auth/server";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import type { KontroliaTokenClaims } from "@kontrolia/shared";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { logSecurityEvent } from "@/lib/logger";
 import { GET as listApplicationsRoute } from "@/app/api/applications/route";
 import { PATCH as updateApplicationRoute } from "@/app/api/applications/[id]/route";
 import { POST as claimApplicationRoute } from "@/app/api/applications/claim/route";
@@ -59,6 +61,12 @@ import { z } from "zod";
  * model, except grant/revoke_platform_admin which requires confirmation
  * deliberately above what the UI does today (the manifest's own
  * "highest-risk" flag on that action).
+ *
+ * Every mutating tool (Phase 5) also goes through registerMutatingTool():
+ * per-user rate limiting and a security-event log line per attempt, success
+ * or failure. Same in-memory-limiter caveat as everywhere else in this app
+ * (apps/auth-server/lib/rate-limit.ts) — best-effort on serverless, fully
+ * effective on a long-running process.
  */
 
 type RouteResult = { content: [{ type: "text"; text: string }]; isError?: true };
@@ -119,6 +127,50 @@ async function fetchField(handler: PlainHandler, path: string, token: string, ex
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
 }
+
+/**
+ * Rate limit keyed by the verified JWT's sub (user id), not IP — hosted MCP
+ * connectors (Claude.ai, ChatGPT) may proxy many distinct real users through
+ * a small set of egress IPs, which would make IP-keying either useless (too
+ * permissive) or actively harmful (one user's traffic exhausting another's
+ * budget). Same limit shape as applications/claim and oauth-clients.
+ */
+const MUTATION_RATE_LIMIT = { max: 30, windowMs: 5 * 60 * 1000 };
+
+/**
+ * Wraps every mutating tool registration with the same two things each one
+ * would otherwise have to do by hand: a per-user rate-limit check, and a
+ * security-event log line recording what was attempted and whether it
+ * succeeded — the MCP-call equivalent of the request logging every
+ * REST route already gets for free from being an HTTP endpoint, since a
+ * JSON-RPC tool call inside a single POST /api/mcp has no per-action log
+ * line otherwise.
+ */
+// McpServer.registerTool's generics don't collapse cleanly through a
+// wrapper like this — deliberately loose typing here since this is a thin,
+// internal-only shim, not a public API. Each call site's own inputSchema
+// still gets validated by the SDK at runtime regardless.
+/* eslint-disable @typescript-eslint/no-explicit-any */
+function registerMutatingTool(
+  server: McpServer,
+  claims: KontroliaTokenClaims,
+  name: string,
+  config: any,
+  callback: (args: any) => Promise<RouteResult>,
+): void {
+  server.registerTool(name, config, async (args: any) => {
+    const rateLimit = checkRateLimit(`mcp-mutation:${claims.sub}`, MUTATION_RATE_LIMIT);
+    if (!rateLimit.allowed) {
+      logSecurityEvent("mcp: mutation rate limited", { userId: claims.sub, tool: name });
+      return errorResult(`Demasiadas solicitudes de escritura. Intenta de nuevo en ${rateLimit.retryAfterSeconds} segundos.`);
+    }
+
+    const result = await callback(args);
+    logSecurityEvent("mcp: mutation", { tool: name, userId: claims.sub, email: claims.email, success: !result.isError });
+    return result;
+  });
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 function buildServer(token: string, claims: KontroliaTokenClaims): McpServer {
   const server = new McpServer({ name: "kontrolia-auth", version: "1.0.0" });
@@ -213,67 +265,89 @@ function buildServer(token: string, claims: KontroliaTokenClaims): McpServer {
   // --- Mutating tools, no confirmation (Phase 4) ---
   // admin-panel doesn't gate the equivalent UI action behind a ConfirmDialog either.
 
-  server.registerTool(
+  registerMutatingTool(
+    server,
+    claims,
     "create_organization",
     { title: "Create organization", description: "Creates a new organization; the caller becomes its Owner.", inputSchema: { name: z.string(), slug: z.string() } },
     async ({ name, slug }) => call(createOrganizationRoute, "/api/organizations", token, { method: "POST", body: { name, slug } }),
   );
 
-  server.registerTool(
+  registerMutatingTool(
+    server,
+    claims,
     "rename_organization",
     { title: "Rename organization", description: "Renames an organization. Requires Owner or Admin.", inputSchema: { organizationId: z.string(), name: z.string() } },
     async ({ organizationId, name }) => callParam(renameOrganizationRoute, `/api/organizations/${organizationId}`, organizationId, token, { method: "PATCH", body: { name } }),
   );
 
-  server.registerTool(
+  registerMutatingTool(
+    server,
+    claims,
     "invite_user",
     { title: "Invite a user", description: "Creates an invitation and returns its token/link.", inputSchema: { organizationId: z.string(), email: z.string(), roleId: z.string().optional() } },
     async ({ organizationId, email, roleId }) => call(inviteUserRoute, "/api/invitations", token, { method: "POST", body: { organizationId, email, roleId } }),
   );
 
-  server.registerTool(
+  registerMutatingTool(
+    server,
+    claims,
     "resend_invitation",
     { title: "Resend an invitation", description: "Regenerates an invitation's token and expiry.", inputSchema: { invitationId: z.string() } },
     async ({ invitationId }) => callParam(resendInvitationRoute, `/api/invitations/${invitationId}`, invitationId, token, { method: "PATCH" }),
   );
 
-  server.registerTool(
+  registerMutatingTool(
+    server,
+    claims,
     "change_member_status",
     { title: "Activate or suspend a member", description: "Reactivating a suspended member needs no confirmation; suspending uses the suspend_user tool instead, which does.", inputSchema: { membershipId: z.string(), status: z.literal("active") } },
     async ({ membershipId }) => call(updateMemberStatusRoute, `/api/organization-members?membershipId=${membershipId}`, token, { method: "PATCH", body: { status: "active" } }),
   );
 
-  server.registerTool(
+  registerMutatingTool(
+    server,
+    claims,
     "grant_membership_role",
     { title: "Grant an app-scoped role to a member", description: "Fails if the member already has a role for that application — revoke it first.", inputSchema: { membershipId: z.string(), roleId: z.string() } },
     async ({ membershipId, roleId }) => call(grantMembershipRoleRoute, "/api/organization-members/roles", token, { method: "POST", body: { membershipId, roleId } }),
   );
 
-  server.registerTool(
+  registerMutatingTool(
+    server,
+    claims,
     "revoke_membership_role",
     { title: "Revoke an app-scoped role from a member", description: "Easily reversible (re-grant), and the caller already pinpoints the exact grant by id — no confirmation required, matching the UI's own role dropdown.", inputSchema: { membershipId: z.string(), roleId: z.string() } },
     async ({ membershipId, roleId }) => call(revokeMembershipRoleRoute, `/api/organization-members/roles?membershipId=${membershipId}&roleId=${roleId}`, token, { method: "DELETE" }),
   );
 
-  server.registerTool(
+  registerMutatingTool(
+    server,
+    claims,
     "create_custom_role",
     { title: "Create a custom role", description: "Creates an app-scoped custom role; the slug is computed server-side.", inputSchema: { organizationId: z.string(), applicationId: z.string(), name: z.string() } },
     async ({ organizationId, applicationId, name }) => call(createRoleRoute, "/api/roles", token, { method: "POST", body: { organizationId, applicationId, name } }),
   );
 
-  server.registerTool(
+  registerMutatingTool(
+    server,
+    claims,
     "grant_role_permission",
     { title: "Grant a permission to a role", description: "Fails for system/grants_all_permissions roles — those sync automatically.", inputSchema: { roleId: z.string(), permissionId: z.string() } },
     async ({ roleId, permissionId }) => callParam(grantRolePermissionRoute, `/api/roles/${roleId}/permissions`, roleId, token, { method: "POST", body: { permissionId } }),
   );
 
-  server.registerTool(
+  registerMutatingTool(
+    server,
+    claims,
     "enable_application",
     { title: "Enable an application for an organization", description: "Makes the application launchable/assignable within the org.", inputSchema: { organizationId: z.string(), applicationId: z.string() } },
     async ({ organizationId, applicationId }) => callParam(enableApplicationRoute, `/api/organizations/${organizationId}/applications`, organizationId, token, { method: "POST", body: { applicationId } }),
   );
 
-  server.registerTool(
+  registerMutatingTool(
+    server,
+    claims,
     "configure_oauth_client",
     {
       title: "Register a new OAuth client for an application",
@@ -290,7 +364,9 @@ function buildServer(token: string, claims: KontroliaTokenClaims): McpServer {
     },
   );
 
-  server.registerTool(
+  registerMutatingTool(
+    server,
+    claims,
     "link_existing_oauth_client",
     { title: "Link an existing OAuth client to an application", description: "Points an application at an already-registered GoTrue OAuth client instead of creating a duplicate.", inputSchema: { applicationId: z.string(), oauthClientId: z.string() } },
     async ({ applicationId, oauthClientId }) => callParam(updateApplicationRoute, `/api/applications/${applicationId}`, applicationId, token, { method: "PATCH", body: { oauthClientId } }),
@@ -299,7 +375,9 @@ function buildServer(token: string, claims: KontroliaTokenClaims): McpServer {
   // --- Mutating tools, confirmation required (Phase 4) ---
   // confirm* must match the resource's *current* identifier, re-fetched here through the same read route before the mutation runs.
 
-  server.registerTool(
+  registerMutatingTool(
+    server,
+    claims,
     "delete_organization",
     {
       title: "Delete an organization",
@@ -318,7 +396,9 @@ function buildServer(token: string, claims: KontroliaTokenClaims): McpServer {
     },
   );
 
-  server.registerTool(
+  registerMutatingTool(
+    server,
+    claims,
     "remove_user",
     {
       title: "Remove a user from an organization",
@@ -337,7 +417,9 @@ function buildServer(token: string, claims: KontroliaTokenClaims): McpServer {
     },
   );
 
-  server.registerTool(
+  registerMutatingTool(
+    server,
+    claims,
     "suspend_user",
     {
       title: "Suspend a user's access to an organization",
@@ -356,7 +438,9 @@ function buildServer(token: string, claims: KontroliaTokenClaims): McpServer {
     },
   );
 
-  server.registerTool(
+  registerMutatingTool(
+    server,
+    claims,
     "revoke_invitation",
     {
       title: "Revoke a pending invitation",
@@ -375,7 +459,9 @@ function buildServer(token: string, claims: KontroliaTokenClaims): McpServer {
     },
   );
 
-  server.registerTool(
+  registerMutatingTool(
+    server,
+    claims,
     "delete_custom_role",
     {
       title: "Delete a custom role",
@@ -394,7 +480,9 @@ function buildServer(token: string, claims: KontroliaTokenClaims): McpServer {
     },
   );
 
-  server.registerTool(
+  registerMutatingTool(
+    server,
+    claims,
     "revoke_role_permission",
     {
       title: "Revoke a permission from a role",
@@ -413,7 +501,9 @@ function buildServer(token: string, claims: KontroliaTokenClaims): McpServer {
     },
   );
 
-  server.registerTool(
+  registerMutatingTool(
+    server,
+    claims,
     "disable_application",
     {
       title: "Disable an application for an organization",
@@ -432,7 +522,9 @@ function buildServer(token: string, claims: KontroliaTokenClaims): McpServer {
     },
   );
 
-  server.registerTool(
+  registerMutatingTool(
+    server,
+    claims,
     "claim_application_ownership",
     {
       title: "Claim ownership of an unowned application",
@@ -451,7 +543,9 @@ function buildServer(token: string, claims: KontroliaTokenClaims): McpServer {
     },
   );
 
-  server.registerTool(
+  registerMutatingTool(
+    server,
+    claims,
     "rotate_application_sync_key",
     {
       title: "Rotate an application's API key",
@@ -470,7 +564,9 @@ function buildServer(token: string, claims: KontroliaTokenClaims): McpServer {
     },
   );
 
-  server.registerTool(
+  registerMutatingTool(
+    server,
+    claims,
     "revoke_application_sync_key",
     {
       title: "Revoke an application's API key",
@@ -489,7 +585,9 @@ function buildServer(token: string, claims: KontroliaTokenClaims): McpServer {
     },
   );
 
-  server.registerTool(
+  registerMutatingTool(
+    server,
+    claims,
     "grant_platform_admin",
     {
       title: "Grant platform-admin status",
@@ -502,7 +600,9 @@ function buildServer(token: string, claims: KontroliaTokenClaims): McpServer {
     },
   );
 
-  server.registerTool(
+  registerMutatingTool(
+    server,
+    claims,
     "revoke_platform_admin",
     {
       title: "Revoke platform-admin status",
