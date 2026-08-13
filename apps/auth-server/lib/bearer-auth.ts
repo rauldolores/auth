@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { createRouteHandlerSupabaseClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
 
 /**
@@ -29,4 +30,20 @@ export function authenticateBearer(request: Request): { token: string; caller: S
   const token = extractBearerToken(request);
   if (!token) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
   return { token, caller: scopedClient(token) };
+}
+
+/**
+ * Like authenticateBearer, but falls back to the request's own cookie
+ * session when no Authorization header is present — for routes that
+ * already have a real same-origin browser caller (auth-server's own UI,
+ * e.g. the org switcher/dashboard) which must keep working unchanged,
+ * while still being reachable via bearer token from anywhere else (MCP,
+ * admin-panel, external integrations). Never 401s itself — an absent
+ * session just means RLS filters everything out downstream, exactly as it
+ * already did before this existed.
+ */
+export async function authenticateCookieOrBearer(request: Request): Promise<{ caller: ScopedClient }> {
+  const token = extractBearerToken(request);
+  if (token) return { caller: scopedClient(token) };
+  return { caller: await createRouteHandlerSupabaseClient() };
 }

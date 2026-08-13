@@ -1,4 +1,4 @@
-import { createRouteHandlerSupabaseClient } from "@/lib/supabase-server";
+import { authenticateCookieOrBearer } from "@/lib/bearer-auth";
 import { NextResponse } from "next/server";
 
 /**
@@ -11,7 +11,7 @@ import { NextResponse } from "next/server";
  */
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const supabase = await createRouteHandlerSupabaseClient();
+  const { caller: supabase } = await authenticateCookieOrBearer(request);
   const body = (await request.json().catch(() => null)) as { name?: string } | null;
 
   if (!body?.name?.trim()) {
@@ -42,9 +42,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   return NextResponse.json({ organization: data });
 }
 
-export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const supabase = await createRouteHandlerSupabaseClient();
+  const { caller: supabase } = await authenticateCookieOrBearer(request);
 
   // RLS silently filters rows out of the operation instead of erroring —
   // an org that exists but isn't owned by the caller "deletes" 0 rows with

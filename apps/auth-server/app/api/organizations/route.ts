@@ -1,5 +1,5 @@
+import { authenticateCookieOrBearer } from "@/lib/bearer-auth";
 import { logError } from "@/lib/logger";
-import { createRouteHandlerSupabaseClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
 
 /**
@@ -7,9 +7,13 @@ import { NextResponse } from "next/server";
  * Deliberately NOT carried in the JWT (see the risks section of the
  * architecture plan): only the *active* organization's roles/permissions
  * live in the token, so the membership list is fetched here instead.
+ *
+ * Cookie-or-bearer auth: auth-server's own dashboard calls this same-origin
+ * with its session cookie (unchanged); a bearer token (MCP, admin-panel,
+ * external callers) works identically since it's the same RLS underneath.
  */
-export async function GET() {
-  const supabase = await createRouteHandlerSupabaseClient();
+export async function GET(request: Request) {
+  const { caller: supabase } = await authenticateCookieOrBearer(request);
 
   const {
     data: { user },
@@ -37,7 +41,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const supabase = await createRouteHandlerSupabaseClient();
+  const { caller: supabase } = await authenticateCookieOrBearer(request);
   const body = (await request.json()) as { name?: string; slug?: string };
 
   if (!body.name || !body.slug) {

@@ -12,6 +12,14 @@ vi.mock("@/lib/supabase-server", () => ({
   }),
 }));
 
+// authenticateCookieOrBearer falls back to the mocked cookie client above
+// when no Authorization header is present; when one is, it builds a client
+// via this same createClient() entry point instead.
+const createClientMock = vi.fn();
+vi.mock("@supabase/supabase-js", () => ({
+  createClient: (...args: unknown[]) => createClientMock(...args),
+}));
+
 const logErrorMock = vi.fn();
 vi.mock("@/lib/logger", () => ({
   logError: (...args: unknown[]) => logErrorMock(...args),
@@ -23,6 +31,7 @@ const BASE_URL = "https://auth.example.com/api/organizations";
 
 beforeEach(() => {
   getUserMock.mockReset();
+  createClientMock.mockReset();
   logErrorMock.mockReset();
   schemaClientHolder.current = null;
 });
@@ -30,7 +39,7 @@ beforeEach(() => {
 describe("GET /api/organizations", () => {
   it("returns 401 when not signed in", async () => {
     getUserMock.mockResolvedValue({ data: { user: null } });
-    const response = await GET();
+    const response = await GET(new Request(BASE_URL));
     expect(response.status).toBe(401);
   });
 
@@ -39,7 +48,7 @@ describe("GET /api/organizations", () => {
     schemaClientHolder.current = makeSchemaClient({
       memberships: [{ data: [{ organization: { id: "org-1", name: "Acme", slug: "acme" } }], error: null }],
     });
-    const response = await GET();
+    const response = await GET(new Request(BASE_URL));
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ organizations: [{ id: "org-1", name: "Acme", slug: "acme" }] });
   });
@@ -47,9 +56,20 @@ describe("GET /api/organizations", () => {
   it("returns 500 and logs on a query error", async () => {
     getUserMock.mockResolvedValue({ data: { user: { id: "user-1" } } });
     schemaClientHolder.current = makeSchemaClient({ memberships: [{ data: null, error: { message: "boom" } }] });
-    const response = await GET();
+    const response = await GET(new Request(BASE_URL));
     expect(response.status).toBe(500);
     expect(logErrorMock).toHaveBeenCalledWith("GET /api/organizations", { message: "boom" });
+  });
+
+  it("uses a bearer-token client instead of the cookie session when Authorization is present", async () => {
+    createClientMock.mockReturnValue({
+      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: "user-1" } } }) },
+      ...makeSchemaClient({ memberships: [{ data: [{ organization: { id: "org-2", name: "Bearer Co", slug: "bearer-co" } }], error: null }] }),
+    });
+    const response = await GET(new Request(BASE_URL, { headers: { Authorization: "Bearer test-token" } }));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ organizations: [{ id: "org-2", name: "Bearer Co", slug: "bearer-co" }] });
+    expect(getUserMock).not.toHaveBeenCalled();
   });
 });
 

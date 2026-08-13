@@ -1,5 +1,5 @@
+import { authenticateCookieOrBearer } from "@/lib/bearer-auth";
 import { logError } from "@/lib/logger";
-import { createRouteHandlerSupabaseClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
 
 interface RoleRow {
@@ -34,9 +34,9 @@ interface EnabledAppRow {
  * role for that app) — being a Member of the org isn't itself access to
  * any particular application.
  */
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id: organizationId } = await params;
-  const supabase = await createRouteHandlerSupabaseClient();
+  const { caller: supabase } = await authenticateCookieOrBearer(request);
 
   const {
     data: { user },
