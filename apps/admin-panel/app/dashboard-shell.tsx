@@ -87,6 +87,16 @@ function IconClock({ className }: IconProps) {
   );
 }
 
+function IconHelp({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" className={className} aria-hidden="true">
+      <circle cx="8" cy="8" r="6.25" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M6 6.2c0-1.2 1-1.95 2.1-1.95 1.1 0 1.95.75 1.95 1.75 0 1.35-1.75 1.4-1.9 2.75" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      <circle cx="8.05" cy="11.3" r="0.15" fill="currentColor" stroke="currentColor" strokeWidth="0.9" />
+    </svg>
+  );
+}
+
 function IconMenu({ className }: IconProps) {
   return (
     <svg viewBox="0 0 16 16" fill="none" className={className} aria-hidden="true">
@@ -107,6 +117,8 @@ interface NavItem {
   href: string;
   label: string;
   icon: (props: IconProps) => React.ReactNode;
+  /** Opens in a new tab via a plain <a>, not Next's <Link> — for links that leave this app (e.g. the docs site). */
+  external?: boolean;
 }
 
 interface NavGroup {
@@ -134,6 +146,24 @@ const NAV_GROUPS: NavGroup[] = [
   },
   { label: "Configuración", items: [{ href: "/audit-logs", label: "Audit log", icon: IconClock }] },
 ];
+
+/**
+ * Only shown when NEXT_PUBLIC_DOCS_URL is configured — apps/documentation
+ * isn't deployed by every installation, and a Help menu pointing at a
+ * dead link is worse than no Help menu at all.
+ */
+function buildHelpGroup(docsUrl: string | undefined): NavGroup | null {
+  if (!docsUrl) return null;
+  return {
+    label: "Ayuda",
+    items: [
+      { href: docsUrl, label: "Documentación", icon: IconHelp, external: true },
+      { href: `${docsUrl}/docs/guides/connect-your-app`, label: "Cómo usar el API", icon: IconKey, external: true },
+      { href: `${docsUrl}/docs/faq`, label: "Preguntas frecuentes", icon: IconMail, external: true },
+      { href: `${docsUrl}/docs/troubleshooting`, label: "Solución de problemas", icon: IconClock, external: true },
+    ],
+  };
+}
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const {
@@ -201,6 +231,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
   const authServerUrl = process.env.NEXT_PUBLIC_AUTH_SERVER_URL;
   const oauthClientId = process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID;
+  const helpGroup = buildHelpGroup(process.env.NEXT_PUBLIC_DOCS_URL);
+  const navGroups = helpGroup ? [...NAV_GROUPS, helpGroup] : NAV_GROUPS;
   const loginHref = authServerUrl
     ? `${authServerUrl}/login?redirect_to=${encodeURIComponent(typeof window !== "undefined" ? window.location.href : authServerUrl)}`
     : "/login";
@@ -292,7 +324,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               </div>
 
               <nav className="k-flex k-flex-1 k-flex-col k-gap-4 k-overflow-y-auto">
-                {NAV_GROUPS.map((group, index) => (
+                {navGroups.map((group, index) => (
                   <div key={group.label ?? `group-${index}`}>
                     {group.label && (
                       <p className="k-mb-1 k-px-3 k-text-[10px] k-font-semibold k-uppercase k-tracking-wide k-text-sidebar-muted">
@@ -301,17 +333,17 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                     )}
                     <div className="k-flex k-flex-col k-gap-0.5">
                       {group.items.map((item) => {
-                        const isActive = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
-                        return (
-                          <Link
-                            key={item.href}
-                            href={item.href}
-                            className={
-                              isActive
-                                ? "k-flex k-items-center k-gap-2.5 k-rounded-lg k-bg-sidebar-active k-px-3 k-py-2 k-text-sm k-font-medium k-text-white"
-                                : "k-flex k-items-center k-gap-2.5 k-rounded-lg k-px-3 k-py-2 k-text-sm k-font-medium k-text-sidebar-foreground/80 hover:k-bg-white/5 hover:k-text-sidebar-foreground"
-                            }
-                          >
+                        const isActive = !item.external && (item.href === "/" ? pathname === "/" : pathname.startsWith(item.href));
+                        const linkClassName = isActive
+                          ? "k-flex k-items-center k-gap-2.5 k-rounded-lg k-bg-sidebar-active k-px-3 k-py-2 k-text-sm k-font-medium k-text-white"
+                          : "k-flex k-items-center k-gap-2.5 k-rounded-lg k-px-3 k-py-2 k-text-sm k-font-medium k-text-sidebar-foreground/80 hover:k-bg-white/5 hover:k-text-sidebar-foreground";
+                        return item.external ? (
+                          <a key={item.href} href={item.href} target="_blank" rel="noopener noreferrer" className={linkClassName}>
+                            <item.icon className="k-h-4 k-w-4 k-shrink-0" />
+                            {item.label}
+                          </a>
+                        ) : (
+                          <Link key={item.href} href={item.href} className={linkClassName}>
                             <item.icon className="k-h-4 k-w-4 k-shrink-0" />
                             {item.label}
                           </Link>
