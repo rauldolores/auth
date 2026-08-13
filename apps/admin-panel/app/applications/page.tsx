@@ -244,6 +244,7 @@ export default function ApplicationsPage() {
   const [oauthSaving, setOauthSaving] = useState(false);
   const [oauthLinkClientId, setOauthLinkClientId] = useState("");
   const [oauthLinking, setOauthLinking] = useState(false);
+  const [apiKeyDialogApp, setApiKeyDialogApp] = useState<ApplicationRow | null>(null);
 
   // Filters & UI view state
   const [searchQuery, setSearchQuery] = useState("");
@@ -448,6 +449,10 @@ export default function ApplicationsPage() {
     }
   }
 
+  function openApiKeyDialog(app: ApplicationRow) {
+    setApiKeyDialogApp(app);
+  }
+
   function openOauthDialog(app: ApplicationRow) {
     const existing = app.oauth_client_id ? oauthClients.get(app.oauth_client_id) : null;
     setOauthName(existing?.client_name ?? app.name);
@@ -594,8 +599,9 @@ export default function ApplicationsPage() {
           <div className="k-flex-1 k-pr-6">
             <p className="k-font-semibold k-text-foreground">Sincronización Automática de Permisos</p>
             <p className="k-text-xs k-text-muted-foreground k-mt-1 k-leading-relaxed">
-              Cada aplicación mantiene su propio catálogo sincronizado automáticamente desde su pipeline de despliegue (CI/CD).
-              Solo las aplicaciones habilitadas aquí aparecen en la sección de Permisos para su asignación a roles. Si deseas habilitar SSO de Auth-Server, configura su cliente OAuth.
+              Cada aplicación mantiene su propio catálogo sincronizado automáticamente desde su pipeline de despliegue (CI/CD),
+              usando su API Key. Solo las aplicaciones habilitadas aquí aparecen en la sección de Permisos para su asignación a
+              roles. Si deseas habilitar SSO de Auth-Server, configura su cliente OAuth.
             </p>
           </div>
           <button
@@ -620,45 +626,6 @@ export default function ApplicationsPage() {
             <XIcon />
           </button>
         </div>
-      )}
-
-      {/* --- NEW API KEY BANNER --- */}
-      {newApiKey && (
-        <Card className="k-flex k-flex-col sm:k-flex-row sm:k-items-center sm:k-justify-between k-gap-4 k-border-emerald-500/40 k-bg-emerald-500/10 k-p-4">
-          <div className="k-min-w-0 k-flex-1">
-            <div className="k-flex k-items-center k-gap-2 k-text-emerald-700 dark:k-text-emerald-300 k-font-semibold k-text-sm">
-              <KeyIcon className="k-w-4 k-h-4" />
-              <span>Nueva clave de sincronización generada</span>
-            </div>
-            <p className="k-text-xs k-text-muted-foreground k-mt-0.5">
-              Cópiala ahora. Por seguridad no se guardará en texto plano y no podrá mostrarse nuevamente.
-            </p>
-            <div className="k-mt-2 k-rounded-lg k-bg-background/80 k-border k-border-emerald-500/30 k-px-3 k-py-2 k-font-mono k-text-xs k-text-foreground k-truncate select-all">
-              {newApiKey.plaintext}
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              void navigator.clipboard.writeText(newApiKey.plaintext);
-              setCopied(true);
-              setTimeout(() => setCopied(false), 2000);
-            }}
-            className="k-shrink-0 k-inline-flex k-items-center k-justify-center k-gap-2 k-rounded-lg k-bg-emerald-600 k-px-4 k-py-2 k-text-sm k-font-medium k-text-white hover:k-bg-emerald-700 k-transition-all"
-          >
-            {copied ? (
-              <>
-                <CheckIcon />
-                <span>¡Copiada!</span>
-              </>
-            ) : (
-              <>
-                <CopyIcon />
-                <span>Copiar clave</span>
-              </>
-            )}
-          </button>
-        </Card>
       )}
 
       {/* --- METRICS STATS BAR --- */}
@@ -834,6 +801,7 @@ export default function ApplicationsPage() {
                       handleSaveUrl={handleSaveUrl}
                       setConfirmAction={setConfirmAction}
                       openOauthDialog={openOauthDialog}
+                      openApiKeyDialog={openApiKeyDialog}
                       isEnabled={true}
                       handleEnable={handleEnable}
                     />
@@ -854,6 +822,7 @@ export default function ApplicationsPage() {
                   handleSaveUrl={handleSaveUrl}
                   setConfirmAction={setConfirmAction}
                   openOauthDialog={openOauthDialog}
+                  openApiKeyDialog={openApiKeyDialog}
                   isEnabled={true}
                   handleEnable={handleEnable}
                 />
@@ -895,6 +864,7 @@ export default function ApplicationsPage() {
                       handleSaveUrl={handleSaveUrl}
                       setConfirmAction={setConfirmAction}
                       openOauthDialog={openOauthDialog}
+                      openApiKeyDialog={openApiKeyDialog}
                       isEnabled={false}
                       handleEnable={handleEnable}
                     />
@@ -915,6 +885,7 @@ export default function ApplicationsPage() {
                   handleSaveUrl={handleSaveUrl}
                   setConfirmAction={setConfirmAction}
                   openOauthDialog={openOauthDialog}
+                  openApiKeyDialog={openApiKeyDialog}
                   isEnabled={false}
                   handleEnable={handleEnable}
                 />
@@ -956,8 +927,8 @@ export default function ApplicationsPage() {
             : confirmAction?.kind === "claim"
               ? "Reclamar propiedad"
               : confirmAction?.kind === "rotate"
-                ? "Rotar clave de sincronización"
-                : "Revocar clave de sincronización"
+                ? "Rotar API Key"
+                : "Revocar API Key"
         }
         description={
           !confirmAction
@@ -965,10 +936,10 @@ export default function ApplicationsPage() {
             : confirmAction.kind === "disable"
               ? `¿Deshabilitar "${confirmAction.app.name}" para ${organization.name}? Quien inicie sesión con esa app dejará de poder acceder.`
               : confirmAction.kind === "claim"
-                ? `¿Reclamar "${confirmAction.app.name}" para ${organization.name}? Esta organización pasará a controlar su clave de sincronización — no se puede deshacer ni transferir después.`
+                ? `¿Reclamar "${confirmAction.app.name}" para ${organization.name}? Esta organización pasará a controlar su API Key — no se puede deshacer ni transferir después.`
                 : confirmAction.kind === "rotate"
-                  ? `¿Rotar la clave de sincronización de "${confirmAction.app.name}"? La clave anterior deja de funcionar de inmediato — actualiza el pipeline de despliegue de la app con la nueva.`
-                  : `¿Revocar la clave de sincronización de "${confirmAction.app.name}"? El pipeline de despliegue de la app dejará de poder sincronizar su catálogo de permisos hasta que generes una nueva.`
+                  ? `¿Rotar la API Key de "${confirmAction.app.name}"? La clave anterior deja de funcionar de inmediato — actualiza el pipeline de despliegue de la app con la nueva.`
+                  : `¿Revocar la API Key de "${confirmAction.app.name}"? El pipeline de despliegue de la app dejará de poder sincronizar su catálogo de permisos, ni llamar al API, hasta que generes una nueva.`
         }
         confirmLabel={
           confirmAction?.kind === "disable"
@@ -988,6 +959,94 @@ export default function ApplicationsPage() {
           else await handleRevokeKey(app);
         }}
       />
+
+      {/* --- API KEY DIALOG --- */}
+      <Dialog
+        open={apiKeyDialogApp !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setApiKeyDialogApp(null);
+            setNewApiKey(null);
+          }
+        }}
+        title="API Key"
+        description={
+          apiKeyDialogApp
+            ? `Usa esta clave para que el backend de "${apiKeyDialogApp.name}" llame al API de KontrolIA Auth — sincronizar su catálogo de permisos (POST /api/applications/sync) y gestionar los miembros de tu organización. No es lo mismo que el cliente OAuth (eso es para que los usuarios inicien sesión).`
+            : undefined
+        }
+      >
+        {apiKeyDialogApp && (
+          <div className="k-flex k-flex-col k-gap-4 k-pt-1">
+            <div className="k-flex k-items-center k-justify-between k-gap-2 k-text-sm">
+              <span className="k-text-muted-foreground">Último uso</span>
+              <span className="k-font-medium">
+                {apiKeyDialogApp.api_key_last_used_at
+                  ? new Date(apiKeyDialogApp.api_key_last_used_at).toLocaleString()
+                  : "Nunca usada"}
+              </span>
+            </div>
+
+            {newApiKey && newApiKey.appId === apiKeyDialogApp.id && (
+              <div className="k-flex k-flex-col k-gap-2 k-rounded-lg k-border k-border-emerald-500/40 k-bg-emerald-500/10 k-p-3.5">
+                <div className="k-flex k-items-center k-gap-2 k-text-emerald-700 dark:k-text-emerald-300 k-font-semibold k-text-sm">
+                  <KeyIcon className="k-w-4 k-h-4" />
+                  <span>Nueva API Key generada</span>
+                </div>
+                <p className="k-text-xs k-text-muted-foreground">
+                  Cópiala ahora. Por seguridad no se guarda en texto plano y no podrá mostrarse nuevamente.
+                </p>
+                <div className="k-rounded-lg k-bg-background/80 k-border k-border-emerald-500/30 k-px-3 k-py-2 k-font-mono k-text-xs k-text-foreground k-truncate select-all">
+                  {newApiKey.plaintext}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(newApiKey.plaintext);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  }}
+                  className="k-inline-flex k-w-fit k-items-center k-gap-2 k-rounded-lg k-bg-emerald-600 k-px-3.5 k-py-1.5 k-text-sm k-font-medium k-text-white hover:k-bg-emerald-700 k-transition-all"
+                >
+                  {copied ? (
+                    <>
+                      <CheckIcon />
+                      <span>¡Copiada!</span>
+                    </>
+                  ) : (
+                    <>
+                      <CopyIcon />
+                      <span>Copiar API Key</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+
+            {canManage && (
+              <div className="k-flex k-justify-end k-gap-3 k-pt-2">
+                <button
+                  type="button"
+                  disabled={pendingId === apiKeyDialogApp.id}
+                  onClick={() => setConfirmAction({ kind: "revoke", app: apiKeyDialogApp })}
+                  className="k-rounded-lg k-px-4 k-py-2 k-text-sm k-font-medium k-text-destructive hover:k-bg-destructive/10 disabled:k-opacity-60 k-transition-all"
+                >
+                  Revocar
+                </button>
+                <button
+                  type="button"
+                  disabled={pendingId === apiKeyDialogApp.id}
+                  onClick={() => setConfirmAction({ kind: "rotate", app: apiKeyDialogApp })}
+                  className="k-inline-flex k-items-center k-gap-2 k-rounded-lg k-bg-primary k-px-4 k-py-2 k-text-sm k-font-medium k-text-primary-foreground disabled:k-opacity-60 hover:k-opacity-90 k-transition-all"
+                >
+                  <RefreshIcon />
+                  <span>{apiKeyDialogApp.api_key_last_used_at ? "Rotar API Key" : "Generar API Key"}</span>
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </Dialog>
 
       {/* --- OAUTH CLIENT DIALOG --- */}
       <Dialog
@@ -1124,6 +1183,7 @@ function AppCardItem({
   handleSaveUrl,
   setConfirmAction,
   openOauthDialog,
+  openApiKeyDialog,
   isEnabled,
   handleEnable,
 }: {
@@ -1139,6 +1199,7 @@ function AppCardItem({
   handleSaveUrl: (id: string) => void;
   setConfirmAction: (action: { kind: "disable" | "claim" | "rotate" | "revoke"; app: ApplicationRow } | null) => void;
   openOauthDialog: (app: ApplicationRow) => void;
+  openApiKeyDialog: (app: ApplicationRow) => void;
   isEnabled: boolean;
   handleEnable: (id: string) => void;
 }) {
@@ -1246,39 +1307,20 @@ function AppCardItem({
           )}
         </div>
 
-        {/* Ownership & Sync key status */}
+        {/* Ownership & API Key status */}
         <div className="k-flex k-items-center k-justify-between k-gap-2 k-border-t k-border-border/50 k-pt-2">
-          <span className="k-text-muted-foreground k-font-medium">Sincronización:</span>
+          <span className="k-text-muted-foreground k-font-medium">API Key:</span>
           {isOwnerOrg ? (
-            <div className="k-flex k-items-center k-gap-2">
-              <span className="k-text-muted-foreground">
-                {app.api_key_last_used_at
-                  ? `Última: ${new Date(app.api_key_last_used_at).toLocaleDateString()}`
-                  : "Nunca sincronizada"}
-              </span>
-              {canManage && (
-                <div className="k-flex k-items-center k-gap-1.5 k-ml-1">
-                  <button
-                    type="button"
-                    disabled={pendingId === app.id}
-                    onClick={() => setConfirmAction({ kind: "rotate", app })}
-                    className="k-inline-flex k-items-center k-gap-0.5 k-px-1.5 k-py-0.5 k-rounded k-bg-background k-border k-border-border k-font-medium hover:k-bg-muted"
-                    title="Rotar clave"
-                  >
-                    <RefreshIcon /> Rotar
-                  </button>
-                  <button
-                    type="button"
-                    disabled={pendingId === app.id}
-                    onClick={() => setConfirmAction({ kind: "revoke", app })}
-                    className="k-inline-flex k-items-center k-gap-0.5 k-px-1.5 k-py-0.5 k-rounded k-bg-destructive/10 k-text-destructive k-font-medium hover:k-bg-destructive/20"
-                    title="Revocar clave"
-                  >
-                    Revocar
-                  </button>
-                </div>
-              )}
-            </div>
+            <button
+              type="button"
+              onClick={() => openApiKeyDialog(app)}
+              className="k-inline-flex k-items-center k-gap-1.5 k-text-primary hover:k-underline k-font-medium"
+            >
+              <KeyIcon className="k-w-3.5 k-h-3.5" />
+              {app.api_key_last_used_at
+                ? `Última: ${new Date(app.api_key_last_used_at).toLocaleDateString()}`
+                : "Nunca usada"}
+            </button>
           ) : isUnowned && platformAdmin ? (
             <button
               type="button"
@@ -1380,6 +1422,7 @@ function AppTableView({
   handleSaveUrl,
   setConfirmAction,
   openOauthDialog,
+  openApiKeyDialog,
   isEnabled,
   handleEnable,
 }: {
@@ -1395,6 +1438,7 @@ function AppTableView({
   handleSaveUrl: (id: string) => void;
   setConfirmAction: (action: { kind: "disable" | "claim" | "rotate" | "revoke"; app: ApplicationRow } | null) => void;
   openOauthDialog: (app: ApplicationRow) => void;
+  openApiKeyDialog: (app: ApplicationRow) => void;
   isEnabled: boolean;
   handleEnable: (id: string) => void;
 }) {
@@ -1409,7 +1453,7 @@ function AppTableView({
               <th className="k-px-5 k-py-3.5 k-font-semibold">Entorno</th>
               <th className="k-px-5 k-py-3.5 k-font-semibold">Permisos</th>
               <th className="k-px-5 k-py-3.5 k-font-semibold">URL</th>
-              <th className="k-px-5 k-py-3.5 k-font-semibold">Sincronización</th>
+              <th className="k-px-5 k-py-3.5 k-font-semibold">API Key</th>
               {platformAdmin && <th className="k-px-5 k-py-3.5 k-font-semibold">OAuth SSO</th>}
               <th className="k-px-5 k-py-3.5 k-font-semibold k-text-right">Acción</th>
             </tr>
@@ -1474,38 +1518,18 @@ function AppTableView({
                     )}
                   </td>
 
-                  {/* Sync key / ownership */}
+                  {/* API Key / ownership */}
                   <td className="k-px-5 k-py-3.5 k-text-xs">
                     {isOwnerOrg ? (
-                      <div className="k-flex k-items-center k-gap-2">
-                        <span className="k-text-muted-foreground">
-                          {app.api_key_last_used_at
-                            ? `Última: ${new Date(app.api_key_last_used_at).toLocaleDateString()}`
-                            : "Nunca sincronizada"}
-                        </span>
-                        {canManage && (
-                          <div className="k-flex k-items-center k-gap-1.5">
-                            <button
-                              type="button"
-                              disabled={pendingId === app.id}
-                              onClick={() => setConfirmAction({ kind: "rotate", app })}
-                              className="k-inline-flex k-items-center k-gap-0.5 k-px-1.5 k-py-0.5 k-rounded k-bg-background k-border k-border-border k-font-medium hover:k-bg-muted"
-                              title="Rotar clave"
-                            >
-                              Rotar
-                            </button>
-                            <button
-                              type="button"
-                              disabled={pendingId === app.id}
-                              onClick={() => setConfirmAction({ kind: "revoke", app })}
-                              className="k-inline-flex k-items-center k-gap-0.5 k-px-1.5 k-py-0.5 k-rounded k-bg-destructive/10 k-text-destructive k-font-medium hover:k-bg-destructive/20"
-                              title="Revocar clave"
-                            >
-                              Revocar
-                            </button>
-                          </div>
-                        )}
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => openApiKeyDialog(app)}
+                        className="k-text-primary hover:k-underline k-font-medium"
+                      >
+                        {app.api_key_last_used_at
+                          ? `Última: ${new Date(app.api_key_last_used_at).toLocaleDateString()}`
+                          : "Nunca usada"}
+                      </button>
                     ) : app.owner_organization_id === null && platformAdmin ? (
                       <button
                         type="button"
