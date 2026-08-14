@@ -248,7 +248,7 @@ export default function ApplicationsPage() {
 
   // Filters & UI view state
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterTab, setFilterRoleTab] = useState<"enabled" | "available" | "all">("enabled");
+  const [filterTab, setFilterRoleTab] = useState<"enabled" | "available" | "all">("all");
   const [viewMode, setViewMode] = useState<"grid" | "table">("table");
   const [showInfoBanner, setShowInfoBanner] = useState(true);
 
@@ -1277,7 +1277,7 @@ function AppCardItem({
               >
                 {app.homepage_url}
               </a>
-              <ExternalLinkIcon className="k-text-primary k-shrink-0" />
+              <ExternalLinkIcon className="k-w-3.5 k-h-3.5 k-text-primary k-shrink-0" />
               {isOwnerOrg && (
                 <button
                   type="button"
