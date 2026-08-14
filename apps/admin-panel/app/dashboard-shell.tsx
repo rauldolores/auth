@@ -148,23 +148,20 @@ const NAV_GROUPS: NavGroup[] = [
 ];
 
 /**
- * Only shown when NEXT_PUBLIC_DOCS_URL is configured — apps/documentation
- * isn't deployed by every installation, and a Help menu pointing at a
- * dead link is worse than no Help menu at all.
+ * The documentation lives inside this same app (app/docs) — no separate
+ * deployment, no duplicated content, always available regardless of
+ * install-time configuration.
  */
-function buildHelpGroup(docsUrl: string | undefined): NavGroup | null {
-  if (!docsUrl) return null;
-  return {
-    label: "Ayuda",
-    items: [
-      { href: docsUrl, label: "Documentación", icon: IconHelp, external: true },
-      { href: `${docsUrl}/docs/guides/admin-api`, label: "Cómo usar el API", icon: IconKey, external: true },
-      { href: `${docsUrl}/docs/mcp`, label: "Conectar un agente de IA (MCP)", icon: IconApps, external: true },
-      { href: `${docsUrl}/docs/faq`, label: "Preguntas frecuentes", icon: IconMail, external: true },
-      { href: `${docsUrl}/docs/troubleshooting`, label: "Solución de problemas", icon: IconClock, external: true },
-    ],
-  };
-}
+const HELP_GROUP: NavGroup = {
+  label: "Ayuda",
+  items: [
+    { href: "/docs", label: "Documentación", icon: IconHelp },
+    { href: "/docs/guides/admin-api", label: "Cómo usar el API", icon: IconKey },
+    { href: "/docs/mcp", label: "Conectar un agente de IA (MCP)", icon: IconApps },
+    { href: "/docs/faq", label: "Preguntas frecuentes", icon: IconMail },
+    { href: "/docs/troubleshooting", label: "Solución de problemas", icon: IconClock },
+  ],
+};
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const {
@@ -232,8 +229,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
   const authServerUrl = process.env.NEXT_PUBLIC_AUTH_SERVER_URL;
   const oauthClientId = process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID;
-  const helpGroup = buildHelpGroup(process.env.NEXT_PUBLIC_DOCS_URL);
-  const navGroups = helpGroup ? [...NAV_GROUPS, helpGroup] : NAV_GROUPS;
+  const navGroups = [...NAV_GROUPS, HELP_GROUP];
   const loginHref = authServerUrl
     ? `${authServerUrl}/login?redirect_to=${encodeURIComponent(typeof window !== "undefined" ? window.location.href : authServerUrl)}`
     : "/login";

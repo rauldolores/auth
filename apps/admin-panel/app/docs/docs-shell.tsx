@@ -8,11 +8,8 @@ export function DocsShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   return (
-    <div className="k-mx-auto k-flex k-max-w-6xl">
-      <aside className="k-sticky k-top-0 k-h-screen k-w-64 k-shrink-0 k-overflow-y-auto k-border-r k-border-border k-p-6">
-        <Link href="/docs" className="k-mb-6 k-block k-text-sm k-font-semibold">
-          KontrolIA Auth
-        </Link>
+    <div className="k-flex k-flex-col k-gap-8 lg:k-flex-row lg:k-items-start">
+      <aside className="k-w-full k-shrink-0 k-rounded-xl k-border k-border-border k-bg-card k-p-4 lg:k-sticky lg:k-top-8 lg:k-w-56">
         {NAV_GROUPS.map((group) => (
           <div key={group.title} className="k-mb-5">
             <p className="k-mb-1.5 k-text-xs k-font-medium k-uppercase k-tracking-wide k-text-muted-foreground">
@@ -38,8 +35,8 @@ export function DocsShell({ children }: { children: React.ReactNode }) {
           </div>
         ))}
       </aside>
-      <main className="k-min-w-0 k-flex-1 k-px-10 k-py-10">
-        <div className="k-prose k-mx-auto k-max-w-2xl">{children}</div>
+      <main className="k-min-w-0 k-flex-1">
+        <div className="k-prose k-max-w-2xl">{children}</div>
       </main>
     </div>
   );

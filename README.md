@@ -35,7 +35,7 @@ Al terminar, tendrás dos pantallas abiertas en tu navegador:
 - **La pantalla de inicio de sesión** — donde te registras y creas tu primera organización (equipo/empresa). La persona que crea la organización queda automáticamente como su administradora.
 - **El panel de administración** — donde gestionas usuarios, roles, permisos e invitaciones con clics, sin tocar código.
 
-📖 La guía completa, con capturas y explicaciones más detalladas de cada paso, está en **[la documentación](apps/documentation)** (o córrela localmente con `pnpm --filter @kontrolia/documentation dev`).
+📖 La guía completa, con explicaciones más detalladas de cada paso, vive dentro del propio admin-panel — menú **Ayuda** una vez que inicias sesión (fuente en [`apps/admin-panel/app/docs`](apps/admin-panel/app/docs)).
 
 ### Otros comandos del instalador
 
@@ -49,7 +49,7 @@ Al terminar, tendrás dos pantallas abiertas en tu navegador:
 | `npx create-kontrolia-auth grant-admin <email>` | Recupera el acceso si tu instalación se quedó sin ningún platform admin (por ejemplo, al instalar sobre un proyecto Supabase que ya tenía usuarios de otra app). |
 | `npx create-kontrolia-auth doctor` | Solo revisa que tu entorno tenga lo necesario (Node, pnpm, git, Docker). |
 
-Detalle completo de cada uno, con ejemplos, en la sección "Comandos del CLI" de **[la documentación](apps/documentation)**.
+Detalle completo de cada uno, con ejemplos, en la sección "Comandos del CLI" del menú Ayuda del admin-panel (fuente: [`apps/admin-panel/app/docs/cli-reference`](apps/admin-panel/app/docs/cli-reference)).
 
 ## Para desarrolladores
 
@@ -84,7 +84,7 @@ function Dashboard() {
 Si tu aplicación (propia, o un SaaS de terceros de tu ecosistema) necesita que sus usuarios inicien sesión a
 través de auth-server pero vive en un dominio completamente distinto, no basta con una cookie compartida — usa
 el servidor OAuth 2.1 nativo de KontrolIA Auth (el mismo mecanismo que ya usa el panel de administración). Guía
-completa, con el registro del cliente y el código exacto: [Conectar tu aplicación](apps/documentation/app/docs/guides/connect-your-app).
+completa, con el registro del cliente y el código exacto: [Conectar tu aplicación](apps/admin-panel/app/docs/guides/connect-your-app).
 
 ### ¿Tu aplicación declara sus propios permisos?
 
@@ -100,7 +100,7 @@ curl -X POST "$AUTH_SERVER_URL/api/applications/sync" \
   -d '{"slug":"facturacion","permissions":[{"resource":"facturas","action":"crear"}]}'
 ```
 
-Guía completa (cómo se registra la primera vez, el contrato exacto del request, ejemplos en Node): [Registro de aplicaciones](apps/documentation/app/docs/guides/application-registration).
+Guía completa (cómo se registra la primera vez, el contrato exacto del request, ejemplos en Node): [Registro de aplicaciones](apps/admin-panel/app/docs/guides/application-registration).
 
 Paquetes publicados en npm bajo el scope `@kontrolia`:
 
@@ -114,7 +114,7 @@ Paquetes publicados en npm bajo el scope `@kontrolia`:
 | [`@kontrolia/db`](https://www.npmjs.com/package/@kontrolia/db) | Migraciones SQL y runner de base de datos |
 | [`create-kontrolia-auth`](https://www.npmjs.com/package/create-kontrolia-auth) | El instalador (`npx create-kontrolia-auth`) |
 
-Guías por stack (Next.js, React/Vite, Express, NestJS como backend) en [la documentación](apps/documentation).
+Guías por stack (Next.js, React/Vite, Express, NestJS como backend) en el menú Ayuda del admin-panel (fuente: [`apps/admin-panel/app/docs/examples`](apps/admin-panel/app/docs/examples)).
 
 ## Estructura del monorepo
 
@@ -123,8 +123,7 @@ Este repositorio es el código fuente del propio KontrolIA Auth — solo lo nece
 ```
 apps/
   auth-server/     # UI de login/registro/recuperación + API de orquestación (Next.js)
-  admin-panel/     # Panel de administración (Next.js)
-  documentation/   # Este sitio de documentación
+  admin-panel/     # Panel de administración (Next.js) — incluye la documentación bajo app/docs, menú "Ayuda"
   playground/      # Sandbox para probar el SDK en vivo
 packages/
   auth-sdk/        # @kontrolia/auth — core sin framework
