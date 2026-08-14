@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@kontrolia/react";
-import { Badge, Card, ConfirmDialog, Dialog } from "@kontrolia/ui";
+import { Badge, Card, cn, ConfirmDialog, Dialog } from "@kontrolia/ui";
 import { useEffect, useState } from "react";
 import { createKontroliaSchemaClient } from "@/lib/supabase-browser";
 
@@ -1007,86 +1007,138 @@ export default function ApplicationsPage() {
       >
         {apiKeysDialogApp && (
           <div className="k-flex k-flex-col k-gap-4 k-pt-1">
-            {apiKeysError && <p className="k-rounded-lg k-bg-destructive/10 k-p-2.5 k-text-xs k-text-destructive">{apiKeysError}</p>}
+            {apiKeysError && (
+              <p className="k-rounded-lg k-border k-border-destructive/20 k-bg-destructive/10 k-p-2.5 k-text-xs k-text-destructive">
+                {apiKeysError}
+              </p>
+            )}
 
             {newPlaintextKey && (
-              <div className="k-flex k-flex-col k-gap-2 k-rounded-lg k-border k-border-emerald-500/40 k-bg-emerald-500/10 k-p-3.5">
-                <div className="k-flex k-items-center k-gap-2 k-text-emerald-700 dark:k-text-emerald-300 k-font-semibold k-text-sm">
-                  <KeyIcon className="k-w-4 k-h-4" />
+              <div className="k-relative k-overflow-hidden k-rounded-xl k-border k-border-success/30 k-bg-success/5 k-p-4 k-shadow-sm">
+                <div className="k-absolute k-inset-x-0 k-top-0 k-h-0.5 k-bg-success" />
+                <div className="k-flex k-items-center k-gap-2 k-text-sm k-font-semibold k-text-success">
+                  <KeyIcon className="k-h-4 k-w-4" />
                   <span>Nueva API Key generada</span>
                 </div>
-                <p className="k-text-xs k-text-muted-foreground">
-                  Cópiala ahora. Por seguridad no se guarda en texto plano y no podrá mostrarse nuevamente.
+                <p className="k-mt-1 k-text-xs k-text-muted-foreground">
+                  Cópiala ahora — por seguridad no se guarda en texto plano y no podrá mostrarse nuevamente.
                 </p>
-                <div className="k-rounded-lg k-bg-background/80 k-border k-border-emerald-500/30 k-px-3 k-py-2 k-font-mono k-text-xs k-text-foreground k-truncate select-all">
-                  {newPlaintextKey}
+                <div className="k-mt-2.5 k-flex k-items-center k-gap-2 k-rounded-lg k-border k-border-border k-bg-background k-px-3 k-py-2">
+                  <code className="k-min-w-0 k-flex-1 k-truncate k-font-mono k-text-xs k-text-foreground select-all">
+                    {newPlaintextKey}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void navigator.clipboard.writeText(newPlaintextKey);
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 2000);
+                    }}
+                    className="k-inline-flex k-shrink-0 k-items-center k-gap-1.5 k-rounded-md k-bg-success k-px-2.5 k-py-1.5 k-text-xs k-font-medium k-text-success-foreground hover:k-opacity-90 k-transition-all"
+                  >
+                    {copied ? (
+                      <>
+                        <CheckIcon className="k-h-3.5 k-w-3.5" />
+                        <span>Copiada</span>
+                      </>
+                    ) : (
+                      <>
+                        <CopyIcon className="k-h-3.5 k-w-3.5" />
+                        <span>Copiar</span>
+                      </>
+                    )}
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    void navigator.clipboard.writeText(newPlaintextKey);
-                    setCopied(true);
-                    setTimeout(() => setCopied(false), 2000);
-                  }}
-                  className="k-inline-flex k-w-fit k-items-center k-gap-2 k-rounded-lg k-bg-emerald-600 k-px-3.5 k-py-1.5 k-text-sm k-font-medium k-text-white hover:k-bg-emerald-700 k-transition-all"
-                >
-                  {copied ? (
-                    <>
-                      <CheckIcon />
-                      <span>¡Copiada!</span>
-                    </>
-                  ) : (
-                    <>
-                      <CopyIcon />
-                      <span>Copiar API Key</span>
-                    </>
-                  )}
-                </button>
               </div>
             )}
 
-            {apiKeys === null ? (
-              <p className="k-text-sm k-text-muted-foreground">Cargando claves...</p>
-            ) : apiKeys.length === 0 ? (
-              <p className="k-text-sm k-text-muted-foreground">Todavía no hay ninguna clave para esta aplicación.</p>
-            ) : (
-              <div className="k-flex k-flex-col k-gap-2">
-                {apiKeys.map((key) => (
-                  <div
-                    key={key.id}
-                    className="k-flex k-items-center k-justify-between k-gap-3 k-rounded-lg k-border k-border-border k-bg-muted/30 k-p-3 k-text-xs"
-                  >
-                    <div className="k-flex k-min-w-0 k-flex-col k-gap-0.5">
-                      <span className="k-truncate k-font-semibold k-text-foreground">{key.name}</span>
-                      <span className="k-font-mono k-text-muted-foreground">{key.keyPrefix ? `${key.keyPrefix}…` : "(clave original)"}</span>
-                      <span className="k-text-muted-foreground">
-                        {key.lastUsedAt ? `Último uso: ${new Date(key.lastUsedAt).toLocaleString()}` : "Nunca usada"}
-                        {key.expiresAt && ` · Expira: ${new Date(key.expiresAt).toLocaleDateString()}`}
-                      </span>
-                    </div>
-                    {key.revokedAt ? (
-                      <Badge variant="neutral">Revocada</Badge>
-                    ) : key.expiresAt && new Date(key.expiresAt) < new Date() ? (
-                      <Badge variant="warning">Expirada</Badge>
-                    ) : (
-                      canManage && (
-                        <button
-                          type="button"
-                          disabled={revokingKeyId === key.id}
-                          onClick={() => setConfirmAction({ kind: "revoke-key", app: apiKeysDialogApp, key })}
-                          className="k-shrink-0 k-rounded-md k-px-2.5 k-py-1 k-font-medium k-text-destructive hover:k-bg-destructive/10 disabled:k-opacity-60"
-                        >
-                          Revocar
-                        </button>
-                      )
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+            <div className="k-flex k-flex-col k-gap-2">
+              <p className="k-text-[11px] k-font-semibold k-uppercase k-tracking-wide k-text-muted-foreground">
+                {apiKeys && apiKeys.length > 0 ? `Claves (${apiKeys.length})` : "Claves"}
+              </p>
+
+              {apiKeys === null ? (
+                <div className="k-flex k-flex-col k-gap-2">
+                  {[0, 1, 2].map((i) => (
+                    <div key={i} className="k-h-[60px] k-animate-pulse k-rounded-lg k-bg-muted/60" />
+                  ))}
+                </div>
+              ) : apiKeys.length === 0 ? (
+                <div className="k-flex k-flex-col k-items-center k-gap-1.5 k-rounded-lg k-border k-border-dashed k-border-border k-py-6 k-text-center">
+                  <KeyIcon className="k-h-5 k-w-5 k-text-muted-foreground/60" />
+                  <p className="k-text-xs k-text-muted-foreground">Todavía no hay ninguna clave para esta aplicación.</p>
+                </div>
+              ) : (
+                // Capped to ~3 rows so a busy app with many keys doesn't push
+                // the "nueva clave" form further down every time one's added —
+                // scrolls internally instead of growing the dialog forever.
+                <div className="k-flex k-max-h-[204px] k-flex-col k-gap-2 k-overflow-y-auto k-pr-1">
+                  {apiKeys.map((key) => {
+                    const isRevoked = key.revokedAt !== null;
+                    const isExpired = !isRevoked && key.expiresAt !== null && new Date(key.expiresAt) < new Date();
+                    const isExpiringSoon =
+                      !isRevoked && !isExpired && key.expiresAt !== null && new Date(key.expiresAt).getTime() - Date.now() < 7 * 24 * 60 * 60 * 1000;
+                    const isDead = isRevoked || isExpired;
+                    const dotClassName = isDead
+                      ? "k-bg-muted-foreground/40"
+                      : isExpiringSoon
+                        ? "k-bg-warning"
+                        : "k-bg-success";
+
+                    return (
+                      <div
+                        key={key.id}
+                        className={cn(
+                          "k-shrink-0 k-rounded-lg k-border k-border-border k-bg-muted/30 k-p-3 k-text-xs k-transition-colors",
+                          !isDead && "hover:k-border-primary/30",
+                        )}
+                      >
+                        <div className="k-flex k-items-start k-justify-between k-gap-3">
+                          <div className="k-flex k-min-w-0 k-items-center k-gap-2">
+                            <span className={cn("k-h-1.5 k-w-1.5 k-shrink-0 k-rounded-full", dotClassName)} aria-hidden="true" />
+                            <span className={cn("k-truncate k-font-semibold", isDead ? "k-text-muted-foreground k-line-through" : "k-text-foreground")}>
+                              {key.name}
+                            </span>
+                          </div>
+                          <div className="k-shrink-0">
+                            {isRevoked ? (
+                              <Badge variant="neutral">Revocada</Badge>
+                            ) : isExpired ? (
+                              <Badge variant="neutral">Expirada</Badge>
+                            ) : (
+                              canManage && (
+                                <button
+                                  type="button"
+                                  disabled={revokingKeyId === key.id}
+                                  onClick={() => setConfirmAction({ kind: "revoke-key", app: apiKeysDialogApp, key })}
+                                  className="k-rounded-md k-px-2 k-py-0.5 k-font-medium k-text-destructive hover:k-bg-destructive/10 disabled:k-opacity-60 k-transition-colors"
+                                >
+                                  Revocar
+                                </button>
+                              )
+                            )}
+                          </div>
+                        </div>
+                        <div className="k-mt-1.5 k-flex k-flex-wrap k-items-center k-gap-x-2 k-gap-y-1 k-pl-3.5 k-text-muted-foreground">
+                          <code className="k-rounded k-bg-background k-px-1.5 k-py-0.5 k-font-mono k-text-[10.5px]">
+                            {key.keyPrefix ? `${key.keyPrefix}…` : "clave original"}
+                          </code>
+                          <span>{key.lastUsedAt ? `Usada ${new Date(key.lastUsedAt).toLocaleDateString()}` : "Nunca usada"}</span>
+                          {key.expiresAt && (
+                            <span className={isExpiringSoon && !isDead ? "k-font-medium k-text-warning" : undefined}>
+                              {isExpired ? "Expiró" : "Expira"} {new Date(key.expiresAt).toLocaleDateString()}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
             {canManage && (
-              <div className="k-flex k-flex-col k-gap-2.5 k-border-t k-border-border k-pt-3">
+              <div className="k-flex k-flex-col k-gap-3 k-rounded-xl k-border k-border-dashed k-border-border k-p-3.5">
                 <p className="k-text-xs k-font-semibold k-text-foreground">Nueva clave para {organization.name}</p>
                 <div className="k-flex k-flex-col k-gap-1">
                   <label htmlFor="k-new-key-name" className="k-text-[11px] k-font-medium k-text-muted-foreground">
@@ -1098,7 +1150,7 @@ export default function ApplicationsPage() {
                     placeholder="ej. Integración Zapier"
                     value={newKeyName}
                     onChange={(e) => setNewKeyName(e.target.value)}
-                    className="k-rounded-md k-border k-border-border k-bg-background k-px-2.5 k-py-1.5 k-text-xs"
+                    className="k-rounded-md k-border k-border-border k-bg-background k-px-2.5 k-py-1.5 k-text-xs focus:k-outline-none focus:k-ring-2 focus:k-ring-primary/20"
                   />
                 </div>
                 <div className="k-flex k-flex-col k-gap-1">
@@ -1109,7 +1161,7 @@ export default function ApplicationsPage() {
                     id="k-new-key-expiry"
                     value={newKeyExpiry}
                     onChange={(e) => setNewKeyExpiry(e.target.value as ExpiryOption)}
-                    className="k-w-fit k-rounded-md k-border k-border-border k-bg-background k-px-2.5 k-py-1.5 k-text-xs"
+                    className="k-w-fit k-rounded-md k-border k-border-border k-bg-background k-px-2.5 k-py-1.5 k-text-xs focus:k-outline-none focus:k-ring-2 focus:k-ring-primary/20"
                   >
                     {EXPIRY_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>
@@ -1122,7 +1174,7 @@ export default function ApplicationsPage() {
                   type="button"
                   disabled={creatingKey || !newKeyName.trim()}
                   onClick={() => void handleCreateKey(apiKeysDialogApp)}
-                  className="k-inline-flex k-w-fit k-items-center k-gap-2 k-rounded-lg k-bg-primary k-px-3.5 k-py-1.5 k-text-xs k-font-medium k-text-primary-foreground disabled:k-opacity-60 hover:k-opacity-90 k-transition-all"
+                  className="k-inline-flex k-w-fit k-items-center k-gap-2 k-rounded-lg k-bg-primary k-px-3.5 k-py-1.5 k-text-xs k-font-medium k-text-primary-foreground disabled:k-opacity-60 hover:k-opacity-90 k-transition-all k-shadow-sm"
                 >
                   <KeyIcon className="k-w-3.5 k-h-3.5" />
                   <span>{creatingKey ? "Generando..." : "Generar clave"}</span>
