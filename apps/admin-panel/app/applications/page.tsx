@@ -1382,7 +1382,7 @@ function AppCardItem({
             <span className="k-text-muted-foreground k-font-medium">Cliente OAuth (SSO):</span>
             {app.oauth_client_id ? (
               <div className="k-flex k-items-center k-gap-2">
-                <code className="k-font-mono k-text-[11px] k-text-muted-foreground">{app.oauth_client_id}</code>
+                <Badge variant="success">Conectado</Badge>
                 <button
                   type="button"
                   onClick={() => openOauthDialog(app)}
@@ -1588,8 +1588,8 @@ function AppTableView({
                     <td className="k-px-5 k-py-3.5 k-text-xs">
                       {isOwnerOrg ? (
                         app.oauth_client_id ? (
-                          <button type="button" onClick={() => openOauthDialog(app)} className="k-font-mono k-text-primary hover:k-underline">
-                            {app.oauth_client_id}
+                          <button type="button" onClick={() => openOauthDialog(app)} className="k-font-medium k-text-primary hover:k-underline">
+                            Editar
                           </button>
                         ) : (
                           <button type="button" onClick={() => openOauthDialog(app)} className="k-text-primary hover:k-underline">
