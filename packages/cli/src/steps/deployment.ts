@@ -1,6 +1,7 @@
 import * as p from "@clack/prompts";
 import { type EnvValues, readEnvFile, updateEnvValue, writeEnvFile } from "../utils/files.js";
 import { registerOAuthClient } from "../utils/oauth-client.js";
+import { extractProjectRef } from "../utils/supabase-management-api.js";
 import { createVercelProject, detectCurrentBranch, detectGitHubRepo, triggerVercelDeployment } from "../utils/vercel-api.js";
 import type { DatabaseAnswer } from "./database.js";
 
@@ -287,6 +288,47 @@ export async function askDeploymentStep(repoRoot: string, db: DatabaseAnswer): P
     );
   }
 
+  // Optional: lets admin-panel's "Inicio de sesión social" screen activate
+  // Google/Microsoft login live via Supabase's Management API instead of
+  // requiring a dashboard visit. Only possible on a Supabase Cloud project
+  // (self-hosted has no equivalent API) — skipped entirely otherwise.
+  const projectRef = extractProjectRef(db.supabaseUrl);
+  let managementApiToken = "";
+  if (projectRef) {
+    const prevToken = prevAuthServerEnv?.SUPABASE_MANAGEMENT_API_TOKEN;
+    if (prevToken) {
+      const reuseToken = await p.confirm({
+        message:
+          "Ya tengo guardado un Personal Access Token de Supabase de antes (para activar login social en vivo desde admin-panel) — ¿lo sigo usando?",
+        initialValue: true,
+      });
+      if (!p.isCancel(reuseToken) && reuseToken) managementApiToken = prevToken;
+    }
+    if (!managementApiToken) {
+      const wantsSocialLogin = await p.confirm({
+        message:
+          "¿Quieres poder activar el login con Google/Microsoft más adelante desde admin-panel " +
+          "(Configuración → Inicio de sesión social), sin entrar al dashboard de Supabase? Es opcional — " +
+          "se puede configurar después. Necesita un Personal Access Token de tu cuenta Supabase.",
+        initialValue: false,
+      });
+      if (!p.isCancel(wantsSocialLogin) && wantsSocialLogin) {
+        p.note(
+          "1. Entra a supabase.com/dashboard/account/tokens\n" +
+            '2. Dale click a "Generate new token"\n' +
+            "3. Ponle un nombre, confirma y cópialo (solo se ve una vez)\n" +
+            "4. Pégalo aquí abajo",
+          "Cómo conseguir el Personal Access Token de Supabase",
+        );
+        const token = await p.password({
+          message: "Personal Access Token de Supabase (se guarda en tu .env.local, igual que el resto de tus llaves)",
+          validate: (value) => (value.trim() ? undefined : "Requerido"),
+        });
+        if (!p.isCancel(token)) managementApiToken = token;
+      }
+    }
+  }
+
   const s = p.spinner();
   s.start("Generando apps/auth-server/.env.local y apps/admin-panel/.env.local");
 
@@ -297,6 +339,7 @@ export async function askDeploymentStep(repoRoot: string, db: DatabaseAnswer): P
     SUPABASE_SERVICE_ROLE_KEY: db.serviceRoleKey,
     NEXT_PUBLIC_ADMIN_PANEL_URL: adminPanelUrl,
     NEXT_PUBLIC_COOKIE_DOMAIN: cookieDomain,
+    SUPABASE_MANAGEMENT_API_TOKEN: managementApiToken,
   };
   await writeEnvFile(`${repoRoot}/apps/auth-server/.env.local`, authServerEnv);
 
