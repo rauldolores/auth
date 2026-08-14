@@ -262,7 +262,13 @@ export default function SocialLoginPage() {
         setLoadError("No se pudo cargar el estado de los proveedores.");
       }
     })();
-  }, [platformAdmin, getToken]);
+    // getToken is a fresh bound function every render (@kontrolia/react's
+    // useAuth() does client.getToken.bind(client) with no memoization) —
+    // including it here reran this effect on every render, since it always
+    // "changed" by reference, and setStatus(freshObject) always triggers a
+    // render, forming an infinite fetch loop that exhausted the rate limit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [platformAdmin]);
 
   if (!platformAdminChecked) {
     return <p className="k-p-8 k-text-sm k-text-muted-foreground">Cargando...</p>;
