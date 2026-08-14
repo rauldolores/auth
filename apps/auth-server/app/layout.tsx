@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getGotrueExternalSettings } from "@/lib/gotrue-settings";
 import { getInstanceSettings } from "@/lib/instance-settings";
 import { InstanceSettingsProvider } from "@/lib/instance-settings-context";
 import { buildThemeStyle } from "@/lib/theme-vars";
@@ -16,7 +17,10 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const settings = await getInstanceSettings();
+  // Both fetched fresh on every request (this layout is force-dynamic) —
+  // toggling a social provider from admin-panel's new Social login screen
+  // takes effect on the very next page load here, no rebuild/redeploy.
+  const [settings, externalSettings] = await Promise.all([getInstanceSettings(), getGotrueExternalSettings()]);
 
   return (
     <html lang="es">
@@ -28,7 +32,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body style={buildThemeStyle(settings.theme, settings.buttonColor)}>
         <Providers>
           <InstanceSettingsProvider
-            value={{ registrationEnabled: settings.registrationEnabled, logoUrl: settings.logoUrl }}
+            value={{
+              registrationEnabled: settings.registrationEnabled,
+              logoUrl: settings.logoUrl,
+              googleLoginEnabled: externalSettings.googleEnabled,
+              microsoftLoginEnabled: externalSettings.azureEnabled,
+            }}
           >
             {children}
           </InstanceSettingsProvider>

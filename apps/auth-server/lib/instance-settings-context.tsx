@@ -5,9 +5,16 @@ import { createContext, useContext } from "react";
 export interface AuthUiSettings {
   registrationEnabled: boolean;
   logoUrl: string | null;
+  googleLoginEnabled: boolean;
+  microsoftLoginEnabled: boolean;
 }
 
-const DEFAULT: AuthUiSettings = { registrationEnabled: true, logoUrl: null };
+const DEFAULT: AuthUiSettings = {
+  registrationEnabled: true,
+  logoUrl: null,
+  googleLoginEnabled: false,
+  microsoftLoginEnabled: false,
+};
 
 const InstanceSettingsContext = createContext<AuthUiSettings>(DEFAULT);
 

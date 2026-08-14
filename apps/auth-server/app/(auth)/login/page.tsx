@@ -41,7 +41,7 @@ function LoginPageInner() {
     }
   }
 
-  const { registrationEnabled, logoUrl } = useAuthUiSettings();
+  const { registrationEnabled, logoUrl, googleLoginEnabled, microsoftLoginEnabled } = useAuthUiSettings();
 
   return (
     <GuestGuard fallback={<p className="k-p-8 k-text-center k-text-sm">Ya iniciaste sesión.</p>}>
@@ -50,8 +50,8 @@ function LoginPageInner() {
           onSuccess={() => void handleLoginSuccess()}
           forgotPasswordHref="/forgot-password"
           registerHref={registrationEnabled ? "/register" : undefined}
-          showGoogle={process.env.NEXT_PUBLIC_GOOGLE_LOGIN_ENABLED === "true"}
-          showMicrosoft={process.env.NEXT_PUBLIC_MICROSOFT_LOGIN_ENABLED === "true"}
+          showGoogle={googleLoginEnabled}
+          showMicrosoft={microsoftLoginEnabled}
         />
       </AuthShell>
     </GuestGuard>

@@ -103,6 +103,15 @@ function IconPalette({ className }: IconProps) {
   );
 }
 
+function IconLogin({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" className={className} aria-hidden="true">
+      <path d="M6.5 1.5h-3a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M9.5 5 13 8l-3.5 3M13 8H5.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function IconHelp({ className }: IconProps) {
   return (
     <svg viewBox="0 0 16 16" fill="none" className={className} aria-hidden="true">
@@ -164,6 +173,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Configuración",
     items: [
       { href: "/appearance", label: "Apariencia", icon: IconPalette },
+      { href: "/social-login", label: "Inicio de sesión social", icon: IconLogin },
       { href: "/oauth-clients", label: "Clientes OAuth", icon: IconKey },
       { href: "/audit-logs", label: "Audit log", icon: IconClock },
     ],

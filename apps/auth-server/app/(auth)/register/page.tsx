@@ -8,7 +8,7 @@ import { useAuthUiSettings } from "@/lib/instance-settings-context";
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { registrationEnabled, logoUrl } = useAuthUiSettings();
+  const { registrationEnabled, logoUrl, googleLoginEnabled, microsoftLoginEnabled } = useAuthUiSettings();
 
   // Registration disabled instance-wide — the only path to a new account is
   // an Owner/Admin inviting someone from admin-panel. Bounce away rather
@@ -26,8 +26,8 @@ export default function RegisterPage() {
         <RegisterForm
           onSuccess={() => router.push("/verify-email")}
           loginHref="/login"
-          showGoogle={process.env.NEXT_PUBLIC_GOOGLE_LOGIN_ENABLED === "true"}
-          showMicrosoft={process.env.NEXT_PUBLIC_MICROSOFT_LOGIN_ENABLED === "true"}
+          showGoogle={googleLoginEnabled}
+          showMicrosoft={microsoftLoginEnabled}
         />
       </AuthShell>
     </GuestGuard>

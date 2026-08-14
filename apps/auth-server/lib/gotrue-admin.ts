@@ -30,12 +30,16 @@ export function oauthClientsCorsHeaders(methods: string): HeadersInit {
     : {};
 }
 
-/** Returns an error NextResponse if the caller isn't a verified platform admin, otherwise null. */
-export async function authorizePlatformAdmin(request: Request, corsHeaders: HeadersInit): Promise<NextResponse | null> {
+/** Returns an error NextResponse if the caller isn't a verified platform admin, otherwise null. `rateLimitKeyPrefix` scopes the rate-limit bucket per call site (e.g. "oauth-clients", "social-login") so unrelated routes don't share a budget. */
+export async function authorizePlatformAdmin(
+  request: Request,
+  corsHeaders: HeadersInit,
+  rateLimitKeyPrefix = "oauth-clients",
+): Promise<NextResponse | null> {
   const ip = clientIp(request);
-  const rateLimit = checkRateLimit(`oauth-clients:${ip ?? "unknown"}`, RATE_LIMIT);
+  const rateLimit = checkRateLimit(`${rateLimitKeyPrefix}:${ip ?? "unknown"}`, RATE_LIMIT);
   if (!rateLimit.allowed) {
-    logSecurityEvent("oauth-clients: rate limited", { ip });
+    logSecurityEvent(`${rateLimitKeyPrefix}: rate limited`, { ip });
     return NextResponse.json(
       { error: "Demasiadas solicitudes. Intenta de nuevo más tarde." },
       { status: 429, headers: { ...corsHeaders, "Retry-After": String(rateLimit.retryAfterSeconds) } },
