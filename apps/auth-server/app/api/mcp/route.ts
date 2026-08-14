@@ -7,10 +7,8 @@ import { logSecurityEvent } from "@/lib/logger";
 import { GET as listApplicationsRoute } from "@/app/api/applications/route";
 import { PATCH as updateApplicationRoute } from "@/app/api/applications/[id]/route";
 import { POST as claimApplicationRoute } from "@/app/api/applications/claim/route";
-import {
-  DELETE as revokeApplicationKeyRoute,
-  POST as rotateApplicationKeyRoute,
-} from "@/app/api/applications/[id]/key/route";
+import { GET as listApplicationKeysRoute, POST as createApplicationKeyRoute } from "@/app/api/applications/[id]/keys/route";
+import { DELETE as revokeApplicationKeyRoute } from "@/app/api/applications/[id]/keys/[keyId]/route";
 import { GET as queryAuditLogRoute } from "@/app/api/audit-logs/route";
 import { GET as listInvitationsRoute, POST as inviteUserRoute } from "@/app/api/invitations/route";
 import { DELETE as revokeInvitationRoute, PATCH as resendInvitationRoute } from "@/app/api/invitations/[id]/route";
@@ -114,6 +112,20 @@ async function call(handler: PlainHandler, path: string, token: string, opts: Ca
 
 async function callParam(handler: ParamHandler, path: string, id: string, token: string, opts: CallOptions = {}): Promise<RouteResult> {
   return toResult(await handler(internalRequest(path, token, opts), { params: Promise.resolve({ id }) }));
+}
+
+/** Like fetchField, for a ParamHandler route (dynamic [id] path segment). */
+async function fetchFieldParam(
+  handler: ParamHandler,
+  path: string,
+  id: string,
+  token: string,
+  extract: (body: unknown) => string | null,
+): Promise<string | null> {
+  const response = await handler(internalRequest(path, token, {}), { params: Promise.resolve({ id }) });
+  if (!response.ok) return null;
+  const body = await response.json().catch(() => null);
+  return body ? extract(body) : null;
 }
 
 /** Extracts a single field from a route's JSON body, for confirmation checks — returns null on any failure (network/parse/missing). */
@@ -543,45 +555,59 @@ function buildServer(token: string, claims: KontroliaTokenClaims): McpServer {
     },
   );
 
-  registerMutatingTool(
-    server,
-    claims,
-    "rotate_application_sync_key",
+  server.registerTool(
+    "list_application_keys",
     {
-      title: "Rotate an application's API key",
-      description: "The previous key stops working immediately. Returns the new plaintext key once. Pass the application's exact current slug to confirm.",
-      inputSchema: { applicationId: z.string(), confirmSlug: z.string() },
+      title: "List an application's API keys",
+      description: "Every key (active or revoked) for an application — name, which organization it's scoped to, last used, expiry, revocation. Never returns the secret itself, only shown once at creation.",
+      inputSchema: { applicationId: z.string() },
     },
-    async ({ applicationId, confirmSlug }) => {
-      const currentSlug = await fetchField(listApplicationsRoute, "/api/applications", token, (b) => {
-        const applications = asRecord(b)?.applications;
-        const match = Array.isArray(applications) ? applications.find((a) => asRecord(a)?.id === applicationId) : null;
-        return match ? (asRecord(match)?.slug as string) : null;
-      });
-      if (!currentSlug) return errorResult(`No se encontró la aplicación ${applicationId}.`);
-      if (currentSlug !== confirmSlug) return errorResult(`Confirmación inválida: el slug actual es "${currentSlug}", recibiste "${confirmSlug}". No se rotó ninguna clave.`);
-      return callParam(rotateApplicationKeyRoute, `/api/applications/${applicationId}/key`, applicationId, token, { method: "POST" });
-    },
+    async ({ applicationId }) => callParam(listApplicationKeysRoute, `/api/applications/${applicationId}/keys`, applicationId, token),
   );
 
   registerMutatingTool(
     server,
     claims,
-    "revoke_application_sync_key",
+    "create_application_key",
     {
-      title: "Revoke an application's API key",
-      description: "The application loses API access until a new key is rotated in. Pass the application's exact current slug to confirm.",
-      inputSchema: { applicationId: z.string(), confirmSlug: z.string() },
+      title: "Create an application API key",
+      description: "Mints a new named key scoped to one organization (must already have this application enabled) — a caller with this key can sync the app's permission catalog and manage that organization's members via the application API. Returns the plaintext key once; it's never retrievable again.",
+      inputSchema: {
+        applicationId: z.string(),
+        organizationId: z.string().describe("Which organization this key acts on behalf of — must have the application enabled"),
+        name: z.string().describe("A descriptive label, e.g. \"Zapier integration\" or \"staging backend\""),
+        expiresAt: z.string().optional().describe("ISO timestamp — omit for a key that never expires"),
+      },
     },
-    async ({ applicationId, confirmSlug }) => {
-      const currentSlug = await fetchField(listApplicationsRoute, "/api/applications", token, (b) => {
-        const applications = asRecord(b)?.applications;
-        const match = Array.isArray(applications) ? applications.find((a) => asRecord(a)?.id === applicationId) : null;
-        return match ? (asRecord(match)?.slug as string) : null;
+    async ({ applicationId, organizationId, name, expiresAt }) =>
+      callParam(createApplicationKeyRoute, `/api/applications/${applicationId}/keys`, applicationId, token, {
+        method: "POST",
+        body: { organizationId, name, expiresAt },
+      }),
+  );
+
+  registerMutatingTool(
+    server,
+    claims,
+    "revoke_application_key",
+    {
+      title: "Revoke an application API key",
+      description: "Immediately stops that one key from authenticating — every other key for the application keeps working. Pass the key's exact current name to confirm.",
+      inputSchema: { applicationId: z.string(), keyId: z.string(), confirmName: z.string() },
+    },
+    async ({ applicationId, keyId, confirmName }) => {
+      const currentName = await fetchFieldParam(listApplicationKeysRoute, `/api/applications/${applicationId}/keys`, applicationId, token, (b) => {
+        const keys = asRecord(b)?.keys;
+        const match = Array.isArray(keys) ? keys.find((k) => asRecord(k)?.id === keyId) : null;
+        return match ? (asRecord(match)?.name as string) : null;
       });
-      if (!currentSlug) return errorResult(`No se encontró la aplicación ${applicationId}.`);
-      if (currentSlug !== confirmSlug) return errorResult(`Confirmación inválida: el slug actual es "${currentSlug}", recibiste "${confirmSlug}". No se revocó ninguna clave.`);
-      return callParam(revokeApplicationKeyRoute, `/api/applications/${applicationId}/key`, applicationId, token, { method: "DELETE" });
+      if (!currentName) return errorResult(`No se encontró la clave ${keyId} en la aplicación ${applicationId}.`);
+      if (currentName !== confirmName) return errorResult(`Confirmación inválida: el nombre actual es "${currentName}", recibiste "${confirmName}". No se revocó ninguna clave.`);
+      return toResult(
+        await revokeApplicationKeyRoute(internalRequest(`/api/applications/${applicationId}/keys/${keyId}`, token, { method: "DELETE" }), {
+          params: Promise.resolve({ id: applicationId, keyId }),
+        }),
+      );
     },
   );
 

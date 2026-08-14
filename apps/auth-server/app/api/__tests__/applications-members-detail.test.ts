@@ -20,13 +20,23 @@ const { DELETE, PATCH } = await import("../applications/members/[membershipId]/r
 const BASE_URL = "https://auth.example.com/api/applications/members/m1";
 const PLAINTEXT_KEY = "kapp_test-key";
 const KEY_HASH = hashApplicationApiKey(PLAINTEXT_KEY);
-const APPLICATION = { id: "app-1", api_key_hash: KEY_HASH, owner_organization_id: "org-1" };
+const APPLICATION = { id: "app-1", owner_organization_id: "org-1" };
+const ACTIVE_KEY = { id: "key-1", organization_id: "org-1", key_hash: KEY_HASH };
 const params = Promise.resolve({ membershipId: "m1" });
 
 function requestWithAuth(url: string, init?: RequestInit): Request {
   return new Request(url, {
     ...init,
     headers: { Authorization: `Bearer ${PLAINTEXT_KEY}`, "X-Application-Slug": "faqturia", ...init?.headers },
+  });
+}
+
+/** Builds an admin client whose application/key lookups succeed, with any further per-table responses layered on. */
+function clientFor(tableResponses: Record<string, unknown[]> = {}) {
+  return makeAdminClient({
+    applications: [{ data: APPLICATION, error: null }],
+    application_api_keys: [{ data: [ACTIVE_KEY], error: null }],
+    ...tableResponses,
   });
 }
 
@@ -39,28 +49,22 @@ beforeEach(() => {
 
 describe("DELETE /api/applications/members/[membershipId]", () => {
   it("returns 404 when the membership doesn't exist", async () => {
-    createSupabaseAdminClientMock.mockReturnValue(
-      makeAdminClient({ applications: [{ data: APPLICATION, error: null }], memberships: [{ data: null, error: null }] }),
-    );
+    createSupabaseAdminClientMock.mockReturnValue(clientFor({ memberships: [{ data: null, error: null }] }));
     const response = await DELETE(requestWithAuth(BASE_URL), { params });
     expect(response.status).toBe(404);
   });
 
   it("returns 404 (not 403) when the membership belongs to a different organization — no cross-org leak", async () => {
     createSupabaseAdminClientMock.mockReturnValue(
-      makeAdminClient({
-        applications: [{ data: APPLICATION, error: null }],
-        memberships: [{ data: { id: "m1", organization_id: "org-2" }, error: null }],
-      }),
+      clientFor({ memberships: [{ data: { id: "m1", organization_id: "org-2" }, error: null }] }),
     );
     const response = await DELETE(requestWithAuth(BASE_URL), { params });
     expect(response.status).toBe(404);
   });
 
-  it("removes a member of the application's own organization", async () => {
+  it("removes a member of the calling key's own organization", async () => {
     createSupabaseAdminClientMock.mockReturnValue(
-      makeAdminClient({
-        applications: [{ data: APPLICATION, error: null }],
+      clientFor({
         memberships: [{ data: { id: "m1", organization_id: "org-1" }, error: null }, { data: null, error: null }],
       }),
     );
@@ -70,8 +74,7 @@ describe("DELETE /api/applications/members/[membershipId]", () => {
 
   it("surfaces the database's last-owner-removal protection as a 400", async () => {
     createSupabaseAdminClientMock.mockReturnValue(
-      makeAdminClient({
-        applications: [{ data: APPLICATION, error: null }],
+      clientFor({
         memberships: [
           { data: { id: "m1", organization_id: "org-1" }, error: null },
           { data: null, error: { message: "No puedes quitar al único Owner activo de la organización." } },
@@ -86,17 +89,14 @@ describe("DELETE /api/applications/members/[membershipId]", () => {
 
 describe("PATCH /api/applications/members/[membershipId] (roles)", () => {
   it("returns 400 when neither grant nor revoke is provided", async () => {
-    createSupabaseAdminClientMock.mockReturnValue(makeAdminClient({ applications: [{ data: APPLICATION, error: null }] }));
+    createSupabaseAdminClientMock.mockReturnValue(clientFor());
     const response = await PATCH(requestWithAuth(BASE_URL, { method: "PATCH", body: JSON.stringify({}) }), { params });
     expect(response.status).toBe(400);
   });
 
   it("returns 404 when the membership belongs to a different organization", async () => {
     createSupabaseAdminClientMock.mockReturnValue(
-      makeAdminClient({
-        applications: [{ data: APPLICATION, error: null }],
-        memberships: [{ data: { id: "m1", organization_id: "org-2" }, error: null }],
-      }),
+      clientFor({ memberships: [{ data: { id: "m1", organization_id: "org-2" }, error: null }] }),
     );
     const response = await PATCH(
       requestWithAuth(BASE_URL, { method: "PATCH", body: JSON.stringify({ grant: ["role-member"] }) }),
@@ -107,8 +107,7 @@ describe("PATCH /api/applications/members/[membershipId] (roles)", () => {
 
   it("rejects granting the Owner role — the one trigger that exempts service_role", async () => {
     createSupabaseAdminClientMock.mockReturnValue(
-      makeAdminClient({
-        applications: [{ data: APPLICATION, error: null }],
+      clientFor({
         memberships: [{ data: { id: "m1", organization_id: "org-1" }, error: null }],
         roles: [{ data: { id: "role-owner", slug: "owner", is_system_role: true, organization_id: null }, error: null }],
       }),
@@ -122,8 +121,7 @@ describe("PATCH /api/applications/members/[membershipId] (roles)", () => {
 
   it("rejects a custom role from a different organization", async () => {
     createSupabaseAdminClientMock.mockReturnValue(
-      makeAdminClient({
-        applications: [{ data: APPLICATION, error: null }],
+      clientFor({
         memberships: [{ data: { id: "m1", organization_id: "org-1" }, error: null }],
         roles: [{ data: { id: "role-x", slug: "support", is_system_role: false, organization_id: "org-2" }, error: null }],
       }),
@@ -137,8 +135,7 @@ describe("PATCH /api/applications/members/[membershipId] (roles)", () => {
 
   it("grants a valid role and returns the member's updated roles", async () => {
     createSupabaseAdminClientMock.mockReturnValue(
-      makeAdminClient({
-        applications: [{ data: APPLICATION, error: null }],
+      clientFor({
         memberships: [{ data: { id: "m1", organization_id: "org-1" }, error: null }],
         roles: [{ data: { id: "role-admin", slug: "admin", is_system_role: true, organization_id: null }, error: null }],
         membership_roles: [
@@ -157,8 +154,7 @@ describe("PATCH /api/applications/members/[membershipId] (roles)", () => {
 
   it("surfaces the database's last-owner-role-removal protection as a 400 on revoke", async () => {
     createSupabaseAdminClientMock.mockReturnValue(
-      makeAdminClient({
-        applications: [{ data: APPLICATION, error: null }],
+      clientFor({
         memberships: [{ data: { id: "m1", organization_id: "org-1" }, error: null }],
         roles: [{ data: { id: "role-owner", slug: "owner", is_system_role: true, organization_id: null }, error: null }],
         membership_roles: [{ error: { message: "No puedes quitar el rol de Owner al único Owner activo de la organización." } }],

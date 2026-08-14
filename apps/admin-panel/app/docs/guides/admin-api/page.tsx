@@ -30,12 +30,16 @@ export default function AdminApiPage() {
             <td>
               API Key de aplicación (<code>kapp_...</code>)
             </td>
-            <td>Una sola aplicación, y solo la organización que la reclamó como propietaria</td>
             <td>
-              El backend de tu app sincroniza su catálogo de permisos o gestiona los miembros de su propia
-              organización — ver{" "}
-              <a href="/docs/guides/application-registration">Registro de aplicaciones</a>. Se obtiene/rota desde
-              el admin-panel: Aplicaciones → tu app → API Key.
+              Una sola aplicación. Cada clave individual está atada a una organización — la que la generó, no
+              necesariamente la propietaria de la aplicación — y una misma app puede tener varias claves activas
+              a la vez, una por cada organización que la usa
+            </td>
+            <td>
+              El backend de tu app sincroniza su catálogo de permisos (con cualquier clave activa) o gestiona los
+              miembros de la organización específica dueña de la clave usada — ver{" "}
+              <a href="/docs/guides/application-registration">Registro de aplicaciones</a>. Se genera/revoca desde
+              el admin-panel: Aplicaciones → tu app → API Keys.
             </td>
           </tr>
           <tr>
@@ -82,7 +86,7 @@ export default function AdminApiPage() {
             <td>Aplicaciones</td>
             <td>
               <code>GET /applications</code>, <code>PATCH /applications/:id</code>,{" "}
-              <code>POST/DELETE /applications/:id/key</code>,{" "}
+              <code>GET/POST /applications/:id/keys</code>, <code>DELETE /applications/:id/keys/:keyId</code>,{" "}
               <code>POST/DELETE /organizations/:id/applications</code>
             </td>
           </tr>

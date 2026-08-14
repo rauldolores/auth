@@ -14,7 +14,6 @@ interface ApplicationRow {
   environment: string;
   owner_organization_id: string | null;
   homepage_url: string | null;
-  api_key_last_used_at: string | null;
   oauth_client_id: string | null;
   permissionCount: number;
 }
@@ -25,25 +24,25 @@ interface OAuthClient {
   redirect_uris: string[];
 }
 
+interface ApplicationApiKey {
+  id: string;
+  organizationId: string;
+  name: string;
+  keyPrefix: string | null;
+  lastUsedAt: string | null;
+  expiresAt: string | null;
+  revokedAt: string | null;
+  revokedBy: string | null;
+  createdBy: string | null;
+  createdAt: string;
+}
+
 const APPLICATIONS_PAGE_SIZE = 50;
 
-/** Mirrors packages/db/src/api-key.ts exactly (same prefix, same 24
- * random bytes base64url-encoded, same sha256 hex digest) — generated and
- * hashed entirely client-side so the plaintext key is shown once here and
- * never round-tripped through the database; only its hash is ever sent. */
-async function generateAndHashApiKey(): Promise<{ plaintext: string; hashHex: string }> {
-  const bytes = new Uint8Array(24);
-  crypto.getRandomValues(bytes);
-  let binary = "";
-  for (const b of bytes) binary += String.fromCharCode(b);
-  const base64Url = btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-  const plaintext = `kapp_${base64Url}`;
-
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(plaintext));
-  const hashHex = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
-
-  return { plaintext, hashHex };
-}
+type ConfirmAction =
+  | { kind: "disable"; app: ApplicationRow }
+  | { kind: "claim"; app: ApplicationRow }
+  | { kind: "revoke-key"; app: ApplicationRow; key: ApplicationApiKey };
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -154,14 +153,6 @@ function EditIcon({ className = "k-w-3.5 k-h-3.5" }: { className?: string }) {
   );
 }
 
-function RefreshIcon({ className = "k-w-3.5 k-h-3.5" }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-    </svg>
-  );
-}
-
 function XIcon({ className = "k-w-4 k-h-4" }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -229,13 +220,10 @@ export default function ApplicationsPage() {
   const [urlDraft, setUrlDraft] = useState("");
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [newApiKey, setNewApiKey] = useState<{ appId: string; plaintext: string } | null>(null);
   const [copied, setCopied] = useState(false);
   const [platformAdmin, setPlatformAdmin] = useState(false);
   const canManage = hasRole(["owner", "admin"]);
-  const [confirmAction, setConfirmAction] = useState<{ kind: "disable" | "claim" | "rotate" | "revoke"; app: ApplicationRow } | null>(
-    null,
-  );
+  const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
   const [oauthClients, setOauthClients] = useState<Map<string, OAuthClient>>(new Map());
   const [oauthDialogApp, setOauthDialogApp] = useState<ApplicationRow | null>(null);
   const [oauthName, setOauthName] = useState("");
@@ -244,7 +232,14 @@ export default function ApplicationsPage() {
   const [oauthSaving, setOauthSaving] = useState(false);
   const [oauthLinkClientId, setOauthLinkClientId] = useState("");
   const [oauthLinking, setOauthLinking] = useState(false);
-  const [apiKeyDialogApp, setApiKeyDialogApp] = useState<ApplicationRow | null>(null);
+  const [apiKeysDialogApp, setApiKeysDialogApp] = useState<ApplicationRow | null>(null);
+  const [apiKeys, setApiKeys] = useState<ApplicationApiKey[] | null>(null);
+  const [apiKeysError, setApiKeysError] = useState<string | null>(null);
+  const [newKeyName, setNewKeyName] = useState("");
+  const [newKeyExpiresAt, setNewKeyExpiresAt] = useState("");
+  const [creatingKey, setCreatingKey] = useState(false);
+  const [revokingKeyId, setRevokingKeyId] = useState<string | null>(null);
+  const [newPlaintextKey, setNewPlaintextKey] = useState<string | null>(null);
 
   // Filters & UI view state
   const [searchQuery, setSearchQuery] = useState("");
@@ -277,7 +272,7 @@ export default function ApplicationsPage() {
     const [{ data: appPage }, { data: enabledRows }] = await Promise.all([
       supabase
         .from("applications")
-        .select("id, name, slug, environment, owner_organization_id, homepage_url, api_key_last_used_at, oauth_client_id")
+        .select("id, name, slug, environment, owner_organization_id, homepage_url, oauth_client_id")
         .order("name")
         .range(offset, offset + APPLICATIONS_PAGE_SIZE - 1),
       supabase
@@ -409,48 +404,77 @@ export default function ApplicationsPage() {
     }
   }
 
-  async function handleRotateKey(app: ApplicationRow) {
-    setError(null);
-    setPendingId(app.id);
-    setNewApiKey(null);
+  async function loadApiKeys(app: ApplicationRow) {
+    setApiKeysError(null);
+    setApiKeys(null);
     try {
-      const { plaintext, hashHex } = await generateAndHashApiKey();
-      const supabase = createKontroliaSchemaClient();
-      const { error: updateError } = await supabase
-        .from("applications")
-        .update({ api_key_hash: hashHex, api_key_last_used_at: null })
-        .eq("id", app.id);
-      if (updateError) throw updateError;
-      setNewApiKey({ appId: app.id, plaintext });
-      if (organization) await loadApplications(organization.id);
+      const token = await getToken();
+      const response = await fetch(`${AUTH_SERVER_URL}/api/applications/${app.id}/keys`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = (await response.json().catch(() => null)) as { keys?: ApplicationApiKey[]; error?: string } | null;
+      if (!response.ok) throw new Error(data?.error ?? "No se pudieron cargar las API Keys.");
+      setApiKeys(data?.keys ?? []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo rotar la clave.");
-    } finally {
-      setPendingId(null);
+      setApiKeysError(err instanceof Error ? err.message : "No se pudieron cargar las API Keys.");
     }
   }
 
-  async function handleRevokeKey(app: ApplicationRow) {
-    setError(null);
-    setPendingId(app.id);
+  function openApiKeysDialog(app: ApplicationRow) {
+    setApiKeysDialogApp(app);
+    setNewPlaintextKey(null);
+    setNewKeyName("");
+    setNewKeyExpiresAt("");
+    void loadApiKeys(app);
+  }
+
+  async function handleCreateKey(app: ApplicationRow) {
+    if (!organization || !newKeyName.trim()) return;
+    setApiKeysError(null);
+    setCreatingKey(true);
     try {
-      const supabase = createKontroliaSchemaClient();
-      const { error: updateError } = await supabase
-        .from("applications")
-        .update({ api_key_hash: null, api_key_last_used_at: null })
-        .eq("id", app.id);
-      if (updateError) throw updateError;
-      if (newApiKey?.appId === app.id) setNewApiKey(null);
-      if (organization) await loadApplications(organization.id);
+      const token = await getToken();
+      const response = await fetch(`${AUTH_SERVER_URL}/api/applications/${app.id}/keys`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          organizationId: organization.id,
+          name: newKeyName.trim(),
+          expiresAt: newKeyExpiresAt ? new Date(newKeyExpiresAt).toISOString() : null,
+        }),
+      });
+      const data = (await response.json().catch(() => null)) as { apiKey?: string; error?: string } | null;
+      if (!response.ok) throw new Error(data?.error ?? "No se pudo crear la clave.");
+      setNewPlaintextKey(data?.apiKey ?? null);
+      setNewKeyName("");
+      setNewKeyExpiresAt("");
+      await loadApiKeys(app);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo revocar la clave.");
+      setApiKeysError(err instanceof Error ? err.message : "No se pudo crear la clave.");
     } finally {
-      setPendingId(null);
+      setCreatingKey(false);
     }
   }
 
-  function openApiKeyDialog(app: ApplicationRow) {
-    setApiKeyDialogApp(app);
+  async function handleRevokeKey(app: ApplicationRow, key: ApplicationApiKey) {
+    setApiKeysError(null);
+    setRevokingKeyId(key.id);
+    try {
+      const token = await getToken();
+      const response = await fetch(`${AUTH_SERVER_URL}/api/applications/${app.id}/keys/${key.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) {
+        const data = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(data?.error ?? "No se pudo revocar la clave.");
+      }
+      await loadApiKeys(app);
+    } catch (err) {
+      setApiKeysError(err instanceof Error ? err.message : "No se pudo revocar la clave.");
+    } finally {
+      setRevokingKeyId(null);
+    }
   }
 
   function openOauthDialog(app: ApplicationRow) {
@@ -801,7 +825,7 @@ export default function ApplicationsPage() {
                       handleSaveUrl={handleSaveUrl}
                       setConfirmAction={setConfirmAction}
                       openOauthDialog={openOauthDialog}
-                      openApiKeyDialog={openApiKeyDialog}
+                      openApiKeysDialog={openApiKeysDialog}
                       isEnabled={true}
                       handleEnable={handleEnable}
                     />
@@ -822,7 +846,7 @@ export default function ApplicationsPage() {
                   handleSaveUrl={handleSaveUrl}
                   setConfirmAction={setConfirmAction}
                   openOauthDialog={openOauthDialog}
-                  openApiKeyDialog={openApiKeyDialog}
+                  openApiKeysDialog={openApiKeysDialog}
                   isEnabled={true}
                   handleEnable={handleEnable}
                 />
@@ -864,7 +888,7 @@ export default function ApplicationsPage() {
                       handleSaveUrl={handleSaveUrl}
                       setConfirmAction={setConfirmAction}
                       openOauthDialog={openOauthDialog}
-                      openApiKeyDialog={openApiKeyDialog}
+                      openApiKeysDialog={openApiKeysDialog}
                       isEnabled={false}
                       handleEnable={handleEnable}
                     />
@@ -885,7 +909,7 @@ export default function ApplicationsPage() {
                   handleSaveUrl={handleSaveUrl}
                   setConfirmAction={setConfirmAction}
                   openOauthDialog={openOauthDialog}
-                  openApiKeyDialog={openApiKeyDialog}
+                  openApiKeysDialog={openApiKeysDialog}
                   isEnabled={false}
                   handleEnable={handleEnable}
                 />
@@ -920,74 +944,42 @@ export default function ApplicationsPage() {
       <ConfirmDialog
         open={confirmAction !== null}
         onOpenChange={(open) => !open && setConfirmAction(null)}
-        destructive={confirmAction?.kind === "disable" || confirmAction?.kind === "revoke"}
-        title={
-          confirmAction?.kind === "disable"
-            ? "Deshabilitar aplicación"
-            : confirmAction?.kind === "claim"
-              ? "Reclamar propiedad"
-              : confirmAction?.kind === "rotate"
-                ? "Rotar API Key"
-                : "Revocar API Key"
-        }
+        destructive={confirmAction?.kind === "disable" || confirmAction?.kind === "revoke-key"}
+        title={confirmAction?.kind === "disable" ? "Deshabilitar aplicación" : confirmAction?.kind === "claim" ? "Reclamar propiedad" : "Revocar API Key"}
         description={
           !confirmAction
             ? ""
             : confirmAction.kind === "disable"
               ? `¿Deshabilitar "${confirmAction.app.name}" para ${organization.name}? Quien inicie sesión con esa app dejará de poder acceder.`
               : confirmAction.kind === "claim"
-                ? `¿Reclamar "${confirmAction.app.name}" para ${organization.name}? Esta organización pasará a controlar su API Key — no se puede deshacer ni transferir después.`
-                : confirmAction.kind === "rotate"
-                  ? `¿Rotar la API Key de "${confirmAction.app.name}"? La clave anterior deja de funcionar de inmediato — actualiza el pipeline de despliegue de la app con la nueva.`
-                  : `¿Revocar la API Key de "${confirmAction.app.name}"? El pipeline de despliegue de la app dejará de poder sincronizar su catálogo de permisos, ni llamar al API, hasta que generes una nueva.`
+                ? `¿Reclamar "${confirmAction.app.name}" para ${organization.name}? Esta organización pasará a controlar su catálogo global de permisos — no se puede deshacer ni transferir después.`
+                : `¿Revocar la clave "${confirmAction.key.name}"? Cualquier integración que la use dejará de poder llamar al API de inmediato — esto no afecta a las demás claves de esta aplicación.`
         }
-        confirmLabel={
-          confirmAction?.kind === "disable"
-            ? "Deshabilitar"
-            : confirmAction?.kind === "claim"
-              ? "Reclamar"
-              : confirmAction?.kind === "rotate"
-                ? "Rotar"
-                : "Revocar"
-        }
+        confirmLabel={confirmAction?.kind === "disable" ? "Deshabilitar" : confirmAction?.kind === "claim" ? "Reclamar" : "Revocar"}
         onConfirm={async () => {
           if (!confirmAction) return;
-          const { kind, app } = confirmAction;
-          if (kind === "disable") await handleDisable(app.id);
-          else if (kind === "claim") await handleClaim(app);
-          else if (kind === "rotate") await handleRotateKey(app);
-          else await handleRevokeKey(app);
+          if (confirmAction.kind === "disable") await handleDisable(confirmAction.app.id);
+          else if (confirmAction.kind === "claim") await handleClaim(confirmAction.app);
+          else await handleRevokeKey(confirmAction.app, confirmAction.key);
         }}
       />
 
-      {/* --- API KEY DIALOG --- */}
+      {/* --- API KEYS DIALOG --- */}
       <Dialog
-        open={apiKeyDialogApp !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setApiKeyDialogApp(null);
-            setNewApiKey(null);
-          }
-        }}
-        title="API Key"
+        open={apiKeysDialogApp !== null}
+        onOpenChange={(open) => !open && setApiKeysDialogApp(null)}
+        title="API Keys"
         description={
-          apiKeyDialogApp
-            ? `Usa esta clave para que el backend de "${apiKeyDialogApp.name}" llame al API de KontrolIA Auth — sincronizar su catálogo de permisos (POST /api/applications/sync) y gestionar los miembros de tu organización. No es lo mismo que el cliente OAuth (eso es para que los usuarios inicien sesión).`
+          apiKeysDialogApp
+            ? `Cada clave permite que un backend llame al API de KontrolIA Auth a nombre de ${organization.name} — sincronizar el catálogo de permisos de "${apiKeysDialogApp.name}" (global) y gestionar los miembros de tu organización (con esta clave específica). No es lo mismo que el cliente OAuth (eso es para que los usuarios inicien sesión).`
             : undefined
         }
       >
-        {apiKeyDialogApp && (
+        {apiKeysDialogApp && (
           <div className="k-flex k-flex-col k-gap-4 k-pt-1">
-            <div className="k-flex k-items-center k-justify-between k-gap-2 k-text-sm">
-              <span className="k-text-muted-foreground">Último uso</span>
-              <span className="k-font-medium">
-                {apiKeyDialogApp.api_key_last_used_at
-                  ? new Date(apiKeyDialogApp.api_key_last_used_at).toLocaleString()
-                  : "Nunca usada"}
-              </span>
-            </div>
+            {apiKeysError && <p className="k-rounded-lg k-bg-destructive/10 k-p-2.5 k-text-xs k-text-destructive">{apiKeysError}</p>}
 
-            {newApiKey && newApiKey.appId === apiKeyDialogApp.id && (
+            {newPlaintextKey && (
               <div className="k-flex k-flex-col k-gap-2 k-rounded-lg k-border k-border-emerald-500/40 k-bg-emerald-500/10 k-p-3.5">
                 <div className="k-flex k-items-center k-gap-2 k-text-emerald-700 dark:k-text-emerald-300 k-font-semibold k-text-sm">
                   <KeyIcon className="k-w-4 k-h-4" />
@@ -997,12 +989,12 @@ export default function ApplicationsPage() {
                   Cópiala ahora. Por seguridad no se guarda en texto plano y no podrá mostrarse nuevamente.
                 </p>
                 <div className="k-rounded-lg k-bg-background/80 k-border k-border-emerald-500/30 k-px-3 k-py-2 k-font-mono k-text-xs k-text-foreground k-truncate select-all">
-                  {newApiKey.plaintext}
+                  {newPlaintextKey}
                 </div>
                 <button
                   type="button"
                   onClick={() => {
-                    void navigator.clipboard.writeText(newApiKey.plaintext);
+                    void navigator.clipboard.writeText(newPlaintextKey);
                     setCopied(true);
                     setTimeout(() => setCopied(false), 2000);
                   }}
@@ -1023,24 +1015,73 @@ export default function ApplicationsPage() {
               </div>
             )}
 
+            {apiKeys === null ? (
+              <p className="k-text-sm k-text-muted-foreground">Cargando claves...</p>
+            ) : apiKeys.length === 0 ? (
+              <p className="k-text-sm k-text-muted-foreground">Todavía no hay ninguna clave para esta aplicación.</p>
+            ) : (
+              <div className="k-flex k-flex-col k-gap-2">
+                {apiKeys.map((key) => (
+                  <div
+                    key={key.id}
+                    className="k-flex k-items-center k-justify-between k-gap-3 k-rounded-lg k-border k-border-border k-bg-muted/30 k-p-3 k-text-xs"
+                  >
+                    <div className="k-flex k-min-w-0 k-flex-col k-gap-0.5">
+                      <span className="k-truncate k-font-semibold k-text-foreground">{key.name}</span>
+                      <span className="k-font-mono k-text-muted-foreground">{key.keyPrefix ? `${key.keyPrefix}…` : "(clave original)"}</span>
+                      <span className="k-text-muted-foreground">
+                        {key.lastUsedAt ? `Último uso: ${new Date(key.lastUsedAt).toLocaleString()}` : "Nunca usada"}
+                        {key.expiresAt && ` · Expira: ${new Date(key.expiresAt).toLocaleDateString()}`}
+                      </span>
+                    </div>
+                    {key.revokedAt ? (
+                      <Badge variant="neutral">Revocada</Badge>
+                    ) : key.expiresAt && new Date(key.expiresAt) < new Date() ? (
+                      <Badge variant="warning">Expirada</Badge>
+                    ) : (
+                      canManage && (
+                        <button
+                          type="button"
+                          disabled={revokingKeyId === key.id}
+                          onClick={() => setConfirmAction({ kind: "revoke-key", app: apiKeysDialogApp, key })}
+                          className="k-shrink-0 k-rounded-md k-px-2.5 k-py-1 k-font-medium k-text-destructive hover:k-bg-destructive/10 disabled:k-opacity-60"
+                        >
+                          Revocar
+                        </button>
+                      )
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
             {canManage && (
-              <div className="k-flex k-justify-end k-gap-3 k-pt-2">
+              <div className="k-flex k-flex-col k-gap-2 k-border-t k-border-border k-pt-3">
+                <p className="k-text-xs k-font-semibold k-text-foreground">Nueva clave para {organization.name}</p>
+                <div className="k-flex k-gap-2">
+                  <input
+                    type="text"
+                    placeholder="Nombre, ej. Integración Zapier"
+                    value={newKeyName}
+                    onChange={(e) => setNewKeyName(e.target.value)}
+                    className="k-flex-1 k-rounded-md k-border k-border-border k-bg-background k-px-2.5 k-py-1.5 k-text-xs"
+                  />
+                  <input
+                    type="date"
+                    value={newKeyExpiresAt}
+                    onChange={(e) => setNewKeyExpiresAt(e.target.value)}
+                    title="Fecha de expiración (opcional)"
+                    className="k-rounded-md k-border k-border-border k-bg-background k-px-2.5 k-py-1.5 k-text-xs"
+                  />
+                </div>
                 <button
                   type="button"
-                  disabled={pendingId === apiKeyDialogApp.id}
-                  onClick={() => setConfirmAction({ kind: "revoke", app: apiKeyDialogApp })}
-                  className="k-rounded-lg k-px-4 k-py-2 k-text-sm k-font-medium k-text-destructive hover:k-bg-destructive/10 disabled:k-opacity-60 k-transition-all"
+                  disabled={creatingKey || !newKeyName.trim()}
+                  onClick={() => void handleCreateKey(apiKeysDialogApp)}
+                  className="k-inline-flex k-w-fit k-items-center k-gap-2 k-rounded-lg k-bg-primary k-px-3.5 k-py-1.5 k-text-xs k-font-medium k-text-primary-foreground disabled:k-opacity-60 hover:k-opacity-90 k-transition-all"
                 >
-                  Revocar
-                </button>
-                <button
-                  type="button"
-                  disabled={pendingId === apiKeyDialogApp.id}
-                  onClick={() => setConfirmAction({ kind: "rotate", app: apiKeyDialogApp })}
-                  className="k-inline-flex k-items-center k-gap-2 k-rounded-lg k-bg-primary k-px-4 k-py-2 k-text-sm k-font-medium k-text-primary-foreground disabled:k-opacity-60 hover:k-opacity-90 k-transition-all"
-                >
-                  <RefreshIcon />
-                  <span>{apiKeyDialogApp.api_key_last_used_at ? "Rotar API Key" : "Generar API Key"}</span>
+                  <KeyIcon className="k-w-3.5 k-h-3.5" />
+                  <span>{creatingKey ? "Generando..." : "Generar clave"}</span>
                 </button>
               </div>
             )}
@@ -1183,7 +1224,7 @@ function AppCardItem({
   handleSaveUrl,
   setConfirmAction,
   openOauthDialog,
-  openApiKeyDialog,
+  openApiKeysDialog,
   isEnabled,
   handleEnable,
 }: {
@@ -1197,9 +1238,9 @@ function AppCardItem({
   setUrlDraft: (v: string) => void;
   setEditingUrlId: (id: string | null) => void;
   handleSaveUrl: (id: string) => void;
-  setConfirmAction: (action: { kind: "disable" | "claim" | "rotate" | "revoke"; app: ApplicationRow } | null) => void;
+  setConfirmAction: (action: ConfirmAction | null) => void;
   openOauthDialog: (app: ApplicationRow) => void;
-  openApiKeyDialog: (app: ApplicationRow) => void;
+  openApiKeysDialog: (app: ApplicationRow) => void;
   isEnabled: boolean;
   handleEnable: (id: string) => void;
 }) {
@@ -1307,19 +1348,17 @@ function AppCardItem({
           )}
         </div>
 
-        {/* Ownership & API Key status */}
+        {/* API Keys / Ownership status */}
         <div className="k-flex k-items-center k-justify-between k-gap-2 k-border-t k-border-border/50 k-pt-2">
-          <span className="k-text-muted-foreground k-font-medium">API Key:</span>
-          {isOwnerOrg ? (
+          <span className="k-text-muted-foreground k-font-medium">API Keys:</span>
+          {isEnabled ? (
             <button
               type="button"
-              onClick={() => openApiKeyDialog(app)}
+              onClick={() => openApiKeysDialog(app)}
               className="k-inline-flex k-items-center k-gap-1.5 k-text-primary hover:k-underline k-font-medium"
             >
               <KeyIcon className="k-w-3.5 k-h-3.5" />
-              {app.api_key_last_used_at
-                ? `Última: ${new Date(app.api_key_last_used_at).toLocaleDateString()}`
-                : "Nunca usada"}
+              Gestionar
             </button>
           ) : isUnowned && platformAdmin ? (
             <button
@@ -1333,7 +1372,7 @@ function AppCardItem({
           ) : isUnowned ? (
             <span className="k-text-muted-foreground">Sin propietario</span>
           ) : (
-            <span className="k-text-muted-foreground">Controlada por otra org</span>
+            <span className="k-text-muted-foreground">No habilitada</span>
           )}
         </div>
 
@@ -1422,7 +1461,7 @@ function AppTableView({
   handleSaveUrl,
   setConfirmAction,
   openOauthDialog,
-  openApiKeyDialog,
+  openApiKeysDialog,
   isEnabled,
   handleEnable,
 }: {
@@ -1436,9 +1475,9 @@ function AppTableView({
   setUrlDraft: (v: string) => void;
   setEditingUrlId?: (id: string | null) => void;
   handleSaveUrl: (id: string) => void;
-  setConfirmAction: (action: { kind: "disable" | "claim" | "rotate" | "revoke"; app: ApplicationRow } | null) => void;
+  setConfirmAction: (action: ConfirmAction | null) => void;
   openOauthDialog: (app: ApplicationRow) => void;
-  openApiKeyDialog: (app: ApplicationRow) => void;
+  openApiKeysDialog: (app: ApplicationRow) => void;
   isEnabled: boolean;
   handleEnable: (id: string) => void;
 }) {
@@ -1518,17 +1557,15 @@ function AppTableView({
                     )}
                   </td>
 
-                  {/* API Key / ownership */}
+                  {/* API Keys / ownership */}
                   <td className="k-px-5 k-py-3.5 k-text-xs">
-                    {isOwnerOrg ? (
+                    {isEnabled ? (
                       <button
                         type="button"
-                        onClick={() => openApiKeyDialog(app)}
+                        onClick={() => openApiKeysDialog(app)}
                         className="k-text-primary hover:k-underline k-font-medium"
                       >
-                        {app.api_key_last_used_at
-                          ? `Última: ${new Date(app.api_key_last_used_at).toLocaleDateString()}`
-                          : "Nunca usada"}
+                        Gestionar
                       </button>
                     ) : app.owner_organization_id === null && platformAdmin ? (
                       <button
@@ -1542,7 +1579,7 @@ function AppTableView({
                     ) : app.owner_organization_id === null ? (
                       <span className="k-text-muted-foreground">Sin propietario</span>
                     ) : (
-                      <span className="k-text-muted-foreground">Controlada por otra org</span>
+                      <span className="k-text-muted-foreground">No habilitada</span>
                     )}
                   </td>
 

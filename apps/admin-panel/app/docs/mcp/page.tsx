@@ -55,7 +55,7 @@ export default function McpPage() {
         <code>list_organizations</code>, <code>list_organization_members</code>, <code>list_applications</code>,{" "}
         <code>list_organization_applications</code>, <code>list_permissions</code>, <code>list_roles</code>,{" "}
         <code>get_role_permissions</code>, <code>list_invitations</code>, <code>list_platform_admins</code>,{" "}
-        <code>query_audit_log</code>.
+        <code>list_application_keys</code>, <code>query_audit_log</code>.
       </p>
       <p>
         <strong>Escritura, sin confirmación</strong> (igual que el admin-panel, que tampoco pide confirmar estas):{" "}
@@ -63,7 +63,7 @@ export default function McpPage() {
         <code>resend_invitation</code>, <code>change_member_status</code>, <code>grant_membership_role</code>,{" "}
         <code>revoke_membership_role</code>, <code>create_custom_role</code>, <code>grant_role_permission</code>,{" "}
         <code>enable_application</code>, <code>configure_oauth_client</code>,{" "}
-        <code>link_existing_oauth_client</code>.
+        <code>link_existing_oauth_client</code>, <code>create_application_key</code>.
       </p>
       <p>
         <strong>Escritura, con confirmación obligatoria</strong> — cada una exige un argumento{" "}
@@ -72,8 +72,8 @@ export default function McpPage() {
         <code>delete_organization</code>, <code>remove_user</code>, <code>suspend_user</code>,{" "}
         <code>revoke_invitation</code>, <code>delete_custom_role</code>, <code>revoke_role_permission</code>,{" "}
         <code>disable_application</code>, <code>claim_application_ownership</code>,{" "}
-        <code>rotate_application_sync_key</code>, <code>revoke_application_sync_key</code>,{" "}
-        <code>grant_platform_admin</code>, <code>revoke_platform_admin</code>.
+        <code>revoke_application_key</code>, <code>grant_platform_admin</code>,{" "}
+        <code>revoke_platform_admin</code>.
       </p>
       <p>
         Por ejemplo, para eliminar una organización el agente tiene que volver a consultar cuál es su{" "}

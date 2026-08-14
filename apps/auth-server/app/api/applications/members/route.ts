@@ -28,20 +28,18 @@ interface MembershipWithRoles {
  * Lets an already-registered application (authenticated the same way as
  * /api/applications/sync — Bearer kapp_ key — identified via
  * X-Application-Slug here since GET/DELETE have no body to carry a slug in)
- * list the members of *its own* organization: the org that owns the
- * application, never one supplied by the caller. That scoping is enforced
- * entirely in this route (the admin client bypasses RLS, so there's no
- * database-level backstop for it here) — every query below is explicitly
- * filtered by application.ownerOrganizationId.
+ * list the members of *the organization the caller's specific key was
+ * generated for* — never one supplied by the caller. That scoping is
+ * enforced entirely in this route (the admin client bypasses RLS, so
+ * there's no database-level backstop for it here) — every query below is
+ * explicitly filtered by application.organizationId, which
+ * authenticateApplication() derives from the matched application_api_keys
+ * row, not from the application's owner_organization_id.
  */
 export async function GET(request: Request) {
   const auth = await authenticateApplication(request, applicationSlug(request), "applications/members:list");
   if (auth instanceof NextResponse) return auth;
   const { application, admin } = auth;
-
-  if (!application.ownerOrganizationId) {
-    return NextResponse.json({ error: "Esta aplicación no está asociada a una organización." }, { status: 409 });
-  }
 
   const offset = Number(new URL(request.url).searchParams.get("offset") ?? "0") || 0;
 
@@ -49,7 +47,7 @@ export async function GET(request: Request) {
     .schema("kontrolia_auth")
     .from("memberships")
     .select("id, user_id, status, created_at, membership_roles(role:roles(id, name, slug, application_id))")
-    .eq("organization_id", application.ownerOrganizationId)
+    .eq("organization_id", application.organizationId)
     .order("created_at", { ascending: false })
     .range(offset, offset + MEMBERS_PAGE_SIZE - 1)
     .returns<MembershipWithRoles[]>();
@@ -78,7 +76,7 @@ interface InviteBody {
 }
 
 /**
- * Creates an invitation for the application's own organization. Mirrors
+ * Creates an invitation for the calling key's own organization. Mirrors
  * POST /api/invitations (same table, same "no email provider configured"
  * contract — the caller gets the token back to deliver however it already
  * sends mail), but gated by an application API key instead of a user
@@ -91,24 +89,20 @@ export async function POST(request: Request) {
   if (auth instanceof NextResponse) return auth;
   const { application, admin } = auth;
 
-  if (!application.ownerOrganizationId) {
-    return NextResponse.json({ error: "Esta aplicación no está asociada a una organización." }, { status: 409 });
-  }
-
   const body = (await request.json().catch(() => null)) as InviteBody | null;
   if (!body?.email) {
     return NextResponse.json({ error: "email es requerido" }, { status: 400 });
   }
 
   if (body.roleId) {
-    const { role, error: roleError, status } = await loadAssignableRole(admin, body.roleId, application.ownerOrganizationId);
+    const { role, error: roleError, status } = await loadAssignableRole(admin, body.roleId, application.organizationId);
     if (!role) return NextResponse.json({ error: roleError }, { status: status ?? 400 });
   }
 
   const { data, error } = await admin
     .schema("kontrolia_auth")
     .from("invitations")
-    .insert({ organization_id: application.ownerOrganizationId, email: body.email, role_id: body.roleId ?? null })
+    .insert({ organization_id: application.organizationId, email: body.email, role_id: body.roleId ?? null })
     .select("id, email, token, expires_at")
     .single();
 

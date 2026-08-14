@@ -22,14 +22,22 @@ export default function ApplicationRegistrationPage() {
         Quien instala/administra KontrolIA Auth registra tu aplicación una sola vez, con el paso opcional "3 de
         3" de <code>npx create-kontrolia-auth</code> (o llamando <code>registerApplication()</code> de{" "}
         <code>@kontrolia/db</code> directo, si prefiere scriptearlo). Ese paso genera y muestra{" "}
-        <strong>una sola vez</strong> una clave de sincronización — solo se guarda su hash, no hay forma de
-        recuperarla después. Esa clave es lo único que tu aplicación necesita para actualizar su propio catálogo
-        de ahí en adelante.
+        <strong>una sola vez</strong> una API Key — solo se guarda su hash, no hay forma de recuperarla después.
+        Esa clave es lo único que tu aplicación necesita para actualizar su propio catálogo de ahí en adelante.
       </p>
       <p>Guárdala como variable de entorno en tu aplicación, por ejemplo:</p>
       <pre>
         <code>KONTROLIA_APPLICATION_API_KEY=kapp_...</code>
       </pre>
+      <p>
+        Una aplicación puede tener <strong>varias</strong> API Keys activas a la vez, no solo una — cada
+        organización que habilita tu aplicación puede generar su propia clave (con nombre y expiración
+        opcionales) desde <strong>Aplicaciones → tu app → API Keys</strong> en el admin-panel, sin depender de
+        la organización que registró la aplicación originalmente. Cualquier clave activa sirve para sincronizar
+        el catálogo de permisos (es compartido, no por organización); para gestionar miembros vía{" "}
+        <a href="/docs/guides/organizations-and-permissions">la API de miembros</a>, cada clave solo alcanza a la
+        organización para la que se generó. Ver "Generar y revocar claves" más abajo.
+      </p>
 
       <h3>Alternativa: registrarla con un script</h3>
       <p>
@@ -58,9 +66,18 @@ console.log({ applicationId, permissionKeys, apiKey });
       </pre>
       <p>
         Es seguro volver a correrlo con el mismo <code>slug</code>: los permisos se actualizan (upsert), y{" "}
-        <code>apiKey</code> viene <code>null</code> en vez de una clave nueva — la clave existente nunca se
-        rota por accidente. Si necesitas una clave nueva, no hay forma de "regenerarla" todavía; hay que borrar
-        la aplicación y volver a registrarla.
+        <code>apiKey</code> viene <code>null</code> en vez de una clave nueva — este script no rota ni genera
+        claves adicionales. Para eso, usa el admin-panel (ver "Generar y revocar claves" más abajo).
+      </p>
+
+      <h2>Generar y revocar claves</h2>
+      <p>
+        Desde <strong>Aplicaciones → tu app → API Keys</strong> en el admin-panel, cualquier Owner/Admin de una
+        organización que tenga la aplicación habilitada puede generar una clave nueva con un nombre descriptivo
+        (por ejemplo "Backend de staging") y, opcionalmente, una fecha de expiración — o dejarla sin expirar. La
+        clave en texto plano solo se muestra una vez, justo después de generarla; después de eso solo se guarda
+        su hash. Revocar una clave es inmediato y no afecta a las demás claves de la misma aplicación, sean de tu
+        organización o de otra.
       </p>
 
       <h2>Mantener el catálogo sincronizado</h2>
@@ -135,7 +152,10 @@ Content-Type: application/json
         </li>
         <li>
           Opcionalmente puedes mandar <code>name</code> y/o <code>environment</code> en el mismo body para
-          actualizar esos campos de la aplicación.
+          actualizar esos campos de la aplicación — pero solo si la clave usada pertenece a la organización{" "}
+          <strong>propietaria</strong> de la aplicación (la que la registró/reclamó). Una clave de cualquier otra
+          organización puede sincronizar el catálogo de permisos igual, pero no puede renombrar ni cambiar el
+          entorno de la aplicación.
         </li>
         <li>
           <strong>No</strong> habilita tu aplicación en ninguna organización ni la asigna a ningún rol — eso
@@ -162,8 +182,8 @@ Content-Type: application/json
           <tr>
             <td>403</td>
             <td>
-              La aplicación existe pero no tiene una clave de sincronización (registrada antes de que esta
-              función existiera). Vuelve a registrarla desde el instalador para generar una.
+              La aplicación existe pero no tiene ninguna clave activa (todas revocadas/expiradas, o nunca se
+              generó una). Genera una desde Aplicaciones → tu app → API Keys en el admin-panel.
             </td>
           </tr>
           <tr>

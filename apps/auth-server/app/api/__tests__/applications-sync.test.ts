@@ -4,10 +4,10 @@ import { resetRateLimitsForTests } from "@/lib/rate-limit";
 import { makeSchemaClient } from "./test-helpers";
 
 // Light coverage: this is a machine-to-machine endpoint (an application's
-// deploy pipeline, not a browser), authenticated by a per-application API
-// key rather than a user session. hashApplicationApiKey() is a plain sha256
-// helper (packages/db/src/api-key.ts) — used for real here rather than
-// mocked, since it's pure and deterministic.
+// deploy pipeline, not a browser), authenticated by one of an application's
+// active kapp_ keys (application_api_keys) rather than a user session.
+// hashApplicationApiKey() is a plain sha256 helper (packages/db/src/api-key.ts)
+// — used for real here rather than mocked, since it's pure and deterministic.
 const createSupabaseAdminClientMock = vi.fn();
 vi.mock("@/lib/supabase-admin", () => ({
   createSupabaseAdminClient: () => createSupabaseAdminClientMock(),
@@ -34,6 +34,14 @@ function requestWithKey(key: string, body: unknown): Request {
   });
 }
 
+function ownerKeyClient(overrides: { permissions?: unknown[] } = {}) {
+  return makeSchemaClient({
+    applications: [{ data: { id: "app-1", owner_organization_id: "org-1" }, error: null }],
+    application_api_keys: [{ data: [{ id: "key-1", organization_id: "org-1", key_hash: KEY_HASH }], error: null }],
+    ...(overrides.permissions ? { permissions: overrides.permissions } : {}),
+  });
+}
+
 beforeEach(() => {
   createSupabaseAdminClientMock.mockReset();
   logErrorMock.mockReset();
@@ -57,23 +65,24 @@ it("returns 404 when no application matches the slug", async () => {
   expect(response.status).toBe(404);
 });
 
-it("returns 401 when the API key doesn't match the stored hash, and logs the attempt", async () => {
-  createSupabaseAdminClientMock.mockReturnValue(
-    makeSchemaClient({ applications: [{ data: { id: "app-1", api_key_hash: KEY_HASH }, error: null }] }),
-  );
+it("returns 401 when the API key doesn't match any active key, and logs the attempt", async () => {
+  createSupabaseAdminClientMock.mockReturnValue(ownerKeyClient());
   const response = await POST(requestWithKey("kapp_wrong-key", { slug: "faqturia", permissions: [] }));
   expect(response.status).toBe(401);
   expect(await response.json()).toEqual({ error: "Clave inválida" });
   expect(logSecurityEventMock).toHaveBeenCalledWith("applications/sync: invalid key", { slug: "faqturia", ip: null });
 });
 
-it("returns 403 when the application has never been given a sync key, and logs the attempt", async () => {
+it("returns 403 when the application has no active key at all, and logs the attempt", async () => {
   createSupabaseAdminClientMock.mockReturnValue(
-    makeSchemaClient({ applications: [{ data: { id: "app-1", api_key_hash: null }, error: null }] }),
+    makeSchemaClient({
+      applications: [{ data: { id: "app-1", owner_organization_id: "org-1" }, error: null }],
+      application_api_keys: [{ data: [], error: null }],
+    }),
   );
   const response = await POST(requestWithKey(PLAINTEXT_KEY, { slug: "faqturia", permissions: [] }));
   expect(response.status).toBe(403);
-  expect(logSecurityEventMock).toHaveBeenCalledWith("applications/sync: no key configured", {
+  expect(logSecurityEventMock).toHaveBeenCalledWith("applications/sync: no active key configured", {
     slug: "faqturia",
     ip: null,
   });
@@ -81,10 +90,7 @@ it("returns 403 when the application has never been given a sync key, and logs t
 
 it("syncs the permission catalog and returns the generated permission keys", async () => {
   createSupabaseAdminClientMock.mockReturnValue(
-    makeSchemaClient({
-      applications: [{ data: { id: "app-1", api_key_hash: KEY_HASH }, error: null }],
-      permissions: [{ error: null }, { error: null }],
-    }),
+    ownerKeyClient({ permissions: [{ error: null }, { error: null }] }),
   );
   const response = await POST(
     requestWithKey(PLAINTEXT_KEY, {
@@ -102,10 +108,35 @@ it("syncs the permission catalog and returns the generated permission keys", asy
   });
 });
 
-it("includes the client IP (from X-Forwarded-For) in the security log", async () => {
+it("a key scoped to a non-owner organization can still sync the (global) permission catalog", async () => {
   createSupabaseAdminClientMock.mockReturnValue(
-    makeSchemaClient({ applications: [{ data: { id: "app-1", api_key_hash: KEY_HASH }, error: null }] }),
+    makeSchemaClient({
+      applications: [{ data: { id: "app-1", owner_organization_id: "org-1" }, error: null }],
+      application_api_keys: [{ data: [{ id: "key-2", organization_id: "org-2", key_hash: KEY_HASH }], error: null }],
+      permissions: [{ error: null }],
+    }),
   );
+  const response = await POST(
+    requestWithKey(PLAINTEXT_KEY, { slug: "faqturia", permissions: [{ resource: "facturas", action: "crear" }] }),
+  );
+  expect(response.status).toBe(200);
+});
+
+it("rejects a name/environment update from a key scoped to a non-owner organization", async () => {
+  createSupabaseAdminClientMock.mockReturnValue(
+    makeSchemaClient({
+      applications: [{ data: { id: "app-1", owner_organization_id: "org-1" }, error: null }],
+      application_api_keys: [{ data: [{ id: "key-2", organization_id: "org-2", key_hash: KEY_HASH }], error: null }],
+    }),
+  );
+  const response = await POST(
+    requestWithKey(PLAINTEXT_KEY, { slug: "faqturia", name: "Renamed", permissions: [] }),
+  );
+  expect(response.status).toBe(403);
+});
+
+it("includes the client IP (from X-Forwarded-For) in the security log", async () => {
+  createSupabaseAdminClientMock.mockReturnValue(ownerKeyClient());
   const request = new Request(BASE_URL, {
     method: "POST",
     headers: { Authorization: "Bearer kapp_wrong-key", "X-Forwarded-For": "203.0.113.7, 10.0.0.1" },
@@ -142,10 +173,7 @@ it("rate limits after too many requests from the same IP within the window", asy
 
 it("returns 500 and logs when a permission upsert fails partway through", async () => {
   createSupabaseAdminClientMock.mockReturnValue(
-    makeSchemaClient({
-      applications: [{ data: { id: "app-1", api_key_hash: KEY_HASH }, error: null }],
-      permissions: [{ error: { message: "upsert failed" } }],
-    }),
+    ownerKeyClient({ permissions: [{ error: { message: "upsert failed" } }] }),
   );
   const response = await POST(
     requestWithKey(PLAINTEXT_KEY, { slug: "faqturia", permissions: [{ resource: "facturas", action: "crear" }] }),

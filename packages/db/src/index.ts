@@ -6,4 +6,4 @@ export {
   type RegisteredApplication,
   type PermissionInput,
 } from "./register-application.js";
-export { generateApplicationApiKey, hashApplicationApiKey } from "./api-key.js";
+export { generateApplicationApiKey, hashApplicationApiKey, applicationApiKeyDisplayPrefix } from "./api-key.js";

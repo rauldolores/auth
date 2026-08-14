@@ -36,6 +36,18 @@ export async function POST(request: Request) {
   if (auth instanceof NextResponse) return auth;
   const { application, admin } = auth;
 
+  // Any active key for this application can sync its permission catalog —
+  // that's global, not org-scoped. Renaming the application or changing its
+  // environment is metadata about the application itself, though, so only a
+  // key scoped to its actual owner org (not just any org that enabled it)
+  // may touch that part of the request.
+  if ((body.name || body.environment) && application.organizationId !== application.ownerOrganizationId) {
+    return NextResponse.json(
+      { error: "Solo una clave de la organización propietaria puede actualizar el nombre o entorno de la aplicación." },
+      { status: 403 },
+    );
+  }
+
   if (body.name || body.environment) {
     await admin
       .schema("kontrolia_auth")

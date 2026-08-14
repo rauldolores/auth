@@ -20,10 +20,6 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ m
   if (auth instanceof NextResponse) return auth;
   const { application, admin } = auth;
 
-  if (!application.ownerOrganizationId) {
-    return NextResponse.json({ error: "Esta aplicación no está asociada a una organización." }, { status: 409 });
-  }
-
   const { data: membership } = await admin
     .schema("kontrolia_auth")
     .from("memberships")
@@ -31,7 +27,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ m
     .eq("id", membershipId)
     .maybeSingle<{ id: string; organization_id: string }>();
 
-  if (!membership || membership.organization_id !== application.ownerOrganizationId) {
+  if (!membership || membership.organization_id !== application.organizationId) {
     return NextResponse.json({ error: "Miembro no encontrado" }, { status: 404 });
   }
 
@@ -69,10 +65,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ me
   if (auth instanceof NextResponse) return auth;
   const { application, admin } = auth;
 
-  if (!application.ownerOrganizationId) {
-    return NextResponse.json({ error: "Esta aplicación no está asociada a una organización." }, { status: 409 });
-  }
-
   const body = (await request.json().catch(() => null)) as RolesBody | null;
   const grant = body?.grant ?? [];
   const revoke = body?.revoke ?? [];
@@ -87,7 +79,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ me
     .eq("id", membershipId)
     .maybeSingle<{ id: string; organization_id: string }>();
 
-  if (!membership || membership.organization_id !== application.ownerOrganizationId) {
+  if (!membership || membership.organization_id !== application.organizationId) {
     return NextResponse.json({ error: "Miembro no encontrado" }, { status: 404 });
   }
 
@@ -95,7 +87,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ me
   // with one bad role id in a batch fails cleanly instead of partially
   // applying.
   for (const roleId of grant) {
-    const { role, error: roleError, status } = await loadAssignableRole(admin, roleId, application.ownerOrganizationId);
+    const { role, error: roleError, status } = await loadAssignableRole(admin, roleId, application.organizationId);
     if (!role) return NextResponse.json({ error: roleError }, { status: status ?? 400 });
   }
   for (const roleId of revoke) {
