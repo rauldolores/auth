@@ -21,10 +21,21 @@ const TIMEOUT_MS = 5_000;
 export async function getGotrueExternalSettings(): Promise<GotrueExternalSettings> {
   try {
     const response = await fetch(`${process.env.SUPABASE_URL}/auth/v1/settings`, {
+      // Supabase Cloud's gateway (Kong) rejects this request without an
+      // `apikey` header, even though the endpoint itself needs no real
+      // auth — same requirement as callGotrueAdmin's calls in
+      // gotrue-admin.ts. The local self-hosted sandbox's Kong doesn't
+      // enforce this, which is why this was missed until it shipped: every
+      // provider silently read as disabled on Supabase Cloud, in both this
+      // status check and the login/register buttons that share it.
+      headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "" },
       signal: AbortSignal.timeout(TIMEOUT_MS),
       cache: "no-store",
     });
-    if (!response.ok) return DEFAULT_SETTINGS;
+    if (!response.ok) {
+      logError("gotrue-settings:getGotrueExternalSettings", { status: response.status, body: await response.text().catch(() => "") });
+      return DEFAULT_SETTINGS;
+    }
     const data = (await response.json()) as { external?: { google?: boolean; azure?: boolean } };
     return {
       googleEnabled: Boolean(data.external?.google),

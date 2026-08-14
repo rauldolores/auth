@@ -134,6 +134,38 @@ describe("GET /api/social-login", () => {
     expect(body.google).toEqual({ liveEnabled: true, configured: true, clientId: "g-client-1" });
     expect(body.azure).toEqual({ liveEnabled: false, configured: false, clientId: null, tenantUrl: null });
   });
+
+  it("sends the apikey header on the GoTrue settings call — Supabase Cloud's gateway rejects the request without it", async () => {
+    verifyRequestMock.mockResolvedValue({ claims: { is_platform_admin: true } });
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "anon-key-123");
+    fetchMock.mockResolvedValue(gotrueSettingsResponse(false, false));
+
+    await GET(requestWithAuth(BASE_URL));
+
+    const settingsCall = fetchMock.mock.calls.find(([url]) => (url as string).includes("/auth/v1/settings"));
+    expect(settingsCall).toBeTruthy();
+    const [, init] = settingsCall!;
+    expect((init?.headers as Record<string, string>).apikey).toBe("anon-key-123");
+  });
+
+  it("returns live-disabled (not a thrown error) and logs when GoTrue rejects the settings request", async () => {
+    verifyRequestMock.mockResolvedValue({ claims: { is_platform_admin: true } });
+    fetchMock.mockImplementation((url: string) =>
+      Promise.resolve(
+        url.includes("/auth/v1/settings")
+          ? new Response(JSON.stringify({ message: "No API key found in request" }), { status: 401 })
+          : managementConfigResponse(),
+      ),
+    );
+
+    const response = await GET(requestWithAuth(BASE_URL));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.google.liveEnabled).toBe(false);
+    expect(body.azure.liveEnabled).toBe(false);
+    expect(logErrorMock).toHaveBeenCalledWith("gotrue-settings:getGotrueExternalSettings", expect.objectContaining({ status: 401 }));
+  });
 });
 
 describe("PATCH /api/social-login", () => {
