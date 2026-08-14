@@ -9,7 +9,10 @@ export function DocsShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="k-flex k-flex-col k-gap-8 lg:k-flex-row lg:k-items-start">
-      <aside className="k-w-full k-shrink-0 k-rounded-xl k-border k-border-border k-bg-card k-p-4 lg:k-sticky lg:k-top-8 lg:k-w-56">
+      {/* DOM order keeps the menu first on mobile (nav before content reads
+          naturally on a small screen); lg:order-2 moves it to the right
+          only once there's room for a two-column layout. */}
+      <aside className="k-w-full k-shrink-0 k-rounded-xl k-border k-border-border k-bg-card k-p-4 lg:k-order-2 lg:k-sticky lg:k-top-8 lg:k-w-56">
         {NAV_GROUPS.map((group) => (
           <div key={group.title} className="k-mb-5">
             <p className="k-mb-1.5 k-text-xs k-font-medium k-uppercase k-tracking-wide k-text-muted-foreground">
@@ -35,7 +38,7 @@ export function DocsShell({ children }: { children: React.ReactNode }) {
           </div>
         ))}
       </aside>
-      <main className="k-min-w-0 k-flex-1">
+      <main className="k-min-w-0 k-flex-1 lg:k-order-1">
         <div className="k-prose k-max-w-2xl">{children}</div>
       </main>
     </div>

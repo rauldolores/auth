@@ -48,19 +48,48 @@ GOOGLE_CLIENT_SECRET=...`}</code>
         automatizarlo.
       </p>
 
+      <h2>Configurar Microsoft (Azure AD)</h2>
+      <h3>Supabase CLI (desarrollo local)</h3>
+      <pre>
+        <code>{`[auth.external.azure]
+enabled = true
+client_id = "env(AZURE_CLIENT_ID)"
+secret = "env(AZURE_CLIENT_SECRET)"
+url = "env(AZURE_URL)"  # opcional — fija el tenant, ej. https://login.microsoftonline.com/<tenant-id>/v2.0. Omítelo para multi-tenant.
+redirect_uri = ""`}</code>
+      </pre>
+      <h3>Docker self-hosted</h3>
+      <pre>
+        <code>{`MICROSOFT_LOGIN_ENABLED=true
+AZURE_CLIENT_ID=...
+AZURE_CLIENT_SECRET=...
+AZURE_URL=...   # opcional, mismo tenant que arriba`}</code>
+      </pre>
+      <h3>Supabase Cloud</h3>
+      <p>Dashboard → Authentication → Providers → Azure.</p>
+      <h3>Paso obligatorio en Azure Portal</h3>
+      <p>
+        En el registro de tu aplicación (Azure Active Directory → App registrations), agrega a &quot;Redirect
+        URIs&quot; (tipo Web) la misma URL que para Google: <code>{"<SUPABASE_URL>"}/auth/v1/callback</code>.
+      </p>
+
       <h2>Activar el botón en la UI</h2>
       <p>
-        El botón &quot;Continuar con Google&quot; en <code>LoginForm</code>/<code>RegisterForm</code> solo
-        aparece si la app lo pide explícitamente — para que instalaciones sin Google configurado no muestren un
-        botón roto:
+        Los botones &quot;Continuar con Google&quot;/&quot;Continuar con Microsoft&quot; en{" "}
+        <code>LoginForm</code>/<code>RegisterForm</code> solo aparecen si la app lo pide explícitamente — para
+        que instalaciones sin el proveedor configurado no muestren un botón roto:
       </p>
       <pre>
-        <code>{`<LoginForm showGoogle={process.env.NEXT_PUBLIC_GOOGLE_LOGIN_ENABLED === "true"} />`}</code>
+        <code>{`<LoginForm
+  showGoogle={process.env.NEXT_PUBLIC_GOOGLE_LOGIN_ENABLED === "true"}
+  showMicrosoft={process.env.NEXT_PUBLIC_MICROSOFT_LOGIN_ENABLED === "true"}
+/>`}</code>
       </pre>
 
       <h2>Cómo funciona por dentro</h2>
       <p>
-        <code>loginWithOAuth(&quot;google&quot;)</code> llama a <code>signInWithOAuth()</code> de Supabase con{" "}
+        <code>loginWithOAuth(&quot;google&quot;)</code> (o <code>&quot;azure&quot;</code> para Microsoft) llama a{" "}
+        <code>signInWithOAuth()</code> de Supabase con{" "}
         <code>redirectTo</code> apuntando a <code>/auth/callback</code>. Esa ruta, del lado del servidor,
         intercambia el código PKCE por una sesión — necesario porque las sesiones viven en cookies (ver{" "}
         <a href="/docs/architecture">Arquitectura</a>), y ese intercambio no puede pasar solo en el cliente.
