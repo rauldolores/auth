@@ -424,7 +424,7 @@ export default function PermissionsPage() {
                               title="Copiar clave de permiso"
                             >
                               {copiedKey === permission.key ? (
-                                <CheckIcon className="k-text-emerald-600" />
+                                <CheckIcon className="k-w-3.5 k-h-3.5 k-text-emerald-600" />
                               ) : (
                                 <CopyIcon />
                               )}

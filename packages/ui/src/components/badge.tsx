@@ -5,6 +5,7 @@ export type BadgeVariant = "success" | "danger" | "warning" | "neutral" | "prima
 export interface BadgeProps {
   variant?: BadgeVariant;
   className?: string;
+  title?: string;
   children: React.ReactNode;
 }
 
@@ -17,9 +18,10 @@ const VARIANT_CLASSES: Record<BadgeVariant, string> = {
 };
 
 /** Pill-shaped status badge — matches the "Modernist" design system's rounded status chips. */
-export function Badge({ variant = "neutral", className, children }: BadgeProps) {
+export function Badge({ variant = "neutral", className, title, children }: BadgeProps) {
   return (
     <span
+      title={title}
       className={cn(
         "k-inline-flex k-items-center k-rounded-full k-px-2.5 k-py-0.5 k-text-[11.5px] k-font-semibold",
         VARIANT_CLASSES[variant],

@@ -724,7 +724,7 @@ export default function InvitationsPage() {
                     >
                       {copiedId === row.id ? (
                         <span className="k-inline-flex k-items-center k-text-emerald-600 k-font-semibold">
-                          <CheckIcon className="k-mr-0.5" /> Copiado
+                          <CheckIcon className="k-w-3.5 k-h-3.5 k-mr-0.5" /> Copiado
                         </span>
                       ) : (
                         <>

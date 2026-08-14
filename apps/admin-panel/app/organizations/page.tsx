@@ -635,7 +635,7 @@ export default function OrganizationsPage() {
                 >
                   {copiedSlugId === org.id ? (
                     <span className="k-inline-flex k-items-center k-text-emerald-600 k-font-medium">
-                      <CheckIcon className="k-mr-0.5" /> Copiado
+                      <CheckIcon className="k-w-3.5 k-h-3.5 k-mr-0.5" /> Copiado
                     </span>
                   ) : (
                     <CopyIcon />
@@ -724,7 +724,7 @@ export default function OrganizationsPage() {
                           className="k-text-muted-foreground hover:k-text-foreground"
                           title="Copiar"
                         >
-                          {copiedSlugId === org.id ? <CheckIcon className="k-text-emerald-600" /> : <CopyIcon />}
+                          {copiedSlugId === org.id ? <CheckIcon className="k-w-3.5 k-h-3.5 k-text-emerald-600" /> : <CopyIcon />}
                         </button>
                       </div>
                     </td>

@@ -588,7 +588,7 @@ export default function RoleDetailPage() {
                               className="k-h-4 k-w-4 k-rounded k-border-border k-text-primary focus:k-ring-primary/20 disabled:k-opacity-50 k-cursor-pointer"
                             />
                             {isPending ? (
-                              <SpinnerIcon className="k-text-primary" />
+                              <SpinnerIcon className="k-w-4 k-h-4 k-text-primary" />
                             ) : (
                               <Badge variant={isGranted ? "success" : "neutral"}>
                                 {isGranted ? "Concedido" : "No concedido"}

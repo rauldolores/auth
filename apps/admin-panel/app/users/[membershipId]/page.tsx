@@ -468,6 +468,11 @@ export default function UserDetailPage() {
   const appRoleByApp = new Map(
     member.roles.filter((role) => role.application_id !== null).map((role) => [role.application_id, role]),
   );
+  // Owner/Admin (org-wide roles) get access to every enabled application
+  // automatically — see GET /api/organizations/[id]/applications — so an
+  // app-scoped role select would be redundant and "Sin acceso" would be
+  // actively misleading for them.
+  const adminRole = orgWideRoles.find((role) => role.slug === "owner") ?? orgWideRoles.find((role) => role.slug === "admin") ?? null;
 
   return (
     <div className="k-flex k-flex-col k-gap-6 k-pb-12">
@@ -591,7 +596,7 @@ export default function UserDetailPage() {
             )}
             {orgWideRoles.map((role) => (
               <Badge key={role.id} variant="neutral">
-                <ShieldCheckIcon className="k-mr-1" />
+                <ShieldCheckIcon className="k-w-4 k-h-4 k-mr-1" />
                 {role.name}
               </Badge>
             ))}
@@ -616,19 +621,29 @@ export default function UserDetailPage() {
                   className="k-flex k-flex-col k-gap-2 k-p-3.5 k-rounded-xl k-bg-muted/40 k-border k-border-border/60"
                 >
                   <span className="k-text-xs k-font-semibold k-text-foreground">{group.applicationName}</span>
-                  <select
-                    value={currentRoleId}
-                    disabled={!canManage || pending}
-                    onChange={(e) => void handleAppRoleChange(group.applicationId, e.target.value)}
-                    className="k-w-full k-rounded-lg k-border k-border-border k-bg-background k-px-3 k-py-2 k-text-xs focus:k-outline-none focus:k-ring-2 focus:k-ring-primary/20 disabled:k-opacity-50"
-                  >
-                    <option value="">Sin acceso</option>
-                    {group.roles.map((role) => (
-                      <option key={role.id} value={role.id}>
-                        {role.name}
-                      </option>
-                    ))}
-                  </select>
+                  {adminRole ? (
+                    <Badge
+                      variant="success"
+                      title={`Acceso completo a todas las apps por ser ${adminRole.name} de la organización`}
+                      className="k-w-fit"
+                    >
+                      <CrownIcon className="k-w-3 k-h-3 k-mr-1" /> Acceso completo
+                    </Badge>
+                  ) : (
+                    <select
+                      value={currentRoleId}
+                      disabled={!canManage || pending}
+                      onChange={(e) => void handleAppRoleChange(group.applicationId, e.target.value)}
+                      className="k-w-full k-rounded-lg k-border k-border-border k-bg-background k-px-3 k-py-2 k-text-xs focus:k-outline-none focus:k-ring-2 focus:k-ring-primary/20 disabled:k-opacity-50"
+                    >
+                      <option value="">Sin acceso</option>
+                      {group.roles.map((role) => (
+                        <option key={role.id} value={role.id}>
+                          {role.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
               );
             })}
@@ -699,7 +714,7 @@ export default function UserDetailPage() {
                     className="k-flex k-items-center k-justify-between k-gap-3 k-p-3 k-rounded-xl k-bg-background/80 k-border k-border-border k-text-xs"
                   >
                     <div className="k-flex k-items-center k-gap-2.5 k-min-w-0">
-                      <BuildingIcon className="k-text-muted-foreground k-shrink-0" />
+                      <BuildingIcon className="k-w-5 k-h-5 k-text-muted-foreground k-shrink-0" />
                       <span className="k-font-semibold k-truncate">{m.organizationName}</span>
                       {m.roles.map((role) => (
                         <Badge key={role.slug} variant="neutral">
