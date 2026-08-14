@@ -4,6 +4,7 @@ import { useAuth } from "@kontrolia/react";
 import { AuthShell } from "@kontrolia/ui";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState } from "react";
+import { useAuthUiSettings } from "@/lib/instance-settings-context";
 
 interface AuthorizationDetails {
   authorizationId: string;
@@ -33,6 +34,7 @@ function Loading() {
 function OAuthConsentInner() {
   const router = useRouter();
   const { isAuthenticated, isLoading, getOAuthAuthorizationDetails, decideOAuthAuthorization } = useAuth();
+  const { logoUrl } = useAuthUiSettings();
   const authorizationId = useSearchParams().get("authorization_id");
 
   const [details, setDetails] = useState<AuthorizationDetails | null>(null);
@@ -101,7 +103,7 @@ function OAuthConsentInner() {
 
   if (error) {
     return (
-      <AuthShell title="Solicitud inválida">
+      <AuthShell title="Solicitud inválida" logoUrl={logoUrl}>
         <p className="k-text-sm k-text-destructive">{error}</p>
       </AuthShell>
     );
@@ -110,7 +112,7 @@ function OAuthConsentInner() {
   if (!details || deciding) return <Loading />;
 
   return (
-    <AuthShell title="Autorizar acceso" subtitle={`${details.client.name} quiere acceder a tu cuenta.`}>
+    <AuthShell title="Autorizar acceso" subtitle={`${details.client.name} quiere acceder a tu cuenta.`} logoUrl={logoUrl}>
       <div className="k-flex k-flex-col k-gap-4">
         <p className="k-text-sm k-text-muted-foreground">
           Iniciando sesión como <strong>{details.user.email}</strong>.

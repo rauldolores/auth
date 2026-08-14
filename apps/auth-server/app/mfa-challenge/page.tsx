@@ -4,6 +4,7 @@ import { useAuth } from "@kontrolia/react";
 import { AuthShell } from "@kontrolia/ui";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState } from "react";
+import { useAuthUiSettings } from "@/lib/instance-settings-context";
 import { resolveRedirectTarget } from "@/lib/redirect";
 
 const CODE_LENGTH = 6;
@@ -29,6 +30,7 @@ function MfaChallengeInner() {
   const router = useRouter();
   const { isAuthenticated, isLoading, getAuthenticatorAssuranceLevel, listMfaFactors, challengeMfa, verifyMfaChallenge } =
     useAuth();
+  const { logoUrl } = useAuthUiSettings();
   const redirectTarget = resolveRedirectTarget(
     useSearchParams().get("redirect_to"),
     typeof window !== "undefined" ? [window.location.origin] : [],
@@ -116,7 +118,7 @@ function MfaChallengeInner() {
   if (checking) return <Loading />;
 
   return (
-    <AuthShell title="Verificación en dos pasos" subtitle="Ingresa el código de tu app autenticadora.">
+    <AuthShell title="Verificación en dos pasos" subtitle="Ingresa el código de tu app autenticadora." logoUrl={logoUrl}>
       <form onSubmit={handleSubmit} className="k-flex k-flex-col k-gap-5">
         <fieldset className="k-flex k-justify-between k-gap-2">
           <legend className="k-sr-only">Código de verificación de 6 dígitos</legend>

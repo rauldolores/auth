@@ -4,6 +4,7 @@ import { GuestGuard, useAuth } from "@kontrolia/react";
 import { AuthShell, LoginForm } from "@kontrolia/ui";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
+import { useAuthUiSettings } from "@/lib/instance-settings-context";
 import { resolveRedirectTarget } from "@/lib/redirect";
 
 // useSearchParams() requires a Suspense boundary in the App Router.
@@ -40,13 +41,15 @@ function LoginPageInner() {
     }
   }
 
+  const { registrationEnabled, logoUrl } = useAuthUiSettings();
+
   return (
     <GuestGuard fallback={<p className="k-p-8 k-text-center k-text-sm">Ya iniciaste sesión.</p>}>
-      <AuthShell title="Inicia sesión" subtitle="Continúa con tu cuenta o correo.">
+      <AuthShell title="Inicia sesión" subtitle="Continúa con tu cuenta o correo." logoUrl={logoUrl}>
         <LoginForm
           onSuccess={() => void handleLoginSuccess()}
           forgotPasswordHref="/forgot-password"
-          registerHref="/register"
+          registerHref={registrationEnabled ? "/register" : undefined}
           showGoogle={process.env.NEXT_PUBLIC_GOOGLE_LOGIN_ENABLED === "true"}
           showMicrosoft={process.env.NEXT_PUBLIC_MICROSOFT_LOGIN_ENABLED === "true"}
         />

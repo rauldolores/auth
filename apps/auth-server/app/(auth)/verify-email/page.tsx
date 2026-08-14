@@ -2,12 +2,14 @@
 
 import { useAuth } from "@kontrolia/react";
 import { AuthShell } from "@kontrolia/ui";
+import { useAuthUiSettings } from "@/lib/instance-settings-context";
 
 export default function VerifyEmailPage() {
   const { isAuthenticated } = useAuth();
+  const { logoUrl } = useAuthUiSettings();
 
   return (
-    <AuthShell title="Revisa tu correo">
+    <AuthShell title="Revisa tu correo" logoUrl={logoUrl}>
       <p className="k-mb-5 k-text-sm k-text-muted-foreground">
         {isAuthenticated
           ? "Tu cuenta ya está confirmada (autoconfirm activo en este entorno)."

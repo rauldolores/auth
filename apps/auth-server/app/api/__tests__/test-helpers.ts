@@ -66,13 +66,14 @@ export function makeSchemaClient(tableResponses: Record<string, unknown[]>) {
   };
 }
 
-/** Builds a fake admin client: `.schema().from()` table access plus `.auth.admin.listUsers()`. */
+/** Builds a fake admin client: `.schema().from()` table access plus `.auth.admin.listUsers()` and (optionally) `.storage.from(bucket)`. */
 export function makeAdminClient(
   tableResponses: Record<string, unknown[]> = {},
   listUsersResult: { data: { users: { id: string; email: string }[] } | null; error: unknown } = {
     data: { users: [] },
     error: null,
   },
+  storageFrom?: (bucket: string) => unknown,
 ) {
   const schemaClient = makeSchemaClient(tableResponses);
   return {
@@ -81,6 +82,9 @@ export function makeAdminClient(
       admin: {
         listUsers: vi.fn().mockResolvedValue(listUsersResult),
       },
+    },
+    storage: {
+      from: vi.fn((bucket: string) => storageFrom?.(bucket) ?? {}),
     },
   };
 }

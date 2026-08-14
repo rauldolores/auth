@@ -4,6 +4,7 @@ import { useAuth } from "@kontrolia/react";
 import { AuthShell, LoginForm, RegisterForm } from "@kontrolia/ui";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
+import { useAuthUiSettings } from "@/lib/instance-settings-context";
 
 interface InvitationPreview {
   email: string;
@@ -26,6 +27,7 @@ function AcceptInvitationInner() {
   const token = useSearchParams().get("token");
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { logoUrl } = useAuthUiSettings();
 
   const [preview, setPreview] = useState<InvitationPreview | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -79,7 +81,7 @@ function AcceptInvitationInner() {
 
   if (error) {
     return (
-      <AuthShell title="Invitación no válida">
+      <AuthShell title="Invitación no válida" logoUrl={logoUrl}>
         <p className="k-text-sm k-text-destructive">{error}</p>
       </AuthShell>
     );
@@ -95,7 +97,7 @@ function AcceptInvitationInner() {
 
   if (accepted) {
     return (
-      <AuthShell title="¡Listo!">
+      <AuthShell title="¡Listo!" logoUrl={logoUrl}>
         <p className="k-text-sm k-text-muted-foreground">Te uniste a {preview.organizationName}. Redirigiendo...</p>
       </AuthShell>
     );
@@ -103,7 +105,7 @@ function AcceptInvitationInner() {
 
   if (isAuthenticated) {
     return (
-      <AuthShell title="Un momento">
+      <AuthShell title="Un momento" logoUrl={logoUrl}>
         <p className="k-text-sm k-text-muted-foreground">Aceptando invitación a {preview.organizationName}...</p>
       </AuthShell>
     );
@@ -117,6 +119,7 @@ function AcceptInvitationInner() {
           ? `Como ${preview.roleName} — inicia sesión o crea una cuenta con ${preview.email} para continuar.`
           : `Inicia sesión o crea una cuenta con ${preview.email} para continuar.`
       }
+      logoUrl={logoUrl}
     >
       {showRegister ? <RegisterForm onSuccess={() => void 0} /> : <LoginForm onSuccess={() => void 0} />}
       <button

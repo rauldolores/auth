@@ -87,6 +87,22 @@ function IconClock({ className }: IconProps) {
   );
 }
 
+function IconPalette({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" className={className} aria-hidden="true">
+      <path
+        d="M8 1.5a6.5 6.5 0 1 0 0 13c.8 0 1.25-.7.9-1.4-.2-.4 0-.9.45-1h1.4a2.15 2.15 0 0 0 2.15-2.15c0-3.8-2.55-8.45-4.9-8.45Z"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+      />
+      <circle cx="5.2" cy="6.7" r=".9" fill="currentColor" />
+      <circle cx="8.3" cy="4.6" r=".9" fill="currentColor" />
+      <circle cx="5" cy="10" r=".9" fill="currentColor" />
+    </svg>
+  );
+}
+
 function IconHelp({ className }: IconProps) {
   return (
     <svg viewBox="0 0 16 16" fill="none" className={className} aria-hidden="true">
@@ -144,7 +160,13 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/invitations", label: "Invitaciones", icon: IconMail },
     ],
   },
-  { label: "Configuración", items: [{ href: "/audit-logs", label: "Audit log", icon: IconClock }] },
+  {
+    label: "Configuración",
+    items: [
+      { href: "/appearance", label: "Apariencia", icon: IconPalette },
+      { href: "/audit-logs", label: "Audit log", icon: IconClock },
+    ],
+  },
 ];
 
 /**
