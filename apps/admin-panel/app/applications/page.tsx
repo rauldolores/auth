@@ -44,6 +44,36 @@ type ConfirmAction =
   | { kind: "claim"; app: ApplicationRow }
   | { kind: "revoke-key"; app: ApplicationRow; key: ApplicationApiKey };
 
+// A date picker makes sense for a nearby deadline, not for "when should
+// this API key stop working" — an operator thinks in durations ("a month
+// from now"), not calendar dates, especially for anything more than a few
+// weeks out. Offering a fixed set of durations instead is both easier to
+// pick from and impossible to fat-finger into the past.
+const EXPIRY_OPTIONS = [
+  { value: "never", label: "Sin expirar" },
+  { value: "1h", label: "1 hora" },
+  { value: "1d", label: "1 día" },
+  { value: "1w", label: "1 semana" },
+  { value: "1mo", label: "1 mes" },
+  { value: "3mo", label: "3 meses" },
+  { value: "1y", label: "1 año" },
+] as const;
+type ExpiryOption = (typeof EXPIRY_OPTIONS)[number]["value"];
+
+const EXPIRY_DURATIONS_MS: Record<Exclude<ExpiryOption, "never">, number> = {
+  "1h": 60 * 60 * 1000,
+  "1d": 24 * 60 * 60 * 1000,
+  "1w": 7 * 24 * 60 * 60 * 1000,
+  "1mo": 30 * 24 * 60 * 60 * 1000,
+  "3mo": 90 * 24 * 60 * 60 * 1000,
+  "1y": 365 * 24 * 60 * 60 * 1000,
+};
+
+function expiryOptionToIso(option: ExpiryOption): string | null {
+  if (option === "never") return null;
+  return new Date(Date.now() + EXPIRY_DURATIONS_MS[option]).toISOString();
+}
+
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length >= 2 && parts[0] && parts[1]) {
@@ -236,7 +266,7 @@ export default function ApplicationsPage() {
   const [apiKeys, setApiKeys] = useState<ApplicationApiKey[] | null>(null);
   const [apiKeysError, setApiKeysError] = useState<string | null>(null);
   const [newKeyName, setNewKeyName] = useState("");
-  const [newKeyExpiresAt, setNewKeyExpiresAt] = useState("");
+  const [newKeyExpiry, setNewKeyExpiry] = useState<ExpiryOption>("never");
   const [creatingKey, setCreatingKey] = useState(false);
   const [revokingKeyId, setRevokingKeyId] = useState<string | null>(null);
   const [newPlaintextKey, setNewPlaintextKey] = useState<string | null>(null);
@@ -424,7 +454,7 @@ export default function ApplicationsPage() {
     setApiKeysDialogApp(app);
     setNewPlaintextKey(null);
     setNewKeyName("");
-    setNewKeyExpiresAt("");
+    setNewKeyExpiry("never");
     void loadApiKeys(app);
   }
 
@@ -440,14 +470,14 @@ export default function ApplicationsPage() {
         body: JSON.stringify({
           organizationId: organization.id,
           name: newKeyName.trim(),
-          expiresAt: newKeyExpiresAt ? new Date(newKeyExpiresAt).toISOString() : null,
+          expiresAt: expiryOptionToIso(newKeyExpiry),
         }),
       });
       const data = (await response.json().catch(() => null)) as { apiKey?: string; error?: string } | null;
       if (!response.ok) throw new Error(data?.error ?? "No se pudo crear la clave.");
       setNewPlaintextKey(data?.apiKey ?? null);
       setNewKeyName("");
-      setNewKeyExpiresAt("");
+      setNewKeyExpiry("never");
       await loadApiKeys(app);
     } catch (err) {
       setApiKeysError(err instanceof Error ? err.message : "No se pudo crear la clave.");
@@ -1056,23 +1086,37 @@ export default function ApplicationsPage() {
             )}
 
             {canManage && (
-              <div className="k-flex k-flex-col k-gap-2 k-border-t k-border-border k-pt-3">
+              <div className="k-flex k-flex-col k-gap-2.5 k-border-t k-border-border k-pt-3">
                 <p className="k-text-xs k-font-semibold k-text-foreground">Nueva clave para {organization.name}</p>
-                <div className="k-flex k-gap-2">
+                <div className="k-flex k-flex-col k-gap-1">
+                  <label htmlFor="k-new-key-name" className="k-text-[11px] k-font-medium k-text-muted-foreground">
+                    Nombre
+                  </label>
                   <input
+                    id="k-new-key-name"
                     type="text"
-                    placeholder="Nombre, ej. Integración Zapier"
+                    placeholder="ej. Integración Zapier"
                     value={newKeyName}
                     onChange={(e) => setNewKeyName(e.target.value)}
-                    className="k-flex-1 k-rounded-md k-border k-border-border k-bg-background k-px-2.5 k-py-1.5 k-text-xs"
-                  />
-                  <input
-                    type="date"
-                    value={newKeyExpiresAt}
-                    onChange={(e) => setNewKeyExpiresAt(e.target.value)}
-                    title="Fecha de expiración (opcional)"
                     className="k-rounded-md k-border k-border-border k-bg-background k-px-2.5 k-py-1.5 k-text-xs"
                   />
+                </div>
+                <div className="k-flex k-flex-col k-gap-1">
+                  <label htmlFor="k-new-key-expiry" className="k-text-[11px] k-font-medium k-text-muted-foreground">
+                    Vigencia — cuándo deja de funcionar esta clave
+                  </label>
+                  <select
+                    id="k-new-key-expiry"
+                    value={newKeyExpiry}
+                    onChange={(e) => setNewKeyExpiry(e.target.value as ExpiryOption)}
+                    className="k-w-fit k-rounded-md k-border k-border-border k-bg-background k-px-2.5 k-py-1.5 k-text-xs"
+                  >
+                    {EXPIRY_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <button
                   type="button"
