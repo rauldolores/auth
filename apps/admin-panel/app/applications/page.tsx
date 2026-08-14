@@ -251,6 +251,7 @@ export default function ApplicationsPage() {
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [clientIdCopied, setClientIdCopied] = useState(false);
   const [platformAdmin, setPlatformAdmin] = useState(false);
   const canManage = hasRole(["owner", "admin"]);
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
@@ -1197,6 +1198,42 @@ export default function ApplicationsPage() {
         }
       >
         <div className="k-flex k-flex-col k-gap-4 k-pt-1">
+          {oauthDialogApp?.oauth_client_id && (
+            <div className="k-flex k-flex-col k-gap-1.5">
+              <label className="k-text-sm k-font-medium">Client ID</label>
+              <p className="k-text-xs k-text-muted-foreground">
+                Necesitas este valor para conectar un cliente externo (ej. un agente MCP) a este cliente OAuth —
+                ver <a href="/docs/mcp">MCP: conecta un agente de IA</a>.
+              </p>
+              <div className="k-flex k-items-center k-gap-2 k-rounded-lg k-border k-border-border k-bg-muted/40 k-px-3 k-py-2">
+                <code className="k-min-w-0 k-flex-1 k-truncate k-font-mono k-text-xs select-all">
+                  {oauthDialogApp.oauth_client_id}
+                </code>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(oauthDialogApp.oauth_client_id!);
+                    setClientIdCopied(true);
+                    setTimeout(() => setClientIdCopied(false), 2000);
+                  }}
+                  className="k-inline-flex k-shrink-0 k-items-center k-gap-1.5 k-rounded-md k-border k-border-border k-bg-background k-px-2.5 k-py-1 k-text-xs k-font-medium hover:k-bg-muted k-transition-all"
+                >
+                  {clientIdCopied ? (
+                    <>
+                      <CheckIcon className="k-h-3 k-w-3" />
+                      <span>Copiado</span>
+                    </>
+                  ) : (
+                    <>
+                      <CopyIcon className="k-h-3 k-w-3" />
+                      <span>Copiar</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+
           {!oauthDialogApp?.oauth_client_id && unlinkedOauthClients.length > 0 && (
             <div className="k-flex k-flex-col k-gap-2 k-rounded-lg k-border k-border-primary/20 k-bg-primary/5 k-p-3.5">
               <p className="k-text-sm k-font-medium">¿Ya tienes un cliente OAuth para esta app?</p>
