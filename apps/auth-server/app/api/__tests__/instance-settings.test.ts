@@ -26,6 +26,7 @@ const ROW = {
   theme: "system",
   button_color: null,
   logo_url: null,
+  mcp_oauth_client_id: null,
 };
 
 function requestWithAuth(url: string, init?: RequestInit): Request {
@@ -53,6 +54,7 @@ describe("GET /api/instance-settings", () => {
       theme: "system",
       buttonColor: null,
       logoUrl: null,
+      mcpOauthClientId: null,
     });
     expect(verifyRequestMock).not.toHaveBeenCalled();
   });
@@ -65,6 +67,7 @@ describe("GET /api/instance-settings", () => {
       theme: "system",
       buttonColor: null,
       logoUrl: null,
+      mcpOauthClientId: null,
     });
   });
 });
@@ -142,6 +145,7 @@ describe("PATCH /api/instance-settings — happy path", () => {
       theme: "dark",
       buttonColor: null,
       logoUrl: null,
+      mcpOauthClientId: null,
     });
     expect(logSecurityEventMock).toHaveBeenCalledWith(
       "instance-settings: update",

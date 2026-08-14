@@ -548,12 +548,12 @@ export default function AdminApiPage() {
         </tbody>
       </table>
 
-      <h2>Clientes OAuth (SSO)</h2>
+      <h2>Clientes OAuth (SSO y MCP)</h2>
       <p>
-        También platform-admin-gated. A diferencia de todo lo anterior, estas tres rutas son un proxy delgado
-        hacia la API de administración de GoTrue — el status y el cuerpo que ves son, casi siempre, los que
-        GoTrue mismo devolvió, no algo que esta API invente. Además llevan límite de solicitudes: 30 cada 5
-        minutos por IP.
+        También platform-admin-gated. A diferencia de todo lo anterior, <code>GET</code>/<code>POST</code>/
+        <code>PUT</code>/<code>DELETE</code> son un proxy delgado hacia la API de administración de GoTrue — el
+        status y el cuerpo que ves son, casi siempre, los que GoTrue mismo devolvió, no algo que esta API invente.
+        Además llevan límite de solicitudes: 30 cada 5 minutos por IP.
       </p>
       <pre>
         <code>{`curl -X POST "$AUTH_SERVER_URL/api/oauth-clients" \\
@@ -599,6 +599,30 @@ export default function AdminApiPage() {
               body <code>{`{ client_name, redirect_uris: string[] }`}</code>
             </td>
             <td>—</td>
+          </tr>
+          <tr>
+            <td>
+              <code>DELETE /oauth-clients?clientId=</code>
+            </td>
+            <td>—</td>
+            <td>
+              204. Antes de tocar GoTrue, esta API (no GoTrue) rechaza el borrado con 403 si es el cliente
+              reservado para MCP, o con 409 si sigue vinculado a una aplicación (<code>oauth_client_id</code>{" "}
+              en <code>applications</code>) — desvincúlala primero con{" "}
+              <code>PATCH /applications/:id {`{ oauthClientId: null }`}</code>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <code>POST /oauth-clients/mcp-bootstrap</code>
+            </td>
+            <td>—</td>
+            <td>
+              Idempotente: crea el cliente reservado <em>"MCP — Agentes de IA"</em> solo la primera vez (pre-cargado
+              con el <code>redirect_uri</code> fijo de Claude.ai/Desktop) y guarda su <code>client_id</code> en{" "}
+              <code>instance_settings.mcp_oauth_client_id</code>; cualquier llamada posterior solo devuelve ese
+              mismo <code>clientId</code> sin crear nada de nuevo. Ver <a href="/docs/mcp">MCP</a>.
+            </td>
           </tr>
         </tbody>
       </table>

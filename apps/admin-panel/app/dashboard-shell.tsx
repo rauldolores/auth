@@ -164,6 +164,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Configuración",
     items: [
       { href: "/appearance", label: "Apariencia", icon: IconPalette },
+      { href: "/oauth-clients", label: "Clientes OAuth", icon: IconKey },
       { href: "/audit-logs", label: "Audit log", icon: IconClock },
     ],
   },

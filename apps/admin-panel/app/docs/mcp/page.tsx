@@ -35,18 +35,23 @@ export default function McpPage() {
         <code>{`{SUPABASE_URL}/auth/v1/.well-known/oauth-authorization-server`}</code> (RFC 8414).
       </p>
 
-      <h3>Registrar el cliente (paso manual, por ahora)</h3>
+      <h3>El client_id: ya existe, no hay que registrar nada</h3>
       <p>
         GoTrue todavía no soporta registro dinámico de clientes OAuth (<code>POST /auth/v1/oauth/register</code>{" "}
-        responde 404), así que un agente que espera registrarse solo la primera vez que se conecta no lo va a
-        lograr automáticamente. La forma de habilitarlo hoy: un platform admin registra manualmente un cliente
-        OAuth para ese agente desde <strong>Aplicaciones → (tu app) → Cliente OAuth</strong> en el admin-panel —
-        el mismo mecanismo que ya usa cualquier aplicación para el login SSO — y le da el <code>client_id</code>{" "}
-        resultante a quien configure el agente.
+        responde 404), así que en vez de pedirle a cada platform admin que registre un cliente a mano antes de
+        poder conectar un agente, KontrolIA Auth aprovisiona uno automáticamente la primera vez que alguien abre{" "}
+        <strong>Configuración → Clientes OAuth</strong> en el admin-panel: un cliente reservado llamado{" "}
+        <em>"MCP — Agentes de IA"</em>, pre-cargado con el <code>redirect_uri</code> fijo que usa Claude.ai /
+        Claude Desktop (<code>https://claude.ai/api/mcp/auth_callback</code>). Es editable — se le pueden agregar
+        más <code>redirect_uris</code> para otros agentes — pero no se puede eliminar, para que un agente ya
+        conectado nunca se quede sin cliente por accidente. Copia su <code>client_id</code> desde esa misma
+        pantalla.
       </p>
       <p>
-        Si tu cliente MCP soporta apuntar a un <code>client_id</code> fijo en vez de registrarse dinámicamente
-        (como Claude Code), no necesitas nada más allá de eso. Ejemplo con Claude Code CLI:
+        Si tu cliente MCP usa un <code>redirect_uri</code> variable en vez de uno fijo (como Claude Code CLI, que
+        elige un puerto <code>localhost</code> distinto cada vez), agrégalo a la lista de{" "}
+        <code>redirect_uris</code> de ese mismo cliente reservado desde <strong>Clientes OAuth</strong> antes de
+        conectarte. Ejemplo con Claude Code CLI:
       </p>
       <pre>
         <code>{`claude mcp add --transport http \\
@@ -57,8 +62,14 @@ export default function McpPage() {
 claude mcp login kontrolia-auth   # abre el navegador para el login OAuth real`}</code>
       </pre>
       <p>
-        El <code>redirect_uri</code> que registres en el cliente OAuth debe coincidir exacto con el que usa tu
-        cliente MCP — en el ejemplo de arriba, <code>http://localhost:8765/callback</code>.
+        El <code>redirect_uri</code> que agregues al cliente debe coincidir exacto con el que usa tu cliente MCP —
+        en el ejemplo de arriba, <code>http://localhost:8765/callback</code>.
+      </p>
+      <p>
+        Este cliente reservado es solo para agentes de IA. Si lo que necesitas es dar de alta el login SSO de una
+        aplicación real (no un agente), eso sigue siendo un cliente OAuth aparte, vinculado a esa aplicación desde{" "}
+        <strong>Aplicaciones → (tu app) → Cliente OAuth</strong> — o, si el cliente ya existe, desde{" "}
+        <strong>Clientes OAuth</strong> mismo.
       </p>
 
       <h2>Cómo se ve una llamada</h2>

@@ -5,6 +5,8 @@ export interface InstanceSettings {
   theme: "light" | "dark" | "system";
   buttonColor: string | null;
   logoUrl: string | null;
+  /** client_id of the reserved MCP OAuth client, once bootstrapped — not a secret, safe to expose publicly. */
+  mcpOauthClientId: string | null;
 }
 
 const DEFAULT_SETTINGS: InstanceSettings = {
@@ -12,6 +14,7 @@ const DEFAULT_SETTINGS: InstanceSettings = {
   theme: "system",
   buttonColor: null,
   logoUrl: null,
+  mcpOauthClientId: null,
 };
 
 interface InstanceSettingsRow {
@@ -19,6 +22,7 @@ interface InstanceSettingsRow {
   theme: "light" | "dark" | "system";
   button_color: string | null;
   logo_url: string | null;
+  mcp_oauth_client_id: string | null;
 }
 
 /**
@@ -31,7 +35,7 @@ export async function getInstanceSettings(): Promise<InstanceSettings> {
   const { data } = await admin
     .schema("kontrolia_auth")
     .from("instance_settings")
-    .select("registration_enabled, theme, button_color, logo_url")
+    .select("registration_enabled, theme, button_color, logo_url, mcp_oauth_client_id")
     .eq("id", true)
     .maybeSingle<InstanceSettingsRow>();
 
@@ -42,5 +46,6 @@ export async function getInstanceSettings(): Promise<InstanceSettings> {
     theme: data.theme,
     buttonColor: data.button_color,
     logoUrl: data.logo_url,
+    mcpOauthClientId: data.mcp_oauth_client_id,
   };
 }
