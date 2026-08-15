@@ -45,18 +45,57 @@ export default function SocialLoginPage() {
           Management API de Supabase
         </a>{" "}
         (<code>PATCH /v1/projects/{"{ref}"}/config/auth</code>) para escribir la configuración directamente en tu
-        proyecto — el mismo efecto que editarlo a mano en el dashboard, pero desde la app.
+        proyecto — el mismo efecto que editarlo a mano en el dashboard, pero desde la app. Para que esa llamada
+        funcione, el servidor necesita autenticarse ante esa API primero — dos formas, en orden de preferencia:
       </p>
+
+      <h3>Conexión OAuth (se renueva sola, recomendado)</h3>
       <p>
-        Requiere que el servidor tenga configurada la variable de entorno{" "}
-        <code>SUPABASE_MANAGEMENT_API_TOKEN</code> (ver <code>.env.example</code> de auth-server) — un token de
-        acceso personal de Supabase, generado una sola vez desde{" "}
+        La misma pantalla tiene una tarjeta "Conexión con Supabase" arriba de los proveedores, con un botón
+        "Conectar con Supabase". Antes de usarlo, quien administra el servidor registra una vez una{" "}
+        <em>OAuth App</em> de Supabase:
+      </p>
+      <ol>
+        <li>
+          Entra a{" "}
+          <a href="https://supabase.com/dashboard/org/_/apps" target="_blank" rel="noreferrer">
+            tu organización → Settings → OAuth Apps
+          </a>{" "}
+          y da de alta una aplicación (el nombre no importa).
+        </li>
+        <li>
+          Como redirect URI, usa exactamente <code>{"<NEXT_PUBLIC_ADMIN_PANEL_URL>"}/oauth/supabase-callback</code>{" "}
+          — la URL de tu admin-panel, sin barra final.
+        </li>
+        <li>
+          Copia el <code>client_id</code>/<code>client_secret</code> que te da y ponlos como{" "}
+          <code>SUPABASE_OAUTH_CLIENT_ID</code>/<code>SUPABASE_OAUTH_CLIENT_SECRET</code> en las variables de
+          entorno de auth-server (ver <code>.env.example</code>).
+        </li>
+      </ol>
+      <p>
+        Desde ahí, cualquier platform admin le da clic a "Conectar con Supabase" una sola vez — inicia sesión en
+        Supabase, autoriza el acceso, y listo. El acceso se renueva solo (access_token + refresh_token, OAuth 2.1
+        estándar) para siempre, sin volver a pedir nada, hasta que alguien lo desconecte desde esta misma pantalla
+        o revoque el acceso desde su cuenta de Supabase.
+      </p>
+
+      <h3>Personal Access Token (alternativa, expira)</h3>
+      <p>
+        Si prefieres no hacer el registro de la OAuth App, puedes usar en su lugar un token de acceso personal,
+        generado una sola vez desde{" "}
         <a href="https://supabase.com/dashboard/account/tokens" target="_blank" rel="noreferrer">
           supabase.com/dashboard/account/tokens
-        </a>
-        . A diferencia de las demás llaves que usa esta app, ese token puede administrar{" "}
-        <strong>toda tu cuenta de Supabase</strong>, no solo este proyecto — trátalo con ese cuidado. Si no está
-        configurado (o la instalación es self-hosted, donde este mecanismo no existe), la pantalla sigue
+        </a>{" "}
+        y puesto como <code>SUPABASE_MANAGEMENT_API_TOKEN</code>. La diferencia importante: este token expira según
+        lo que elijas al crearlo (o antes, si Supabase lo revoca), y nada en el sistema puede renovarlo solo —
+        cuando expire, tendrás que generar uno nuevo y volver a pegarlo. Solo se usa cuando la conexión OAuth de
+        arriba no está activa.
+      </p>
+      <p>
+        A diferencia de las demás llaves que usa esta app, tanto el token como el par OAuth pueden administrar{" "}
+        <strong>toda tu cuenta de Supabase</strong>, no solo este proyecto — trátalos con ese cuidado. Si ninguno
+        está configurado (o la instalación es self-hosted, donde este mecanismo no existe), la pantalla sigue
         mostrando el estado real de cada proveedor, solo que en modo de solo lectura, con instrucciones para
         activarlo por el camino manual de abajo.
       </p>

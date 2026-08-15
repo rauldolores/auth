@@ -18,6 +18,15 @@ vi.mock("@/lib/logger", () => ({
   logSecurityEvent: (...args: unknown[]) => logSecurityEventMock(...args),
 }));
 
+// Defaults to "no OAuth connection" so the existing static-token-only tests
+// below exercise exactly the path they say they do — supabase-management.ts
+// tries this first and only falls back to SUPABASE_MANAGEMENT_API_TOKEN
+// when it resolves to null.
+const getOauthAccessTokenMock = vi.fn();
+vi.mock("@/lib/supabase-oauth-connection", () => ({
+  getValidAccessToken: (...args: unknown[]) => getOauthAccessTokenMock(...args),
+}));
+
 const fetchMock = vi.fn();
 
 const { GET, PATCH } = await import("../social-login/route");
@@ -53,6 +62,8 @@ beforeEach(() => {
   logErrorMock.mockReset();
   logSecurityEventMock.mockReset();
   fetchMock.mockReset();
+  getOauthAccessTokenMock.mockReset();
+  getOauthAccessTokenMock.mockResolvedValue(null);
   global.fetch = fetchMock as unknown as typeof fetch;
   resetRateLimitsForTests();
   vi.stubEnv("SUPABASE_URL", CLOUD_URL);
@@ -107,7 +118,7 @@ describe("GET /api/social-login", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it("reports managementApiAvailable: false when the token isn't set, even on a Cloud URL", async () => {
+  it("reports managementApiAvailable: false when neither the OAuth connection nor the token is set, even on a Cloud URL", async () => {
     vi.stubEnv("SUPABASE_MANAGEMENT_API_TOKEN", "");
     verifyRequestMock.mockResolvedValue({ claims: { is_platform_admin: true } });
     fetchMock.mockResolvedValue(gotrueSettingsResponse(false, false));
@@ -115,6 +126,35 @@ describe("GET /api/social-login", () => {
     const response = await GET(requestWithAuth(BASE_URL));
     const body = await response.json();
     expect(body.managementApiAvailable).toBe(false);
+  });
+
+  it("prefers the OAuth connection's token over the static SUPABASE_MANAGEMENT_API_TOKEN when both are available", async () => {
+    verifyRequestMock.mockResolvedValue({ claims: { is_platform_admin: true } });
+    getOauthAccessTokenMock.mockResolvedValue("oauth-access-token");
+    fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+      if (url.includes("/auth/v1/settings")) return Promise.resolve(gotrueSettingsResponse(true, false));
+      expect((init?.headers as Record<string, string>).Authorization).toBe("Bearer oauth-access-token");
+      return Promise.resolve(managementConfigResponse({ external_google_enabled: true, external_google_client_id: "g-client-1" }));
+    });
+
+    const response = await GET(requestWithAuth(BASE_URL));
+    const body = await response.json();
+    expect(body.managementApiAvailable).toBe(true);
+    expect(body.google.configured).toBe(true);
+  });
+
+  it("still works via the static token when the OAuth connection is absent", async () => {
+    verifyRequestMock.mockResolvedValue({ claims: { is_platform_admin: true } });
+    getOauthAccessTokenMock.mockResolvedValue(null);
+    fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+      if (url.includes("/auth/v1/settings")) return Promise.resolve(gotrueSettingsResponse(true, false));
+      expect((init?.headers as Record<string, string>).Authorization).toBe("Bearer mgmt-token");
+      return Promise.resolve(managementConfigResponse({ external_google_enabled: true, external_google_client_id: "g-client-1" }));
+    });
+
+    const response = await GET(requestWithAuth(BASE_URL));
+    const body = await response.json();
+    expect(body.managementApiAvailable).toBe(true);
   });
 
   it("merges live GoTrue status with Management API config when both are available", async () => {

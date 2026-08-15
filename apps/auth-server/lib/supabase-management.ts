@@ -1,18 +1,27 @@
 import { logError } from "@/lib/logger";
+import { getValidAccessToken as getOauthAccessToken } from "@/lib/supabase-oauth-connection";
 
 /**
  * Talks to Supabase's Management API (api.supabase.com) — the only way to
  * configure a Cloud-hosted project's external OAuth providers (Google,
  * Azure) programmatically, since GoTrue itself exposes no write API for its
  * own config and Supabase Cloud's copy of GoTrue isn't something this app's
- * SUPABASE_SERVICE_ROLE_KEY can reach. Requires a Management API personal
- * access token (SUPABASE_MANAGEMENT_API_TOKEN) — a much broader credential
- * than anything else this app stores, since it can manage the *entire*
- * Supabase account, not just this one project. Deliberately optional: a
- * self-hosted Docker install (or a Cloud install that hasn't set the token)
- * has no live-write capability here, and every caller must check
+ * SUPABASE_SERVICE_ROLE_KEY can reach. Deliberately optional: a self-hosted
+ * Docker install (or a Cloud install with neither auth path set up) has no
+ * live-write capability here, and every caller must check
  * isManagementApiConfigured() first and degrade to read-only status +
  * manual instructions rather than erroring.
+ *
+ * Two ways to authenticate to this API, tried in order:
+ * 1. The OAuth connection (see supabase-oauth-connection.ts) — a platform
+ *    admin authorized this app once from admin-panel; tokens refresh
+ *    themselves forever after that.
+ * 2. SUPABASE_MANAGEMENT_API_TOKEN — a manually-pasted Personal Access
+ *    Token, kept as a fallback for installs that set this up before the
+ *    OAuth path existed, or that would rather not go through it. Unlike
+ *    the OAuth connection, this one silently stops working whenever the
+ *    token's own expiry (set when it was generated) is reached — nothing
+ *    here can renew it.
  */
 
 const MANAGEMENT_API_BASE = "https://api.supabase.com/v1";
@@ -30,8 +39,21 @@ function getProjectRef(): string | null {
   return match ? match[1]! : null;
 }
 
-export function isManagementApiConfigured(): boolean {
-  return Boolean(process.env.SUPABASE_MANAGEMENT_API_TOKEN) && getProjectRef() !== null;
+async function resolveAccessToken(): Promise<{ token: string; ref: string } | null> {
+  const ref = getProjectRef();
+  if (!ref) return null;
+
+  const oauthToken = await getOauthAccessToken();
+  if (oauthToken) return { token: oauthToken, ref };
+
+  const staticToken = process.env.SUPABASE_MANAGEMENT_API_TOKEN;
+  if (staticToken) return { token: staticToken, ref };
+
+  return null;
+}
+
+export async function isManagementApiConfigured(): Promise<boolean> {
+  return (await resolveAccessToken()) !== null;
 }
 
 export interface SocialProviderConfig {
@@ -47,13 +69,12 @@ export interface AuthProviderConfig {
 
 /** Reads current provider config from Supabase. Never includes client secrets in the returned shape — deliberately not modeled, so no call site can accidentally leak one to the browser. */
 export async function getManagementAuthConfig(): Promise<AuthProviderConfig | null> {
-  const ref = getProjectRef();
-  const token = process.env.SUPABASE_MANAGEMENT_API_TOKEN;
-  if (!ref || !token) return null;
+  const auth = await resolveAccessToken();
+  if (!auth) return null;
 
   try {
-    const response = await fetch(`${MANAGEMENT_API_BASE}/projects/${ref}/config/auth`, {
-      headers: { Authorization: `Bearer ${token}` },
+    const response = await fetch(`${MANAGEMENT_API_BASE}/projects/${auth.ref}/config/auth`, {
+      headers: { Authorization: `Bearer ${auth.token}` },
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
     if (!response.ok) {
@@ -101,16 +122,15 @@ export async function updateManagementAuthConfig(
   provider: SocialProvider,
   input: UpdateProviderInput,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const ref = getProjectRef();
-  const token = process.env.SUPABASE_MANAGEMENT_API_TOKEN;
-  if (!ref || !token) {
+  const auth = await resolveAccessToken();
+  if (!auth) {
     return { ok: false, error: "La API de administración de Supabase no está configurada en este servidor." };
   }
 
   try {
-    const response = await fetch(`${MANAGEMENT_API_BASE}/projects/${ref}/config/auth`, {
+    const response = await fetch(`${MANAGEMENT_API_BASE}/projects/${auth.ref}/config/auth`, {
       method: "PATCH",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${auth.token}`, "Content-Type": "application/json" },
       body: JSON.stringify(buildPatchBody(provider, input)),
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });

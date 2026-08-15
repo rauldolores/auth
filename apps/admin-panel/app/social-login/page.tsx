@@ -1,11 +1,19 @@
 "use client";
 
 import { useAuth } from "@kontrolia/react";
-import { Card, ForbiddenScreen } from "@kontrolia/ui";
+import { Card, ConfirmDialog, ForbiddenScreen } from "@kontrolia/ui";
 import { useEffect, useState } from "react";
+import { generateSupabaseOauthPkce, SUPABASE_OAUTH_CODE_VERIFIER_KEY } from "@/lib/oauth";
 
 const AUTH_SERVER_URL = process.env.NEXT_PUBLIC_AUTH_SERVER_URL;
 const REDIRECT_URI = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/callback`;
+
+interface SupabaseConnectionStatus {
+  oauthConfigured: boolean;
+  connected: boolean;
+  connectedAt: string | null;
+  clientId: string | null;
+}
 
 type Provider = "google" | "azure";
 
@@ -76,6 +84,129 @@ function StatusBadge({ enabled }: { enabled: boolean }) {
   );
 }
 
+function SupabaseConnectionCard({
+  status,
+  onDisconnected,
+}: {
+  status: SupabaseConnectionStatus;
+  onDisconnected: () => void;
+}) {
+  const { getToken } = useAuth();
+  const [connecting, setConnecting] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
+  const [confirmingDisconnect, setConfirmingDisconnect] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleConnect() {
+    if (!status.clientId) return;
+    setConnecting(true);
+    setError(null);
+    try {
+      const { verifier, challenge } = await generateSupabaseOauthPkce();
+      sessionStorage.setItem(SUPABASE_OAUTH_CODE_VERIFIER_KEY, verifier);
+      const redirectUri = `${window.location.origin}/oauth/supabase-callback`;
+      const params = new URLSearchParams({
+        client_id: status.clientId,
+        redirect_uri: redirectUri,
+        response_type: "code",
+        code_challenge: challenge,
+        code_challenge_method: "S256",
+        scope: "all",
+      });
+      window.location.href = `https://api.supabase.com/v1/oauth/authorize?${params.toString()}`;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo iniciar la conexión con Supabase.");
+      setConnecting(false);
+    }
+  }
+
+  async function handleDisconnect() {
+    setDisconnecting(true);
+    setError(null);
+    try {
+      const token = await getToken();
+      const response = await fetch(`${AUTH_SERVER_URL}/api/supabase-connection`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as { error?: string };
+        throw new Error(body.error ?? "No se pudo desconectar.");
+      }
+      onDisconnected();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo desconectar.");
+    } finally {
+      setDisconnecting(false);
+      setConfirmingDisconnect(false);
+    }
+  }
+
+  return (
+    <Card className="k-flex k-flex-col k-gap-3 k-p-5">
+      <div className="k-flex k-items-center k-justify-between">
+        <div>
+          <p className="k-text-sm k-font-semibold">Conexión con Supabase</p>
+          <p className="k-mt-0.5 k-text-xs k-text-muted-foreground">
+            Necesaria para activar Google/Microsoft desde esta pantalla, sin entrar al dashboard de Supabase. Una vez
+            conectado, el acceso se renueva solo — nunca vuelve a pedirte nada.
+          </p>
+        </div>
+        <StatusBadge enabled={status.connected} />
+      </div>
+
+      {error && <p className="k-rounded-lg k-bg-destructive/10 k-p-3 k-text-sm k-text-destructive">{error}</p>}
+
+      {!status.oauthConfigured ? (
+        <p className="k-text-xs k-text-muted-foreground">
+          Esta instalación todavía no tiene registrada una OAuth App de Supabase (
+          <code>SUPABASE_OAUTH_CLIENT_ID</code>/<code>SUPABASE_OAUTH_CLIENT_SECRET</code>) — es un paso único que hace
+          quien administra el servidor. Consulta la{" "}
+          <a href="/docs/guides/social-login" className="k-text-primary hover:k-underline">
+            guía completa
+          </a>
+          . Mientras tanto, si ya tienes un <code>SUPABASE_MANAGEMENT_API_TOKEN</code> configurado, los proveedores de
+          abajo siguen funcionando con ese.
+        </p>
+      ) : status.connected ? (
+        <div className="k-flex k-items-center k-justify-between">
+          <p className="k-text-xs k-text-muted-foreground">
+            Conectado{status.connectedAt ? ` el ${new Date(status.connectedAt).toLocaleString("es-MX")}` : ""}.
+          </p>
+          <button
+            type="button"
+            onClick={() => setConfirmingDisconnect(true)}
+            disabled={disconnecting}
+            className="k-rounded-lg k-border k-border-border k-px-3 k-py-1.5 k-text-xs k-font-medium k-text-destructive hover:k-bg-destructive/10 disabled:k-opacity-50"
+          >
+            Desconectar
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          disabled={connecting}
+          onClick={() => void handleConnect()}
+          className="k-inline-flex k-w-fit k-items-center k-gap-2 k-rounded-lg k-bg-primary k-px-4 k-py-2 k-text-sm k-font-medium k-text-primary-foreground disabled:k-opacity-50"
+        >
+          {connecting && <SpinnerIcon />}
+          Conectar con Supabase
+        </button>
+      )}
+
+      <ConfirmDialog
+        open={confirmingDisconnect}
+        onOpenChange={(open) => !open && setConfirmingDisconnect(false)}
+        destructive
+        title="Desconectar Supabase"
+        description="Los proveedores que ya activaste desde aquí seguirán funcionando (GoTrue no se toca), pero no podrás cambiarlos desde esta pantalla hasta reconectar."
+        confirmLabel={disconnecting ? "Desconectando..." : "Desconectar"}
+        onConfirm={handleDisconnect}
+      />
+    </Card>
+  );
+}
+
 function ProviderCard({
   provider,
   status,
@@ -141,8 +272,8 @@ function ProviderCard({
 
       {!managementApiAvailable ? (
         <p className="k-text-xs k-text-muted-foreground">
-          Esta instalación no tiene configurada la API de administración de Supabase, así que este proveedor solo se
-          puede activar directamente en{" "}
+          Conéctate con Supabase arriba para activar este proveedor desde aquí. Mientras tanto, solo se puede
+          activar directamente en{" "}
           <a href="https://supabase.com/dashboard" target="_blank" rel="noreferrer" className="k-text-primary hover:k-underline">
             el dashboard de tu proyecto Supabase
           </a>{" "}
@@ -241,6 +372,7 @@ export default function SocialLoginPage() {
   const [platformAdminChecked, setPlatformAdminChecked] = useState(false);
   const [platformAdmin, setPlatformAdmin] = useState(false);
   const [status, setStatus] = useState<SocialLoginStatus | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<SupabaseConnectionStatus | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -255,9 +387,13 @@ export default function SocialLoginPage() {
     void (async () => {
       try {
         const token = await getToken();
-        const response = await fetch(`${AUTH_SERVER_URL}/api/social-login`, { headers: { Authorization: `Bearer ${token}` } });
-        if (!response.ok) throw new Error();
-        setStatus((await response.json()) as SocialLoginStatus);
+        const [socialLoginRes, connectionRes] = await Promise.all([
+          fetch(`${AUTH_SERVER_URL}/api/social-login`, { headers: { Authorization: `Bearer ${token}` } }),
+          fetch(`${AUTH_SERVER_URL}/api/supabase-connection`, { headers: { Authorization: `Bearer ${token}` } }),
+        ]);
+        if (!socialLoginRes.ok || !connectionRes.ok) throw new Error();
+        setStatus((await socialLoginRes.json()) as SocialLoginStatus);
+        setConnectionStatus((await connectionRes.json()) as SupabaseConnectionStatus);
       } catch {
         setLoadError("No se pudo cargar el estado de los proveedores.");
       }
@@ -292,8 +428,12 @@ export default function SocialLoginPage() {
 
       {status === null && !loadError ? (
         <p className="k-text-sm k-text-muted-foreground">Cargando...</p>
-      ) : status ? (
+      ) : status && connectionStatus ? (
         <>
+          <SupabaseConnectionCard
+            status={connectionStatus}
+            onDisconnected={() => setConnectionStatus((prev) => (prev ? { ...prev, connected: false, connectedAt: null } : prev))}
+          />
           <ProviderCard provider="google" status={status.google} managementApiAvailable={status.managementApiAvailable} onSaved={setStatus} />
           <ProviderCard provider="azure" status={status.azure} managementApiAvailable={status.managementApiAvailable} onSaved={setStatus} />
         </>

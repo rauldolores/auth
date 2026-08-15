@@ -633,6 +633,75 @@ export default function AdminApiPage() {
         o hay un problema de red. Cualquier otro error viene tal cual de GoTrue, con su propio status.
       </p>
 
+      <h2>Login social (Google/Microsoft)</h2>
+      <p>
+        También platform-admin-gated, límite de 30 cada 5 minutos por IP. Ver la{" "}
+        <a href="/docs/guides/social-login">guía de login social</a> para el contexto completo.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Endpoint</th>
+            <th>Query / body</th>
+            <th>Notas</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <code>GET /social-login</code>
+            </td>
+            <td>—</td>
+            <td>
+              Estado real de Google/Azure (leído en vivo de GoTrue) más lo que hay configurado vía la Management
+              API de Supabase, si está disponible (<code>managementApiAvailable</code>)
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <code>PATCH /social-login?provider=google|azure</code>
+            </td>
+            <td>
+              body <code>{`{ enabled, clientId?, secret?, tenantUrl? }`}</code>
+            </td>
+            <td>
+              <code>clientId</code>/<code>secret</code> requeridos solo la primera vez que se activa un proveedor;
+              omitirlos en una actualización posterior los deja como estaban. 400 si ninguna de las dos
+              autenticaciones hacia la Management API está configurada (ver abajo)
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <code>GET /supabase-connection</code>
+            </td>
+            <td>—</td>
+            <td>
+              <code>{`{ oauthConfigured, connected, connectedAt, clientId }`}</code> — estado de la conexión OAuth
+              de esta instalación con la Management API de Supabase
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <code>DELETE /supabase-connection</code>
+            </td>
+            <td>—</td>
+            <td>204. Borra los tokens guardados; no afecta nada ya activado en GoTrue</td>
+          </tr>
+          <tr>
+            <td>
+              <code>POST /supabase-connection/callback</code>
+            </td>
+            <td>
+              body <code>{`{ code, codeVerifier, redirectUri }`}</code>
+            </td>
+            <td>
+              El paso de intercambio de código de la conexión OAuth — llamado por admin-panel después de que
+              Supabase redirige de vuelta con un <code>code</code>, nunca directo desde un navegador
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
       <h2>Cómo conseguir tu token</h2>
       <p>
         Si estás automatizando algo como tú mismo (no como una aplicación cliente), usa el token de sesión que ya

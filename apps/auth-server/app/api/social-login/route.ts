@@ -12,12 +12,13 @@ import { NextResponse } from "next/server";
 /**
  * Lets a platform admin activate Google/Microsoft social login entirely
  * from admin-panel — no Supabase dashboard visit required — by driving
- * Supabase's Management API (see lib/supabase-management.ts). Read status
- * always reflects GoTrue's own live settings (works on every deployment);
- * the write path additionally requires SUPABASE_MANAGEMENT_API_TOKEN, and
- * degrades to `managementApiAvailable: false` — read-only status, manual
- * instructions — when it's absent (self-hosted Docker, or a Cloud install
- * that hasn't set the token yet).
+ * Supabase's Management API (see lib/supabase-management.ts, which prefers
+ * the self-renewing OAuth connection over the fallback static
+ * SUPABASE_MANAGEMENT_API_TOKEN). Read status always reflects GoTrue's own
+ * live settings (works on every deployment); the write path degrades to
+ * `managementApiAvailable: false` — read-only status, manual instructions —
+ * when neither auth path is set up (self-hosted Docker, or a Cloud install
+ * that hasn't connected either one yet).
  */
 
 const RATE_LIMIT_KEY_PREFIX = "social-login";
@@ -41,10 +42,8 @@ export async function GET(request: Request) {
   const denied = await authorizePlatformAdmin(request, corsHeaders(), RATE_LIMIT_KEY_PREFIX);
   if (denied) return denied;
 
-  const [live, managed] = await Promise.all([
-    getGotrueExternalSettings(),
-    isManagementApiConfigured() ? getManagementAuthConfig() : Promise.resolve(null),
-  ]);
+  const [live, configured] = await Promise.all([getGotrueExternalSettings(), isManagementApiConfigured()]);
+  const managed = configured ? await getManagementAuthConfig() : null;
 
   return NextResponse.json(
     {
@@ -81,9 +80,12 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "provider debe ser 'google' o 'azure'" }, { status: 400, headers: corsHeaders() });
   }
 
-  if (!isManagementApiConfigured()) {
+  if (!(await isManagementApiConfigured())) {
     return NextResponse.json(
-      { error: "La activación en vivo no está disponible: este servidor no tiene configurado SUPABASE_MANAGEMENT_API_TOKEN." },
+      {
+        error:
+          "La activación en vivo no está disponible: conecta este servidor con Supabase desde Configuración → Inicio de sesión social, o configura SUPABASE_MANAGEMENT_API_TOKEN.",
+      },
       { status: 400, headers: corsHeaders() },
     );
   }
