@@ -14,6 +14,8 @@ export interface LoginFormProps {
   showGoogle?: boolean;
   /** Only opt into this once the installation's Supabase project has Azure enabled. */
   showMicrosoft?: boolean;
+  /** Where GoTrue sends the browser back to once Google/Microsoft login completes — threaded straight through to loginWithOAuth(). Without this, the OAuth buttons silently drop whatever `redirect_to` brought someone to this page. */
+  redirectTo?: string;
 }
 
 export function LoginForm({
@@ -23,6 +25,7 @@ export function LoginForm({
   registerHref,
   showGoogle,
   showMicrosoft,
+  redirectTo,
 }: LoginFormProps) {
   const { login } = useAuth();
   const [email, setEmail] = useState("");
@@ -99,8 +102,8 @@ export function LoginForm({
           <div className="k-flex k-items-center k-gap-3 k-text-xs k-text-muted-foreground">
             <span className="k-h-px k-flex-1 k-bg-border" />o<span className="k-h-px k-flex-1 k-bg-border" />
           </div>
-          {showGoogle && <GoogleLoginButton />}
-          {showMicrosoft && <MicrosoftLoginButton />}
+          {showGoogle && <GoogleLoginButton redirectTo={redirectTo} />}
+          {showMicrosoft && <MicrosoftLoginButton redirectTo={redirectTo} />}
         </>
       )}
     </form>

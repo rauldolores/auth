@@ -43,6 +43,15 @@ function LoginPageInner() {
 
   const { registrationEnabled, logoUrl, googleLoginEnabled, microsoftLoginEnabled } = useAuthUiSettings();
 
+  // Google/Microsoft never go through handleLoginSuccess() above (GoTrue
+  // redirects the browser straight to /auth/callback, not back to this
+  // page) — without this, the original redirect_to that brought someone
+  // here would be silently dropped the moment they clicked either button.
+  const oauthRedirectTo =
+    typeof window !== "undefined" && redirectTarget !== "/"
+      ? `${window.location.origin}/auth/callback?redirect_to=${encodeURIComponent(redirectTarget)}`
+      : undefined;
+
   return (
     <GuestGuard fallback={<p className="k-p-8 k-text-center k-text-sm">Ya iniciaste sesión.</p>}>
       <AuthShell title="Inicia sesión" subtitle="Continúa con tu cuenta o correo." logoUrl={logoUrl}>
@@ -52,6 +61,7 @@ function LoginPageInner() {
           registerHref={registrationEnabled ? "/register" : undefined}
           showGoogle={googleLoginEnabled}
           showMicrosoft={microsoftLoginEnabled}
+          redirectTo={oauthRedirectTo}
         />
       </AuthShell>
     </GuestGuard>

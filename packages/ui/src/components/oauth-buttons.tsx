@@ -7,6 +7,8 @@ import { cn } from "../lib/cn.js";
 export interface GoogleLoginButtonProps {
   className?: string;
   label?: string;
+  /** Forwarded to loginWithOAuth() — where GoTrue sends the browser back to after the provider redirect completes. Falls back to the SDK's own default (`${origin}/auth/callback`, no onward target) when omitted. */
+  redirectTo?: string;
 }
 
 /**
@@ -16,7 +18,7 @@ export interface GoogleLoginButtonProps {
  * advance; apps opt into showing it (see LoginForm/RegisterForm's
  * showGoogle prop) once they've configured the provider.
  */
-export function GoogleLoginButton({ className, label = "Continuar con Google" }: GoogleLoginButtonProps) {
+export function GoogleLoginButton({ className, label = "Continuar con Google", redirectTo }: GoogleLoginButtonProps) {
   const { loginWithOAuth } = useAuth();
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -25,7 +27,7 @@ export function GoogleLoginButton({ className, label = "Continuar con Google" }:
     setError(null);
     setIsRedirecting(true);
     try {
-      await loginWithOAuth("google");
+      await loginWithOAuth("google", redirectTo);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo iniciar sesión con Google.");
       setIsRedirecting(false);
@@ -68,6 +70,8 @@ export function GoogleLoginButton({ className, label = "Continuar con Google" }:
 export interface MicrosoftLoginButtonProps {
   className?: string;
   label?: string;
+  /** Forwarded to loginWithOAuth() — where GoTrue sends the browser back to after the provider redirect completes. Falls back to the SDK's own default (`${origin}/auth/callback`, no onward target) when omitted. */
+  redirectTo?: string;
 }
 
 /**
@@ -75,7 +79,7 @@ export interface MicrosoftLoginButtonProps {
  * Azure provider enabled — otherwise loginWithOAuth() redirects to a
  * Supabase error page. Same caveat as GoogleLoginButton above.
  */
-export function MicrosoftLoginButton({ className, label = "Continuar con Microsoft" }: MicrosoftLoginButtonProps) {
+export function MicrosoftLoginButton({ className, label = "Continuar con Microsoft", redirectTo }: MicrosoftLoginButtonProps) {
   const { loginWithOAuth } = useAuth();
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -84,7 +88,7 @@ export function MicrosoftLoginButton({ className, label = "Continuar con Microso
     setError(null);
     setIsRedirecting(true);
     try {
-      await loginWithOAuth("azure");
+      await loginWithOAuth("azure", redirectTo);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo iniciar sesión con Microsoft.");
       setIsRedirecting(false);

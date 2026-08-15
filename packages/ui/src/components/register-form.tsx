@@ -13,9 +13,11 @@ export interface RegisterFormProps {
   showGoogle?: boolean;
   /** Only opt into this once the installation's Supabase project has Azure enabled. */
   showMicrosoft?: boolean;
+  /** Where GoTrue sends the browser back to once Google/Microsoft sign-up completes — threaded straight through to loginWithOAuth(). */
+  redirectTo?: string;
 }
 
-export function RegisterForm({ className, onSuccess, loginHref, showGoogle, showMicrosoft }: RegisterFormProps) {
+export function RegisterForm({ className, onSuccess, loginHref, showGoogle, showMicrosoft, redirectTo }: RegisterFormProps) {
   const { register } = useAuth();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -99,8 +101,8 @@ export function RegisterForm({ className, onSuccess, loginHref, showGoogle, show
           <div className="k-flex k-items-center k-gap-3 k-text-xs k-text-muted-foreground">
             <span className="k-h-px k-flex-1 k-bg-border" />o<span className="k-h-px k-flex-1 k-bg-border" />
           </div>
-          {showGoogle && <GoogleLoginButton label="Registrarme con Google" />}
-          {showMicrosoft && <MicrosoftLoginButton label="Registrarme con Microsoft" />}
+          {showGoogle && <GoogleLoginButton label="Registrarme con Google" redirectTo={redirectTo} />}
+          {showMicrosoft && <MicrosoftLoginButton label="Registrarme con Microsoft" redirectTo={redirectTo} />}
         </>
       )}
     </form>
