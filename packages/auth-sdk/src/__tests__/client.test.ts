@@ -394,6 +394,99 @@ describe("KontroliaClient OAuth 2.1 + PKCE flow", () => {
   });
 });
 
+/**
+ * Unlike the OAuth/PKCE flow above, listOrganizationMembers/
+ * searchOrganizationMembers/getOrganizationMemberCount hit auth-server's
+ * plain REST API — a simple global.fetch mock is enough, no need for the
+ * real-HTTP-server rig those crypto-sensitive methods use.
+ */
+describe("KontroliaClient organization member lookups", () => {
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    getSessionMock.mockReset();
+    fetchMock.mockReset();
+    global.fetch = fetchMock as unknown as typeof fetch;
+  });
+
+  function makeClientWithAuthServer(authServerUrl = "https://auth.example.com") {
+    return createKontroliaClient({ supabaseUrl: "https://project.supabase.co", supabaseAnonKey: "anon-key", authServerUrl });
+  }
+
+  it("throws when authServerUrl isn't configured", async () => {
+    const client = createKontroliaClient({ supabaseUrl: "https://project.supabase.co", supabaseAnonKey: "anon-key" });
+    getSessionMock.mockResolvedValue({ data: { session: { access_token: makeFakeAccessToken() } } });
+
+    await expect(client.listOrganizationMembers("org-1")).rejects.toThrow(/authServerUrl/);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("returns an empty page without calling fetch when there's no session", async () => {
+    getSessionMock.mockResolvedValue({ data: { session: null } });
+    const client = makeClientWithAuthServer();
+
+    const page = await client.listOrganizationMembers("org-1");
+
+    expect(page).toEqual({ members: [], hasMore: false, total: 0 });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  describe("listOrganizationMembers", () => {
+    it("fetches the members endpoint with the session token, mapping userId -> id", async () => {
+      getSessionMock.mockResolvedValue({ data: { session: { access_token: "session-token-1" } } });
+      fetchMock.mockResolvedValue(
+        new Response(
+          JSON.stringify({ members: [{ userId: "user-1", email: "ana@example.com", name: "Ana" }], hasMore: true, total: 42 }),
+          { status: 200 },
+        ),
+      );
+      const client = makeClientWithAuthServer();
+
+      const page = await client.listOrganizationMembers("org-1", { offset: 100 });
+
+      expect(page).toEqual({ members: [{ id: "user-1", email: "ana@example.com", name: "Ana" }], hasMore: true, total: 42 });
+      const [url, init] = fetchMock.mock.calls[0]!;
+      expect(url).toBe("https://auth.example.com/api/organization-members?organizationId=org-1&offset=100");
+      expect((init.headers as Record<string, string>).Authorization).toBe("Bearer session-token-1");
+    });
+  });
+
+  describe("searchOrganizationMembers", () => {
+    it("sends the search query param", async () => {
+      getSessionMock.mockResolvedValue({ data: { session: { access_token: "session-token-1" } } });
+      fetchMock.mockResolvedValue(new Response(JSON.stringify({ members: [], hasMore: false, total: 0 }), { status: 200 }));
+      const client = makeClientWithAuthServer();
+
+      await client.searchOrganizationMembers("org-1", "ana");
+
+      const [url] = fetchMock.mock.calls[0]!;
+      expect(url).toBe("https://auth.example.com/api/organization-members?organizationId=org-1&search=ana");
+    });
+  });
+
+  describe("getOrganizationMemberCount", () => {
+    it("sends count=true and returns just the total", async () => {
+      getSessionMock.mockResolvedValue({ data: { session: { access_token: "session-token-1" } } });
+      fetchMock.mockResolvedValue(new Response(JSON.stringify({ members: [], hasMore: false, total: 17 }), { status: 200 }));
+      const client = makeClientWithAuthServer();
+
+      const total = await client.getOrganizationMemberCount("org-1");
+
+      expect(total).toBe(17);
+      const [url] = fetchMock.mock.calls[0]!;
+      expect(url).toBe("https://auth.example.com/api/organization-members?organizationId=org-1&count=true");
+    });
+  });
+
+  it("throws with the server's error message when the request fails", async () => {
+    getSessionMock.mockResolvedValue({ data: { session: { access_token: "session-token-1" } } });
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ error: "No autenticado" }), { status: 401 }));
+    const client = makeClientWithAuthServer();
+
+    await expect(client.listOrganizationMembers("org-1")).rejects.toThrow("No autenticado");
+  });
+});
+
 function makeFakeAccessToken(): string {
   const encode = (obj: object) => Buffer.from(JSON.stringify(obj)).toString("base64url");
   return `${encode({ alg: "HS256" })}.${encode({ sub: "user-1" })}.sig`;

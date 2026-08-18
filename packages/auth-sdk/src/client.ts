@@ -18,6 +18,7 @@ import type {
   OAuthProvider,
   OAuthServerAuthorizeRequest,
   OAuthServerAuthorizeResult,
+  OrganizationMembersPage,
   RegisterInput,
   Unsubscribe,
   UpdateProfileInput,
@@ -45,6 +46,7 @@ export class KontroliaClient {
   private readonly supabase: SupabaseClient;
   private readonly supabaseUrl: string;
   private readonly supabaseAnonKey: string;
+  private readonly authServerUrl?: string;
   private listeners = new Set<AuthStateListener>();
 
   constructor(config: KontroliaClientConfig) {
@@ -58,6 +60,7 @@ export class KontroliaClient {
     });
     this.supabaseUrl = config.supabaseUrl.replace(/\/$/, "");
     this.supabaseAnonKey = config.supabaseAnonKey;
+    this.authServerUrl = config.authServerUrl?.replace(/\/$/, "");
 
     this.supabase.auth.onAuthStateChange(() => {
       this.emit();
@@ -223,6 +226,75 @@ export class KontroliaClient {
 
     if (error || !data) return [];
     return mapMembershipRows(data as never);
+  }
+
+  /**
+   * Every method below (listOrganizationMembers/searchOrganizationMembers/
+   * getOrganizationMemberCount) talks to auth-server's own REST API instead
+   * of Supabase directly, unlike getMemberships() above — resolving a
+   * member's email/name requires the service-role-backed admin lookup
+   * auth-server does server-side (kontrolia_auth.memberships has no
+   * email/name columns; those live in auth.users, which an RLS-scoped
+   * browser client can never read for anyone but itself). Requires
+   * config.authServerUrl to be set. Not logged in yet? These return an
+   * empty page rather than throwing, matching getMemberships()'s own
+   * "not authenticated" behavior above.
+   */
+  private async fetchOrganizationMembers(
+    organizationId: string,
+    opts: { search?: string; offset?: number; countOnly?: boolean },
+  ): Promise<OrganizationMembersPage> {
+    if (!this.authServerUrl) {
+      throw new Error(
+        "authServerUrl no está configurado en KontroliaClient — es requerido para listOrganizationMembers/searchOrganizationMembers/getOrganizationMemberCount.",
+      );
+    }
+    const token = await this.getToken();
+    if (!token) return { members: [], hasMore: false, total: 0 };
+
+    const params = new URLSearchParams({ organizationId });
+    if (opts.search) params.set("search", opts.search);
+    if (opts.offset) params.set("offset", String(opts.offset));
+    if (opts.countOnly) params.set("count", "true");
+
+    const response = await fetch(`${this.authServerUrl}/api/organization-members?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const body = (await response.json().catch(() => ({}))) as {
+      members?: { userId: string; email: string; name: string | null }[];
+      hasMore?: boolean;
+      total?: number;
+      error?: string;
+    };
+    if (!response.ok) {
+      throw new Error(body.error ?? `No se pudo obtener la lista de miembros (${response.status}).`);
+    }
+
+    return {
+      members: (body.members ?? []).map((m) => ({ id: m.userId, email: m.email, name: m.name })),
+      hasMore: Boolean(body.hasMore),
+      total: body.total ?? 0,
+    };
+  }
+
+  /** Members of an organization the caller belongs to, paginated 100 at a time. */
+  async listOrganizationMembers(organizationId: string, options?: { offset?: number }): Promise<OrganizationMembersPage> {
+    return this.fetchOrganizationMembers(organizationId, { offset: options?.offset });
+  }
+
+  /** Same as listOrganizationMembers, filtered by a case-insensitive substring match on email or name. */
+  async searchOrganizationMembers(
+    organizationId: string,
+    query: string,
+    options?: { offset?: number },
+  ): Promise<OrganizationMembersPage> {
+    return this.fetchOrganizationMembers(organizationId, { search: query, offset: options?.offset });
+  }
+
+  /** Total member count for an organization — a fast, rows-free query, not a side effect of fetching a page. */
+  async getOrganizationMemberCount(organizationId: string): Promise<number> {
+    const page = await this.fetchOrganizationMembers(organizationId, { countOnly: true });
+    return page.total;
   }
 
   /**

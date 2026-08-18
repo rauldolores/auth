@@ -49,7 +49,7 @@ describe("GET /api/organization-members", () => {
     expect(response.status).toBe(400);
   });
 
-  it("returns members with emails resolved and hasMore=false for a partial page", async () => {
+  it("returns members with email/name resolved, hasMore=false for a partial page, and total", async () => {
     createClientMock.mockReturnValue(
       makeSchemaClient({
         memberships: [
@@ -63,13 +63,17 @@ describe("GET /api/organization-members", () => {
                 membership_roles: [{ role: { id: "role-1", name: "Owner", slug: "owner", application_id: null, application: null } }],
               },
             ],
+            count: 1,
             error: null,
           },
         ],
       }),
     );
     createSupabaseAdminClientMock.mockReturnValue(
-      makeAdminClient({}, { data: { users: [{ id: "user-1", email: "owner@example.com" }] }, error: null }),
+      makeAdminClient(
+        {},
+        { data: { users: [{ id: "user-1", email: "owner@example.com", user_metadata: { full_name: "Ana Owner" } }] }, error: null },
+      ),
     );
 
     const response = await GET(requestWithAuth(`${BASE_URL}?organizationId=org-1`));
@@ -81,16 +85,18 @@ describe("GET /api/organization-members", () => {
           membershipId: "mem-1",
           userId: "user-1",
           email: "owner@example.com",
+          name: "Ana Owner",
           status: "active",
           createdAt: "2026-01-01T00:00:00Z",
           roles: [{ id: "role-1", name: "Owner", slug: "owner", application_id: null, application: null }],
         },
       ],
       hasMore: false,
+      total: 1,
     });
   });
 
-  it("falls back to '(desconocido)' when a member's email can't be resolved", async () => {
+  it("falls back to '(desconocido)' email and null name when a member can't be resolved", async () => {
     createClientMock.mockReturnValue(
       makeSchemaClient({
         memberships: [
@@ -98,6 +104,7 @@ describe("GET /api/organization-members", () => {
             data: [
               { id: "mem-2", user_id: "user-missing", status: "active", created_at: "2026-01-01T00:00:00Z", membership_roles: [] },
             ],
+            count: 1,
             error: null,
           },
         ],
@@ -109,6 +116,55 @@ describe("GET /api/organization-members", () => {
     const response = await GET(requestWithAuth(`${BASE_URL}?organizationId=org-1`));
     const body = await response.json();
     expect(body.members[0].email).toBe("(desconocido)");
+    expect(body.members[0].name).toBeNull();
+  });
+
+  it("count=true returns only the total, without resolving any user info", async () => {
+    createClientMock.mockReturnValue(makeSchemaClient({ memberships: [{ count: 7, error: null }] }));
+
+    const response = await GET(requestWithAuth(`${BASE_URL}?organizationId=org-1&count=true`));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ members: [], hasMore: false, total: 7 });
+    expect(createSupabaseAdminClientMock).not.toHaveBeenCalled();
+  });
+
+  it("search filters by email or name (case-insensitive) and paginates the filtered set", async () => {
+    createClientMock.mockReturnValue(
+      makeSchemaClient({
+        memberships: [
+          {
+            data: [
+              { id: "mem-1", user_id: "user-1", status: "active", created_at: "2026-01-03T00:00:00Z", membership_roles: [] },
+              { id: "mem-2", user_id: "user-2", status: "active", created_at: "2026-01-02T00:00:00Z", membership_roles: [] },
+              { id: "mem-3", user_id: "user-3", status: "active", created_at: "2026-01-01T00:00:00Z", membership_roles: [] },
+            ],
+            error: null,
+          },
+        ],
+      }),
+    );
+    createSupabaseAdminClientMock.mockReturnValue(
+      makeAdminClient(
+        {},
+        {
+          data: {
+            users: [
+              { id: "user-1", email: "ana@example.com", user_metadata: { full_name: "Ana Pérez" } },
+              { id: "user-2", email: "beto@example.com", user_metadata: { full_name: "Beto Gómez" } },
+              { id: "user-3", email: "carla.ana@example.com", user_metadata: {} },
+            ],
+          },
+          error: null,
+        },
+      ),
+    );
+
+    const response = await GET(requestWithAuth(`${BASE_URL}?organizationId=org-1&search=ANA`));
+    const body = await response.json();
+    // Matches user-1 (name "Ana Pérez") and user-3 (email contains "ana"), not user-2.
+    expect(body.total).toBe(2);
+    expect(body.hasMore).toBe(false);
+    expect(body.members.map((m: { userId: string }) => m.userId).sort()).toEqual(["user-1", "user-3"]);
   });
 
   it("returns 500 and logs when the memberships query errors", async () => {

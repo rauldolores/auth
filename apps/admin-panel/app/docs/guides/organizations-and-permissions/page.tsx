@@ -36,23 +36,54 @@ await switchOrganization(memberships[0].organizationId); // refresca la sesión,
 const memberships = await listMemberships(request, { supabaseUrl, supabaseAnonKey });`}</code>
       </pre>
 
-      <h2>Editar, eliminar, y ver tus aplicaciones</h2>
+      <h2>Editar y eliminar una organización</h2>
       <p>
-        Desde la pantalla de inicio (auth-server), cualquier miembro puede renombrar la organización activa
-        (<code>PATCH /api/organizations/&#123;id&#125;</code>, requiere Owner o Admin — RLS lo aplica del lado
-        del servidor, no solo la UI). Eliminarla es más delicado — borra en cascada todos sus miembros, roles,
+        Desde admin-panel (&quot;Organizaciones&quot;), un Owner o Admin puede renombrar cualquier organización a
+        la que pertenece (<code>PATCH /api/organizations/&#123;id&#125;</code> — RLS lo aplica del lado del
+        servidor, no solo la UI). Eliminarla es más delicado — borra en cascada todos sus miembros, roles,
         invitaciones y su historial de auditoría, sin poder deshacerse — así que está reservado solo al{" "}
         <code>Owner</code> (<code>DELETE /api/organizations/&#123;id&#125;</code>), con una confirmación que
-        exige escribir el nombre exacto de la organización.
+        exige escribir el nombre exacto de la organización. auth-server ya no tiene su propia pantalla de
+        inicio para esto — su ruta raíz redirige directo a admin-panel.
       </p>
       <p>
-        La misma pantalla también muestra <strong>tus aplicaciones</strong> dentro de la organización activa —
-        un lanzador con las apps a las que realmente tienes acceso, no solo las que la organización tiene
-        habilitadas. Si eres Owner o Admin ves todas las habilitadas; si no, solo las que tienen un rol
-        asignado a ti específicamente (por ejemplo &quot;Administrador de Facturación&quot;) — pertenecer a la
-        organización no es, por sí solo, acceso a ninguna aplicación en particular. Cada aplicación necesita
-        declarar su <code>homepage_url</code> (editable desde &quot;Aplicaciones&quot; en el admin-panel, por
-        un admin de la organización que la registró) para aparecer como un enlace en vez de solo un nombre.
+        <strong>Nota:</strong> antes había un lanzador de aplicaciones (mostrando solo las apps a las que un
+        miembro tenía acceso) en la pantalla de inicio de auth-server. Al quitarla, un <code>Member</code> sin
+        rol de Owner/Admin/platform admin se queda hoy sin ninguna forma de ver o lanzar sus aplicaciones desde
+        la UI — admin-panel solo sirve a Owner/Admin/platform admin. Gap conocido, sin resolver todavía.
+      </p>
+
+      <h2>Listar, buscar y contar los miembros de una organización</h2>
+      <p>
+        Para una app externa (no admin-panel) que necesita mostrar quién pertenece a una organización —
+        pensado para selectores de usuario, autocompletado, o solo un contador — sin construir el fetch al API
+        REST a mano. Requiere configurar <code>authServerUrl</code> al crear el cliente (solo lo usan estos
+        tres métodos; el resto del SDK no lo necesita, ya que hablan con Supabase directo):
+      </p>
+      <pre>
+        <code>{`const client = createKontroliaClient({
+  supabaseUrl, supabaseAnonKey,
+  authServerUrl: "https://auth.tuempresa.com", // nuevo — requerido solo para lo de abajo
+});`}</code>
+      </pre>
+      <pre>
+        <code>{`const { listOrganizationMembers, searchOrganizationMembers, getOrganizationMemberCount } = useAuth();
+
+const page = await listOrganizationMembers(organizationId);
+// { members: [{ id, email, name }, ...], hasMore, total }
+
+const results = await searchOrganizationMembers(organizationId, "ana");
+// mismo shape, filtrado por coincidencia en email o nombre (sin distinguir mayúsculas)
+
+const total = await getOrganizationMemberCount(organizationId); // número, camino rápido (no trae filas)`}</code>
+      </pre>
+      <p>
+        <code>id</code> es el user id (<code>auth.users.id</code>), no el id de la membresía. <code>name</code>{" "}
+        viene de <code>user_metadata.full_name</code> — <code>null</code> si la persona nunca lo capturó. Por
+        debajo, los tres llaman a <code>GET /api/organization-members</code> con el token de sesión de quien
+        esté logueado — solo ve organizaciones a las que ya pertenece (RLS), igual que{" "}
+        <code>getMemberships()</code> arriba. Sin sesión iniciada, los tres regresan vacío/cero en vez de
+        lanzar un error.
       </p>
 
       <h2>Roles: 3 de sistema + uno por aplicación por persona</h2>

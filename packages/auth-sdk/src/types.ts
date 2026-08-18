@@ -14,6 +14,33 @@ export interface KontroliaClientConfig {
    * development, where the browser already shares cookies across ports).
    */
   cookieDomain?: string;
+  /**
+   * Base URL of this installation's auth-server (e.g. "https://auth.example.com"),
+   * with no trailing slash needed. Only required for the handful of methods
+   * that go through auth-server's own REST API instead of talking to
+   * Supabase directly — listOrganizationMembers, searchOrganizationMembers,
+   * getOrganizationMemberCount — since resolving a member's email/name
+   * needs a service-role-backed lookup a browser client can never do on its
+   * own. Leave unset if your app doesn't call those.
+   */
+  authServerUrl?: string;
+}
+
+/** One member of an organization, as returned by listOrganizationMembers/searchOrganizationMembers. */
+export interface OrganizationMember {
+  /** The member's user id (auth.users.id) — not a membership row id. */
+  id: string;
+  email: string;
+  /** From user_metadata.full_name, set at registration — null if never provided. */
+  name: string | null;
+}
+
+export interface OrganizationMembersPage {
+  members: OrganizationMember[];
+  /** True if there are more members beyond this page — pass a higher `offset` to fetch them. */
+  hasMore: boolean;
+  /** Total members matching the query (the whole org for listOrganizationMembers, or the search results for searchOrganizationMembers) — independent of pagination. */
+  total: number;
 }
 
 export interface LoginCredentials {

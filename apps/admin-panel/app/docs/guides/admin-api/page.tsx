@@ -161,14 +161,21 @@ export default function AdminApiPage() {
 {
   "members": [
     {
-      "membershipId": "8b1c...", "userId": "u-1", "email": "ana@empresa.com",
+      "membershipId": "8b1c...", "userId": "u-1", "email": "ana@empresa.com", "name": "Ana Pérez",
       "status": "active", "createdAt": "2026-01-10T12:00:00Z",
       "roles": [{ "id": "r-1", "name": "Owner", "slug": "owner", "application_id": null, "application": null }]
     }
   ],
-  "hasMore": false
+  "hasMore": false,
+  "total": 1
 }`}</code>
       </pre>
+      <p>
+        <code>name</code> viene de <code>user_metadata.full_name</code> (capturado al registrarse) —{" "}
+        <code>null</code> si nunca se proporcionó. <code>total</code> siempre está presente: el total de
+        miembros de la organización (o de los que coinciden con <code>search</code>, si lo mandas),
+        independiente de la paginación.
+      </p>
       <table>
         <thead>
           <tr>
@@ -188,9 +195,33 @@ export default function AdminApiPage() {
               fila), <code>&amp;offset=</code>
             </td>
             <td>
-              200 <code>{`{ members, hasMore }`}</code> — 100 por página
+              200 <code>{`{ members, hasMore, total }`}</code> — 100 por página
             </td>
             <td>400 si falta organizationId</td>
+          </tr>
+          <tr>
+            <td>
+              <code>GET /organization-members?organizationId=&amp;search=</code>
+            </td>
+            <td>
+              <code>&amp;search=</code> — coincidencia sin distinguir mayúsculas, contra email o nombre
+            </td>
+            <td>
+              200 igual que arriba, pero <code>total</code>/<code>hasMore</code> reflejan solo lo que coincide
+              con la búsqueda
+            </td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td>
+              <code>GET /organization-members?organizationId=&amp;count=true</code>
+            </td>
+            <td>—</td>
+            <td>
+              200 <code>{`{ members: [], hasMore: false, total }`}</code> — camino rápido, no resuelve emails ni
+              nombres, solo cuenta
+            </td>
+            <td>—</td>
           </tr>
           <tr>
             <td>

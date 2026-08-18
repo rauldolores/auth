@@ -69,7 +69,10 @@ export function makeSchemaClient(tableResponses: Record<string, unknown[]>) {
 /** Builds a fake admin client: `.schema().from()` table access plus `.auth.admin.listUsers()` and (optionally) `.storage.from(bucket)`. */
 export function makeAdminClient(
   tableResponses: Record<string, unknown[]> = {},
-  listUsersResult: { data: { users: { id: string; email: string }[] } | null; error: unknown } = {
+  listUsersResult: {
+    data: { users: { id: string; email: string; user_metadata?: Record<string, unknown> }[] } | null;
+    error: unknown;
+  } = {
     data: { users: [] },
     error: null,
   },
