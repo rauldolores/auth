@@ -1,5 +1,11 @@
 # @kontrolia/db
 
+## 2.1.4
+
+### Patch Changes
+
+- 68602ae: Adds audit-log triggers for creating/deleting a role and granting/revoking a permission on a role — previously the only mutations in the product with zero audit trail. Matches the existing "the database logs it, not application code" pattern (migrations 0013/0024).
+
 ## 2.1.3
 
 ### Patch Changes

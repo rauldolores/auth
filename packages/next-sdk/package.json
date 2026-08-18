@@ -1,6 +1,6 @@
 {
   "name": "@kontrolia/next",
-  "version": "1.1.2",
+  "version": "1.1.3",
   "license": "MIT",
   "description": "Next.js integration for KontrolIA Auth: reusable route-protection middleware with automatic session refresh, and verifyRequest() for API routes acting as a resource server.",
   "keywords": [

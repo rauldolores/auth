@@ -1,5 +1,12 @@
 # @kontrolia/next
 
+## 1.1.3
+
+### Patch Changes
+
+- Updated dependencies [1aa8b7f]
+  - @kontrolia/auth@2.1.0
+
 ## 1.1.2
 
 ### Patch Changes
