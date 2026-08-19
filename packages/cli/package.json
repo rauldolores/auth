@@ -1,6 +1,6 @@
 {
   "name": "create-kontrolia-auth",
-  "version": "2.4.6",
+  "version": "2.4.7",
   "license": "MIT",
   "description": "Turnkey installer for KontrolIA Auth. `npx create-kontrolia-auth mi-app` checks requirements, downloads the repo, installs deps, and runs a wizard: (1) connect to an existing Supabase project or create a new self-hosted one via Docker; (2) where to deploy auth-server/admin-panel (Docker, Vercel, Railway, Render, Coolify). Also exposes `update`, `migrate` and `doctor` subcommands.",
   "keywords": [
