@@ -78,7 +78,6 @@ export async function askApplicationStep(db: DatabaseAnswer): Promise<void> {
 
   const s = p.spinner();
   s.start(`Registrando ${name} (${slug}) y ${permissions.length} permiso(s)`);
-  let apiKey: string | null;
   try {
     const result = await registerApplication({
       connectionString: db.databaseUrl,
@@ -87,7 +86,6 @@ export async function askApplicationStep(db: DatabaseAnswer): Promise<void> {
       environment,
       permissions,
     });
-    apiKey = result.apiKey;
     s.stop(`Aplicación ${slug} registrada: ${result.permissionKeys.join(", ")}`);
   } catch (error) {
     s.stop("No se pudo registrar la aplicación");
@@ -95,22 +93,16 @@ export async function askApplicationStep(db: DatabaseAnswer): Promise<void> {
     return;
   }
 
-  if (apiKey) {
-    p.note(
-      `${apiKey}\n\n` +
-        `Guárdala ahora — no se puede volver a mostrar (solo se guarda su hash). Ponla en ${name} como una variable ` +
-        `de entorno (p. ej. KONTROLIA_APPLICATION_API_KEY) y úsala para actualizar su catálogo de permisos desde su ` +
-        `propio pipeline de despliegue, sin volver a tocar esta base de datos — POST {tu-auth-server}/api/applications/sync. ` +
-        `Ver la guía "Registro de aplicaciones" en la documentación para el formato exacto.`,
-      `Clave de sincronización de ${slug}`,
-    );
-  } else {
-    p.note(
-      `${slug} ya existía — su clave de sincronización (si tiene una) no cambió. Si la perdiste, tendrás que borrar ` +
-        "y volver a registrar la aplicación para generar una nueva.",
-      "Aplicación existente",
-    );
-  }
+  // No API key comes out of this step — keys are org-scoped (an app can
+  // have several, one per organization that generates one) and no
+  // organization necessarily exists yet at this point in the install.
+  p.note(
+    `Cuando una organización habilite ${name} desde admin-panel, cualquiera de sus Owner/Admin puede generar una ` +
+      `clave de sincronización desde Aplicaciones → ${name} → API Keys — esa clave es lo que necesitas para ` +
+      `POST {tu-auth-server}/api/applications/sync desde el pipeline de despliegue de ${name}. Ver la guía ` +
+      `"Registro de aplicaciones" en la documentación.`,
+    `Siguiente paso para ${slug}`,
+  );
 
   p.note(
     "Para habilitarla en una organización, entra a admin-panel → \"Aplicaciones\" — cualquier owner/admin puede activarla ahí con un clic.",

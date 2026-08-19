@@ -1,5 +1,4 @@
 import { Client } from "pg";
-import { generateApplicationApiKey, hashApplicationApiKey } from "./api-key.js";
 
 export interface PermissionInput {
   resource: string;
@@ -19,14 +18,6 @@ export interface RegisterApplicationOptions {
 export interface RegisteredApplication {
   applicationId: string;
   permissionKeys: string[];
-  /**
-   * The plaintext sync API key (see POST /api/applications/sync on
-   * auth-server) — only present the first time this slug is registered.
-   * Only the hash is stored; there is no way to recover it later, so the
-   * caller must surface it to the operator immediately. `null` means the
-   * application already existed and its key (if any) was left untouched.
-   */
-  apiKey: string | null;
 }
 
 /**
@@ -36,23 +27,29 @@ export interface RegisteredApplication {
  * go through a platform-admin path), so this is that path: a direct,
  * service-role-equivalent write, the same way migrate() bypasses RLS to
  * apply schema changes. Safe to re-run — the slug and permission key are
- * both upserted, and re-running never rotates an existing api_key_hash.
+ * both upserted.
+ *
+ * Does NOT generate a sync API key — migration 0040 moved keys off
+ * `applications` onto the org-scoped `application_api_keys` table, and at
+ * the point this runs (typically during install, before any organization
+ * necessarily exists or has enabled the app) there's no organization to
+ * scope one to. Generate the first key afterward from admin-panel
+ * (Aplicaciones → tu app → API Keys), once at least one organization has
+ * enabled the application.
  */
 export async function registerApplication(options: RegisterApplicationOptions): Promise<RegisteredApplication> {
   const client = new Client({ connectionString: options.connectionString });
   await client.connect();
 
   try {
-    const candidateApiKey = generateApplicationApiKey();
-
     const {
       rows: [application],
-    } = await client.query<{ id: string; inserted: boolean }>(
-      `insert into kontrolia_auth.applications (name, slug, environment, api_key_hash)
-       values ($1, $2, $3, $4)
+    } = await client.query<{ id: string }>(
+      `insert into kontrolia_auth.applications (name, slug, environment)
+       values ($1, $2, $3)
        on conflict (slug) do update set name = excluded.name, environment = excluded.environment
-       returning id, (xmax = 0) as inserted`,
-      [options.name, options.slug, options.environment, hashApplicationApiKey(candidateApiKey)],
+       returning id`,
+      [options.name, options.slug, options.environment],
     );
     if (!application) throw new Error(`Failed to upsert application "${options.slug}"`);
 
@@ -68,7 +65,7 @@ export async function registerApplication(options: RegisterApplicationOptions): 
       permissionKeys.push(key);
     }
 
-    return { applicationId: application.id, permissionKeys, apiKey: application.inserted ? candidateApiKey : null };
+    return { applicationId: application.id, permissionKeys };
   } finally {
     await client.end();
   }

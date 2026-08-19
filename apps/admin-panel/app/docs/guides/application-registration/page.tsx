@@ -21,23 +21,23 @@ export default function ApplicationRegistrationPage() {
       <p>
         Quien instala/administra KontrolIA Auth registra tu aplicación una sola vez, con el paso opcional "3 de
         3" de <code>npx create-kontrolia-auth</code> (o llamando <code>registerApplication()</code> de{" "}
-        <code>@kontrolia/db</code> directo, si prefiere scriptearlo). Ese paso genera y muestra{" "}
-        <strong>una sola vez</strong> una API Key — solo se guarda su hash, no hay forma de recuperarla después.
-        Esa clave es lo único que tu aplicación necesita para actualizar su propio catálogo de ahí en adelante.
+        <code>@kontrolia/db</code> directo, si prefiere scriptearlo). Este paso solo da de alta la aplicación y su
+        catálogo de permisos — <strong>no genera ninguna API Key todavía</strong>: las claves son por
+        organización (ver abajo), y en este punto ninguna organización ha habilitado la aplicación aún.
+      </p>
+      <p>
+        Una aplicación puede tener <strong>varias</strong> API Keys activas a la vez — cada organización que
+        habilita tu aplicación puede generar su propia clave (con nombre y expiración opcionales) desde{" "}
+        <strong>Aplicaciones → tu app → API Keys</strong> en el admin-panel, una vez que la haya habilitado.
+        Cualquier clave activa sirve para sincronizar el catálogo de permisos (es compartido, no por
+        organización); para gestionar miembros vía{" "}
+        <a href="/docs/guides/organizations-and-permissions">la API de miembros</a>, cada clave solo alcanza a la
+        organización para la que se generó. Ver "Generar y revocar claves" más abajo.
       </p>
       <p>Guárdala como variable de entorno en tu aplicación, por ejemplo:</p>
       <pre>
         <code>KONTROLIA_APPLICATION_API_KEY=kapp_...</code>
       </pre>
-      <p>
-        Una aplicación puede tener <strong>varias</strong> API Keys activas a la vez, no solo una — cada
-        organización que habilita tu aplicación puede generar su propia clave (con nombre y expiración
-        opcionales) desde <strong>Aplicaciones → tu app → API Keys</strong> en el admin-panel, sin depender de
-        la organización que registró la aplicación originalmente. Cualquier clave activa sirve para sincronizar
-        el catálogo de permisos (es compartido, no por organización); para gestionar miembros vía{" "}
-        <a href="/docs/guides/organizations-and-permissions">la API de miembros</a>, cada clave solo alcanza a la
-        organización para la que se generó. Ver "Generar y revocar claves" más abajo.
-      </p>
 
       <h3>Alternativa: registrarla con un script</h3>
       <p>
@@ -49,7 +49,7 @@ export default function ApplicationRegistrationPage() {
       <pre>
         <code>{`import { registerApplication } from "@kontrolia/db";
 
-const { applicationId, permissionKeys, apiKey } = await registerApplication({
+const { applicationId, permissionKeys } = await registerApplication({
   connectionString: process.env.DATABASE_URL!,
   name: "Facturación",
   slug: "facturacion",
@@ -60,14 +60,13 @@ const { applicationId, permissionKeys, apiKey } = await registerApplication({
   ],
 });
 
-console.log({ applicationId, permissionKeys, apiKey });
-// apiKey solo viene la primera vez que se registra este slug — guárdala ahora,
-// no hay forma de recuperarla después (solo se guarda su hash).`}</code>
+console.log({ applicationId, permissionKeys });
+// Todavía sin API Key — genera la primera desde admin-panel una vez que
+// alguna organización haya habilitado la aplicación (ver abajo).`}</code>
       </pre>
       <p>
-        Es seguro volver a correrlo con el mismo <code>slug</code>: los permisos se actualizan (upsert), y{" "}
-        <code>apiKey</code> viene <code>null</code> en vez de una clave nueva — este script no rota ni genera
-        claves adicionales. Para eso, usa el admin-panel (ver "Generar y revocar claves" más abajo).
+        Es seguro volver a correrlo con el mismo <code>slug</code>: los permisos se actualizan (upsert), sin
+        tocar ninguna clave existente.
       </p>
 
       <h2>Generar y revocar claves</h2>
