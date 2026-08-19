@@ -1,6 +1,6 @@
 {
   "name": "@kontrolia/db",
-  "version": "2.1.4",
+  "version": "2.1.5",
   "license": "MIT",
   "description": "KontrolIA Auth database layer: SQL migrations for the `kontrolia` schema (organizations, RBAC, Custom Access Token Hook) and a connection-string-agnostic migration runner.",
   "keywords": [
